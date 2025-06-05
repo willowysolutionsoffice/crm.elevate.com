@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
-import './globals.css';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { AppSidebar } from '@/components/app-sidebar';
-import { SiteHeader } from '@/components/site-header';
+import './../globals.css';
 import { APP_CONFIG, theme } from '@/config/app';
 
 const fontSans = DM_Sans({
@@ -12,7 +9,7 @@ const fontSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: APP_CONFIG.name,
+  title: `${APP_CONFIG.name} | Login`,
   description: APP_CONFIG.description,
 };
 
@@ -23,7 +20,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${fontSans.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${fontSans.variable} font-sans antialiased`}>
+        <main className="h-screen w-screen flex items-center justify-center">{children}</main>
+      </body>
     </html>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
-import './globals.css';
+import './../globals.css';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -23,7 +23,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${fontSans.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${fontSans.variable} font-sans antialiased`}>
+        <SidebarProvider
+          style={
+            {
+              '--sidebar-width': theme.sidebarWidth,
+              '--header-height': theme.headerHeight,
+            } as React.CSSProperties
+          }
+        >
+          <AppSidebar variant="floating" />
+          <SidebarInset>
+            <SiteHeader />
+            <main>{children}</main>
+          </SidebarInset>
+        </SidebarProvider>
+      </body>
     </html>
   );
 }
