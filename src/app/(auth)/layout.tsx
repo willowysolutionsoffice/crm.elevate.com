@@ -18,11 +18,5 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en">
-      <body className={`${fontSans.variable} font-sans antialiased`}>
-        <main className="h-screen w-screen flex items-center justify-center">{children}</main>
-      </body>
-    </html>
-  );
+  return <main>{children}</main>;
 }
