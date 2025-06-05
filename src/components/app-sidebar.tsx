@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { IconInnerShadowTop } from '@tabler/icons-react';
 
-import { NavDocuments } from '@/components/nav-documents';
+import { NavAdmin } from '@/components/nav-admin';
 import { NavMain } from '@/components/nav-main';
 import { NavSecondary } from '@/components/nav-secondary';
 import { NavUser } from '@/components/nav-user';
@@ -36,7 +36,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={SIDEBAR_DATA.navMain} />
-        <NavDocuments items={SIDEBAR_DATA.documents} />
+        <NavAdmin items={SIDEBAR_DATA.admin} />
         <NavSecondary items={SIDEBAR_DATA.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

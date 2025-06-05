@@ -1,14 +1,13 @@
 import {
-  IconChartBar,
   IconDashboard,
   IconDatabase,
-  IconFileWord,
-  IconFolder,
+  IconFileText,
   IconHelp,
   IconListDetails,
-  IconReport,
+  IconPhoneCall,
   IconSearch,
   IconSettings,
+  IconUserPlus,
   IconUsers,
 } from '@tabler/icons-react';
 import type { SidebarData } from '@/types/navigation';
@@ -27,24 +26,36 @@ export const SIDEBAR_DATA: SidebarData = {
       icon: IconDashboard,
     },
     {
-      title: 'Contacts',
-      url: '/contacts',
+      title: 'Enquiries',
+      url: '/enquiries',
       icon: IconUsers,
     },
     {
-      title: 'Deals',
-      url: '/deals',
+      title: 'Follow-ups',
+      url: '/follow-ups',
       icon: IconListDetails,
     },
     {
-      title: 'Analytics',
-      url: '/analytics',
-      icon: IconChartBar,
+      title: 'Call Register',
+      url: '/call-register',
+      icon: IconPhoneCall,
+    },
+  ],
+  admin: [
+    {
+      title: 'Data Management',
+      url: '/admin/data-management',
+      icon: IconDatabase,
     },
     {
-      title: 'Projects',
-      url: '/projects',
-      icon: IconFolder,
+      title: 'Reports',
+      url: '/admin/reports',
+      icon: IconFileText,
+    },
+    {
+      title: 'Users',
+      url: '/admin/users',
+      icon: IconUserPlus,
     },
   ],
   navSecondary: [
@@ -62,23 +73,6 @@ export const SIDEBAR_DATA: SidebarData = {
       title: 'Help & Support',
       url: '/help',
       icon: IconHelp,
-    },
-  ],
-  documents: [
-    {
-      name: 'Customer Database',
-      url: '/documents/database',
-      icon: IconDatabase,
-    },
-    {
-      name: 'Sales Reports',
-      url: '/documents/reports',
-      icon: IconReport,
-    },
-    {
-      name: 'Proposals',
-      url: '/documents/proposals',
-      icon: IconFileWord,
     },
   ],
 };

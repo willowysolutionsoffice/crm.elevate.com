@@ -6,12 +6,6 @@ export interface NavItem {
   icon: Icon;
 }
 
-export interface DocumentItem {
-  name: string;
-  url: string;
-  icon: Icon;
-}
-
 export interface UserProfile {
   name: string;
   email: string;
@@ -22,7 +16,7 @@ export interface SidebarData {
   user: UserProfile;
   navMain: NavItem[];
   navSecondary: NavItem[];
-  documents: DocumentItem[];
+  admin: NavItem[];
 }
 
 export interface MetricCard {

@@ -18,25 +18,25 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import type { DocumentItem } from '@/types/navigation';
+import type { NavItem } from '@/types/navigation';
 
-interface NavDocumentsProps {
-  items: DocumentItem[];
+interface NavAdminProps {
+  items: NavItem[];
 }
 
-export function NavDocuments({ items }: NavDocumentsProps) {
+export function NavAdmin({ items }: NavAdminProps) {
   const { isMobile } = useSidebar();
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Documents</SidebarGroupLabel>
+      <SidebarGroupLabel>Admin Area</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
-          <SidebarMenuItem key={item.name}>
+          <SidebarMenuItem key={item.title}>
             <SidebarMenuButton asChild>
               <a href={item.url}>
                 <item.icon />
-                <span>{item.name}</span>
+                <span>{item.title}</span>
               </a>
             </SidebarMenuButton>
             <DropdownMenu>
