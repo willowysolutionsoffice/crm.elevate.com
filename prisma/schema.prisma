@@ -20,6 +20,8 @@ model User {
   email         String
   emailVerified Boolean
   image         String?
+  roleId        String?   @db.ObjectId
+  role          Role?     @relation(fields: [roleId], references: [id])
   createdAt     DateTime
   updatedAt     DateTime
   sessions      Session[]
@@ -27,6 +29,18 @@ model User {
 
   @@unique([email])
   @@map("user")
+}
+
+model Role {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   @unique // ADMIN, EXECUTIVE, TELECALLER
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+
+  @@map("role")
 }
 
 model Session {

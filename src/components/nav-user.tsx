@@ -8,6 +8,8 @@ import {
   IconNotification,
   IconUserCircle,
 } from '@tabler/icons-react';
+import { useAction } from 'next-safe-action/hooks';
+import { logoutAction } from '@/lib/actions/auth';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -34,7 +36,12 @@ interface NavUserProps {
 
 export function NavUser({ user }: NavUserProps) {
   const { isMobile } = useSidebar();
+  const { execute: executeLogout, isExecuting: isLoggingOut } = useAction(logoutAction);
   const initials = getInitials(user.name);
+
+  const handleLogout = () => {
+    executeLogout();
+  };
 
   return (
     <SidebarMenu>
@@ -96,9 +103,13 @@ export function NavUser({ user }: NavUserProps) {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="cursor-pointer"
+            >
               <IconLogout />
-              Log out
+              {isLoggingOut ? 'Signing out...' : 'Log out'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
