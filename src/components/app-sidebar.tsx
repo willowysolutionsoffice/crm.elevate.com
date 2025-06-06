@@ -1,6 +1,6 @@
 'use client';
 
-import * as React from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { IconInnerShadowTop } from '@tabler/icons-react';
 
@@ -22,7 +22,12 @@ import { authClient } from '@/lib/auth-client';
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session } = authClient.useSession();
+  const [isHydrated, setIsHydrated] = useState(false);
   const role = session?.user?.role;
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -40,7 +45,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={SIDEBAR_DATA.navMain} />
-        {role === 'ADMIN' && <NavAdmin items={SIDEBAR_DATA.admin} />}
+        {isHydrated && role === 'ADMIN' && <NavAdmin items={SIDEBAR_DATA.admin} />}
         <NavSecondary items={SIDEBAR_DATA.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
