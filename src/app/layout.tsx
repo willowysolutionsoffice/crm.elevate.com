@@ -1,10 +1,7 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
 import './globals.css';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { AppSidebar } from '@/components/app-sidebar';
-import { SiteHeader } from '@/components/site-header';
-import { APP_CONFIG, theme } from '@/config/app';
+import { APP_CONFIG } from '@/config/app';
 
 const fontSans = DM_Sans({
   variable: '--font-sans',

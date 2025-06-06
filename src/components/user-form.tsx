@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAction } from 'next-safe-action/hooks';
 import { createUserAction, updateUserAction } from '@/lib/actions/auth';
-import { signupSchema, updateUserSchema } from '@/schema/auth-schema';
+import { signupSchema } from '@/schema/auth-schema';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -28,7 +28,6 @@ import { ErrorMessage } from '@/components/ui/error-message';
 import { UserFormProps } from '@/types/user';
 
 type CreateUserFormData = z.infer<typeof signupSchema>;
-type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 
 export function UserForm({
   roles,
@@ -223,8 +222,8 @@ export function UserForm({
 
           <ErrorMessage message={result?.serverError} />
           <ErrorMessage message={result?.validationErrors?._errors} />
-          {!isEditing && (
-            <ErrorMessage message={(result?.validationErrors as any)?.email?._errors} />
+          {!isEditing && result?.validationErrors && 'email' in result.validationErrors && (
+            <ErrorMessage message={result.validationErrors.email?._errors} />
           )}
           <ErrorMessage message={result?.validationErrors?.roleId?._errors} />
 
