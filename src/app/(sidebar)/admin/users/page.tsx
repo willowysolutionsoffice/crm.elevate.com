@@ -1,9 +1,15 @@
 import { getAllUsers, getAllRoles } from '@/lib/actions/auth';
 import { UsersTable } from '@/components/users-table';
 import { AddUserDialog } from '@/components/add-user-dialog';
+import { Role, User } from '@prisma/client';
 
 export default async function UsersPage() {
-  const [users, roles] = await Promise.all([getAllUsers(), getAllRoles()]);
+  const [users, roles] = await Promise.all([
+    getAllUsers() as Promise<(User & { role: Role })[]>,
+    getAllRoles() as Promise<Role[]>,
+  ]);
+
+  console.log(users);
 
   return (
     <div className="p-6 space-y-6">

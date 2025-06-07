@@ -41,12 +41,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatDate } from '@/lib/utils';
-import { User, Role } from '@/types/user';
+import { User, Role } from '@prisma/client';
 import { UserForm } from '@/components/user-form';
 import { deleteUserAction } from '@/lib/actions/auth';
 
 interface UsersTableProps {
-  users: User[];
+  users: (User & { role: Role })[];
   roles: Role[];
 }
 
@@ -148,7 +148,6 @@ export function UsersTable({ users, roles }: UsersTableProps) {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -173,11 +172,6 @@ export function UsersTable({ users, roles }: UsersTableProps) {
                         ) : (
                           <Badge variant="outline">No Role</Badge>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={user.emailVerified ? 'default' : 'secondary'}>
-                          {user.emailVerified ? 'Verified' : 'Pending'}
-                        </Badge>
                       </TableCell>
                       <TableCell>{formatDate(user.createdAt)}</TableCell>
                       <TableCell className="text-right">
@@ -230,7 +224,7 @@ export function UsersTable({ users, roles }: UsersTableProps) {
                   email: editUser.email,
                   password: '',
                   confirmPassword: '',
-                  roleId: editUser.role?.id || '',
+                  roleId: editUser.roleId || '',
                 }}
                 isEditing={true}
                 userId={editUser.id}
