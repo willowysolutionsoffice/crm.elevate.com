@@ -15,9 +15,10 @@ import { APP_CONFIG } from '@/config/app';
 
 export const SIDEBAR_DATA: SidebarData = {
   user: {
+    id: '1',
     name: 'John Doe',
     email: 'john@company.com',
-    avatar: '/avatars/default.jpg',
+    image: '/avatars/default.jpg',
   },
   navMain: [
     {

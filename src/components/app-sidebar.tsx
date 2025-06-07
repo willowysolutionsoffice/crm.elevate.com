@@ -17,10 +17,10 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { SIDEBAR_DATA, COMPANY_INFO } from '@/constants/navigation';
-import { User } from '@/types/user';
+import type { AuthUser } from '@/types';
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  user?: User;
+  user?: AuthUser;
 }
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {

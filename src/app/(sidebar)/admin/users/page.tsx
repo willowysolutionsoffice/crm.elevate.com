@@ -1,11 +1,11 @@
 import { getAllUsers, getAllRoles } from '@/lib/actions/auth';
 import { UsersTable } from '@/components/users-table';
 import { AddUserDialog } from '@/components/add-user-dialog';
-import { Role, User } from '@prisma/client';
+import type { UserWithRoleRequired, Role } from '@/types/user';
 
 export default async function UsersPage() {
   const [users, roles] = await Promise.all([
-    getAllUsers() as Promise<(User & { role: Role })[]>,
+    getAllUsers() as Promise<UserWithRoleRequired[]>,
     getAllRoles() as Promise<Role[]>,
   ]);
 

@@ -1,4 +1,5 @@
 import type { Icon } from '@tabler/icons-react';
+import type { UserProfile } from '@/types/user';
 
 export interface NavItem {
   title: string;
@@ -6,11 +7,8 @@ export interface NavItem {
   icon: Icon;
 }
 
-export interface UserProfile {
-  name: string;
-  email: string;
-  avatar: string;
-}
+// Re-export UserProfile for convenience
+export type { UserProfile } from '@/types/user';
 
 export interface SidebarData {
   user: UserProfile;

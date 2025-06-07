@@ -41,32 +41,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatDate } from '@/lib/utils';
-import { User, Role } from '@prisma/client';
+import { getRoleBadgeVariant } from '@/lib/role-utils';
 import { UserForm } from '@/components/user-form';
 import { deleteUserAction } from '@/lib/actions/auth';
-
-interface UsersTableProps {
-  users: (User & { role: Role })[];
-  roles: Role[];
-}
-
-function getRoleBadgeVariant(roleName: string) {
-  switch (roleName) {
-    case 'ADMIN':
-      return 'destructive';
-    case 'EXECUTIVE':
-      return 'default';
-    case 'TELECALLER':
-      return 'secondary';
-    default:
-      return 'outline';
-  }
-}
+import type { UsersTableProps, UserWithRoleRequired } from '@/types/user';
 
 export function UsersTable({ users, roles }: UsersTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [editUser, setEditUser] = useState<User | null>(null);
-  const [deleteUser, setDeleteUser] = useState<User | null>(null);
+  const [editUser, setEditUser] = useState<UserWithRoleRequired | null>(null);
+  const [deleteUser, setDeleteUser] = useState<UserWithRoleRequired | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -90,12 +73,12 @@ export function UsersTable({ users, roles }: UsersTableProps) {
     );
   }, [users, searchQuery]);
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: UserWithRoleRequired) => {
     setEditUser(user);
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteUser = (user: User) => {
+  const handleDeleteUser = (user: UserWithRoleRequired) => {
     setDeleteUser(user);
     setIsDeleteDialogOpen(true);
   };

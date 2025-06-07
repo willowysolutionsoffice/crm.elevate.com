@@ -3,10 +3,9 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useAction } from 'next-safe-action/hooks';
 import { createUserAction, updateUserAction } from '@/lib/actions/auth';
-import { signupSchema } from '@/schema/auth-schema';
+import { userFormSchema } from '@/schema/user-schema';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -25,9 +24,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ErrorMessage } from '@/components/ui/error-message';
-import { UserFormProps } from '@/types/user';
+import type { UserFormProps, UserFormData } from '@/types/user';
 
-type CreateUserFormData = z.infer<typeof signupSchema>;
+type CreateUserFormData = UserFormData;
 
 export function UserForm({
   roles,
@@ -51,7 +50,7 @@ export function UserForm({
   const result = isEditing ? updateResult : createResult;
 
   const form = useForm<CreateUserFormData>({
-    resolver: zodResolver(signupSchema),
+    resolver: zodResolver(userFormSchema),
     defaultValues: isEditing
       ? {
           name: initialData?.name || '',

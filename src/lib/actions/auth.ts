@@ -8,10 +8,10 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import {
   loginSchema,
-  signupSchema,
+  userFormSchema as signupSchema,
   updateUserSchema,
   deleteUserSchema,
-} from '@/schema/auth-schema';
+} from '@/schema/user-schema';
 
 // Signup action
 export const createUserAction = actionClient

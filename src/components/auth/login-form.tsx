@@ -4,10 +4,9 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { useAction } from 'next-safe-action/hooks';
 import { loginAction } from '@/lib/actions/auth';
-import { loginSchema } from '@/schema/auth-schema';
+import { loginSchema } from '@/schema/user-schema';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -21,7 +20,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorMessage } from '@/components/ui/error-message';
 
-type LoginFormData = z.infer<typeof loginSchema>;
+import type { LoginData } from '@/types';
+
+type LoginFormData = LoginData;
 
 export function LoginForm() {
   const router = useRouter();
