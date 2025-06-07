@@ -9,8 +9,6 @@ export default async function UsersPage() {
     getAllRoles() as Promise<Role[]>,
   ]);
 
-  console.log(users);
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
