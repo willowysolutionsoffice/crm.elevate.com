@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { IconInnerShadowTop } from '@tabler/icons-react';
 
@@ -18,17 +17,13 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { SIDEBAR_DATA, COMPANY_INFO } from '@/constants/navigation';
-import { authClient } from '@/lib/auth-client';
+import { User } from '@/types/user';
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { data: session } = authClient.useSession();
-  const [isHydrated, setIsHydrated] = useState(false);
-  const role = session?.user?.role;
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  user?: User;
+}
 
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
-
+export function AppSidebar({ user, ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -45,7 +40,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={SIDEBAR_DATA.navMain} />
-        {isHydrated && role === 'ADMIN' && <NavAdmin items={SIDEBAR_DATA.admin} />}
+        {user?.role === 'ADMIN' && <NavAdmin items={SIDEBAR_DATA.admin} />}
         <NavSecondary items={SIDEBAR_DATA.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

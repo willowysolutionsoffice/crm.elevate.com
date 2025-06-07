@@ -1,10 +1,8 @@
-export interface Role {
-  id: string;
-  name: string;
-  description: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import type { User as PrismaUser, Role } from '@prisma/client';
+
+export type User = PrismaUser & {
+  role: string;
+};
 
 export interface UserFormProps {
   roles: Role[];
@@ -18,13 +16,4 @@ export interface UserFormProps {
   };
   isEditing?: boolean;
   userId?: string;
-}
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  emailVerified: boolean;
-  createdAt: Date;
-  role: Role | null;
 }
