@@ -248,7 +248,7 @@ export default function EnquiryDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
