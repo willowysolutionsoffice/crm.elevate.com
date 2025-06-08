@@ -1,12 +1,10 @@
 import {
   IconDashboard,
   IconDatabase,
+  IconFileInvoice,
   IconFileText,
-  IconHelp,
   IconListDetails,
   IconPhoneCall,
-  IconSearch,
-  IconSettings,
   IconUserPlus,
   IconUsers,
 } from '@tabler/icons-react';
@@ -61,19 +59,9 @@ export const SIDEBAR_DATA: SidebarData = {
   ],
   navSecondary: [
     {
-      title: 'Settings',
-      url: '/settings',
-      icon: IconSettings,
-    },
-    {
-      title: 'Search',
-      url: '/search',
-      icon: IconSearch,
-    },
-    {
-      title: 'Help & Support',
-      url: '/help',
-      icon: IconHelp,
+      title: 'Invoice',
+      url: '/invoice',
+      icon: IconFileInvoice,
     },
   ],
 };

@@ -82,7 +82,7 @@ export function NavUser({ user }: NavUserProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
+            {/* <DropdownMenuGroup>
               <DropdownMenuItem asChild>
                 <Link href="/profile">
                   <IconUserCircle />
@@ -102,7 +102,7 @@ export function NavUser({ user }: NavUserProps) {
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator /> */}
             <DropdownMenuItem
               onClick={handleLogout}
               disabled={isLoggingOut}
