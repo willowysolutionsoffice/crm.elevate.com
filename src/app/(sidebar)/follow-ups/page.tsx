@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -41,11 +42,27 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 
 // Form schema for updating follow-up
-const updateFollowUpSchema = z.object({
-  outcome: z.string().max(1000).optional(),
-  notes: z.string().max(1000).optional(),
-  status: z.nativeEnum(FollowUpStatus),
-});
+const updateFollowUpSchema = z
+  .object({
+    outcome: z.string().max(1000).optional(),
+    notes: z.string().max(1000).optional(),
+    status: z.nativeEnum(FollowUpStatus),
+    isReschedule: z.boolean().optional().default(false),
+    rescheduledAt: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // If reschedule is selected, rescheduledAt is required
+      if (data.isReschedule && !data.rescheduledAt) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'New follow-up date is required when rescheduling',
+      path: ['rescheduledAt'],
+    }
+  );
 
 type UpdateFollowUpFormData = z.infer<typeof updateFollowUpSchema>;
 
@@ -59,8 +76,11 @@ export default function FollowUpsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Form
-  const updateForm = useForm<UpdateFollowUpFormData>({
+  const updateForm = useForm({
     resolver: zodResolver(updateFollowUpSchema),
+    defaultValues: {
+      isReschedule: false,
+    },
   });
 
   // Fetch follow-ups
@@ -114,10 +134,27 @@ export default function FollowUpsPage() {
 
     setIsUpdating(true);
     try {
-      const result = await updateFollowUp({
+      interface UpdateData {
+        id: string;
+        status: FollowUpStatus;
+        outcome?: string;
+        notes?: string;
+        rescheduledAt?: Date;
+      }
+
+      const updateData: UpdateData = {
         id: selectedFollowUp.id,
-        ...data,
-      });
+        status: data.status,
+        outcome: data.outcome,
+        notes: data.notes,
+      };
+
+      // If reschedule is selected, include the new date
+      if (data.isReschedule && data.rescheduledAt) {
+        updateData.rescheduledAt = new Date(data.rescheduledAt);
+      }
+
+      const result = await updateFollowUp(updateData);
 
       if (result.success) {
         toast.success(result.message);
@@ -140,6 +177,8 @@ export default function FollowUpsPage() {
     updateForm.setValue('status', followUp.status as FollowUpStatus);
     updateForm.setValue('outcome', followUp.outcome || '');
     updateForm.setValue('notes', followUp.notes || '');
+    updateForm.setValue('isReschedule', false);
+    updateForm.setValue('rescheduledAt', '');
     setIsUpdateDialogOpen(true);
   };
 
@@ -361,6 +400,40 @@ export default function FollowUpsPage() {
                   <p className="text-sm text-red-500">
                     {updateForm.formState.errors.notes.message}
                   </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isReschedule"
+                    checked={updateForm.watch('isReschedule')}
+                    onCheckedChange={(checked) => {
+                      updateForm.setValue('isReschedule', checked as boolean);
+                      if (!checked) {
+                        updateForm.setValue('rescheduledAt', '');
+                      }
+                    }}
+                  />
+                  <Label htmlFor="isReschedule" className="text-sm font-medium">
+                    Reschedule this follow-up
+                  </Label>
+                </div>
+
+                {updateForm.watch('isReschedule') && (
+                  <div className="space-y-2 ml-6">
+                    <Label htmlFor="rescheduledAt">New Follow-up Date & Time *</Label>
+                    <Input
+                      id="rescheduledAt"
+                      type="datetime-local"
+                      {...updateForm.register('rescheduledAt')}
+                    />
+                    {updateForm.formState.errors.rescheduledAt && (
+                      <p className="text-sm text-red-500">
+                        {updateForm.formState.errors.rescheduledAt.message}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 

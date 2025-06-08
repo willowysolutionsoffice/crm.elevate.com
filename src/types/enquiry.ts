@@ -127,6 +127,7 @@ export interface UpdateFollowUpInput {
   status?: FollowUpStatus;
   outcome?: string;
   notes?: string;
+  rescheduledAt?: Date;
 }
 
 export interface CreateCallLogInput {

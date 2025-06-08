@@ -180,7 +180,7 @@ export async function getFollowUps(filters: FollowUpFilters = {}): Promise<Actio
 export async function updateFollowUp(data: UpdateFollowUpInput): Promise<ActionResponse> {
   try {
     const user = await getCurrentUser();
-    const { id, ...updateData } = data;
+    const { id, rescheduledAt, ...updateData } = data;
 
     // Check if follow-up exists and user has permission
     const existingFollowUp = await prisma.followUp.findUnique({
@@ -204,9 +204,25 @@ export async function updateFollowUp(data: UpdateFollowUpInput): Promise<ActionR
       };
     }
 
+    // If rescheduled date is provided, replace the scheduled date
+    const finalUpdateData: Partial<{
+      status: FollowUpStatus;
+      outcome: string;
+      notes: string;
+      scheduledAt: Date;
+    }> = { ...updateData };
+
+    if (rescheduledAt) {
+      finalUpdateData.scheduledAt = rescheduledAt;
+      // Automatically set status to RESCHEDULED if not already set
+      if (!finalUpdateData.status) {
+        finalUpdateData.status = FollowUpStatus.RESCHEDULED;
+      }
+    }
+
     const followUp = await prisma.followUp.update({
       where: { id },
-      data: updateData,
+      data: finalUpdateData,
       include: {
         enquiry: {
           include: {
@@ -228,7 +244,12 @@ export async function updateFollowUp(data: UpdateFollowUpInput): Promise<ActionR
 
     revalidatePath('/follow-ups');
     revalidatePath(`/enquiries/${existingFollowUp.enquiryId}`);
-    return { success: true, data: followUp, message: 'Follow-up updated successfully' };
+
+    const message = rescheduledAt
+      ? 'Follow-up rescheduled successfully'
+      : 'Follow-up updated successfully';
+
+    return { success: true, data: followUp, message };
   } catch (error) {
     console.error('Error updating follow-up:', error);
     return {
