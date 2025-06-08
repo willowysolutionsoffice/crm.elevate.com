@@ -28,7 +28,7 @@ export default async function Dashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {session.user.role === 'ADMIN' && (
+                {session.user.role === 'admin' && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-sm text-red-700">
                       <strong>Admin Access:</strong> You have full access to all CRM features
@@ -37,7 +37,7 @@ export default async function Dashboard() {
                   </div>
                 )}
 
-                {session.user.role === 'EXECUTIVE' && (
+                {session.user.role === 'executive' && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-700">
                       <strong>Executive Access:</strong> You have access to management features and
@@ -46,7 +46,7 @@ export default async function Dashboard() {
                   </div>
                 )}
 
-                {session.user.role === 'TELECALLER' && (
+                {session.user.role === 'telecaller' && (
                   <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                     <p className="text-sm text-green-700">
                       <strong>Telecaller Access:</strong> You have access to calling features and

@@ -78,10 +78,10 @@ export const createRoleActionClient = (allowedRoles: string[]) => {
 };
 
 // Admin-only actions
-export const adminActionClient = createRoleActionClient(['ADMIN']);
+export const adminActionClient = createRoleActionClient(['admin']);
 
 // Executive and Admin actions
-export const executiveActionClient = createRoleActionClient(['ADMIN', 'EXECUTIVE']);
+export const executiveActionClient = createRoleActionClient(['admin', 'executive']);
 
 // All roles actions
-export const allRolesActionClient = createRoleActionClient(['ADMIN', 'EXECUTIVE', 'TELECALLER']);
+export const allRolesActionClient = createRoleActionClient(['admin', 'executive', 'telecaller']);
