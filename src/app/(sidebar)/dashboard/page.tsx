@@ -1,8 +1,27 @@
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { SectionCards } from '@/components/section-cards';
+import { getDashboardData } from '@/lib/actions/dashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+import { Button } from '@/components/ui/button';
+import {
+  IconUsers,
+  IconUserPlus,
+  IconClock,
+  IconPhone,
+  IconAlertCircle,
+  IconCalendar,
+  IconTarget,
+  IconTrendingUp,
+  IconPhoneCall,
+  IconUserCheck,
+  IconEye,
+  IconCalendarClock,
+  IconUserSearch,
+  IconClockExclamation,
+} from '@tabler/icons-react';
+import Link from 'next/link';
 
 export default async function Dashboard() {
   const session = await auth.api.getSession({
@@ -13,62 +32,263 @@ export default async function Dashboard() {
     redirect('/login');
   }
 
+  // Get dashboard data - for telecallers, filter by their assigned enquiries
+  const isTelecaller = session.user.role === 'telecaller';
+  const dashboardData = await getDashboardData(isTelecaller ? session.user.id : undefined);
+
+  const { stats, followUpStats, recentActivity, performanceMetrics } = dashboardData;
+
   return (
     <div className="flex flex-1 flex-col">
-      <div className="@container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-          {/* User welcome section */}
-          <div className="mb-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Welcome back, {session.user.name}!</CardTitle>
-                <CardDescription>
-                  Role: {session.user.role || 'No role assigned'} • Last login:{' '}
-                  {new Date(session.session.createdAt).toLocaleDateString()}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {session.user.role === 'admin' && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-700">
-                      <strong>Admin Access:</strong> You have full access to all CRM features
-                      including user management and system settings.
-                    </p>
-                  </div>
-                )}
+      <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
+        {/* User welcome section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Welcome back!</CardTitle>
+            <CardDescription>
+              Role: {session.user.role?.toUpperCase() || 'TELECALLER'} • Last login:{' '}
+              {new Date(session.session.createdAt).toLocaleDateString()}
+            </CardDescription>
+          </CardHeader>
+        </Card>
 
-                {session.user.role === 'executive' && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-700">
-                      <strong>Executive Access:</strong> You have access to management features and
-                      advanced reporting.
-                    </p>
-                  </div>
-                )}
+        {/* Top Stats Cards */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardDescription>Total Enquiries</CardDescription>
+              <IconUsers className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalEnquiries}</div>
+            </CardContent>
+          </Card>
 
-                {session.user.role === 'telecaller' && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-700">
-                      <strong>Telecaller Access:</strong> You have access to calling features and
-                      lead management.
-                    </p>
-                  </div>
-                )}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardDescription>New Enquiries</CardDescription>
+              <IconUserPlus className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.newEnquiries}</div>
+            </CardContent>
+          </Card>
 
-                {!session.user.role && (
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                    <p className="text-sm text-gray-700">
-                      <strong>No Role Assigned:</strong> Please contact your administrator to assign
-                      a role.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardDescription>Pending Follow-ups</CardDescription>
+              <IconClock className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.pendingFollowUps}</div>
+            </CardContent>
+          </Card>
 
-          <SectionCards />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardDescription>Total Calls</CardDescription>
+              <IconPhone className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalCalls}</div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Follow-up Status Cards */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Card className="border-red-200 bg-red-50/50">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <IconAlertCircle className="h-5 w-5 text-red-600" />
+                <CardTitle className="text-red-800">Overdue Follow-ups</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="text-3xl font-bold text-red-600">{followUpStats.overdueCount}</div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/follow-ups?filter=overdue">View All</Link>
+                </Button>
+              </div>
+              <p className="text-sm text-red-600 mt-2">Require immediate attention</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-yellow-200 bg-yellow-50/50">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <IconCalendar className="h-5 w-5 text-yellow-600" />
+                <CardTitle className="text-yellow-800">Today&apos;s Follow-ups</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="text-3xl font-bold text-yellow-600">{followUpStats.todayCount}</div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/follow-ups?filter=today">View All</Link>
+                </Button>
+              </div>
+              <p className="text-sm text-yellow-600 mt-2">Scheduled for today</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-green-200 bg-green-50/50">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <IconTarget className="h-5 w-5 text-green-600" />
+                <CardTitle className="text-green-800">Interested Leads</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="text-3xl font-bold text-green-600">
+                  {followUpStats.interestedLeadsCount}
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/my-enquiries?status=interested">View All</Link>
+                </Button>
+              </div>
+              <p className="text-sm text-green-600 mt-2">Ready for conversion</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Bottom Section */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Recent Activity */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <IconTrendingUp className="h-5 w-5" />
+                <CardTitle>Recent Activity (Last 7 Days)</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <IconUserPlus className="h-8 w-8 text-blue-600" />
+                  <div>
+                    <p className="font-medium">New Enquiries</p>
+                    <p className="text-sm text-muted-foreground">
+                      {recentActivity.newEnquiries.count} new leads
+                    </p>
+                  </div>
+                </div>
+                <div className="text-2xl font-bold">{recentActivity.newEnquiries.count}</div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <IconPhoneCall className="h-8 w-8 text-green-600" />
+                  <div>
+                    <p className="font-medium">Calls Made</p>
+                    <p className="text-sm text-muted-foreground">
+                      {recentActivity.callsMade.count} calls completed
+                    </p>
+                  </div>
+                </div>
+                <div className="text-2xl font-bold">{recentActivity.callsMade.count}</div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <IconUserCheck className="h-8 w-8 text-orange-600" />
+                  <div>
+                    <p className="font-medium">Enrollments</p>
+                    <p className="text-sm text-muted-foreground">
+                      {recentActivity.enrollments.count} successful conversions
+                    </p>
+                  </div>
+                </div>
+                <div className="text-2xl font-bold">{recentActivity.enrollments.count}</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Common tasks and shortcuts</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button variant="ghost" className="w-full justify-start" asChild>
+                <Link href="/my-enquiries">
+                  <IconEye className="mr-2 h-4 w-4" />
+                  View My Enquiries
+                </Link>
+              </Button>
+
+              <Button variant="ghost" className="w-full justify-start" asChild>
+                <Link href="/follow-ups?filter=today">
+                  <IconCalendarClock className="mr-2 h-4 w-4" />
+                  Today&apos;s Follow-ups
+                </Link>
+              </Button>
+
+              <Button variant="ghost" className="w-full justify-start" asChild>
+                <Link href="/call-register">
+                  <IconPhoneCall className="mr-2 h-4 w-4" />
+                  Call Register
+                </Link>
+              </Button>
+
+              <Button variant="ghost" className="w-full justify-start" asChild>
+                <Link href="/my-enquiries?tab=new">
+                  <IconUserSearch className="mr-2 h-4 w-4" />
+                  New Enquiries
+                </Link>
+              </Button>
+
+              <Button variant="ghost" className="w-full justify-start" asChild>
+                <Link href="/follow-ups?filter=overdue">
+                  <IconClockExclamation className="mr-2 h-4 w-4" />
+                  Overdue Follow-ups
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Performance Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance Summary</CardTitle>
+            <CardDescription>Your key metrics overview</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600">
+                  {performanceMetrics.totalEnquiries}
+                </div>
+                <p className="text-sm text-muted-foreground">Total Enquiries</p>
+              </div>
+
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-600">
+                  {performanceMetrics.interestRate}%
+                </div>
+                <p className="text-sm text-muted-foreground">Interest Rate</p>
+              </div>
+
+              <div className="text-center">
+                <div className="text-3xl font-bold text-orange-600">
+                  {performanceMetrics.conversionRate}%
+                </div>
+                <p className="text-sm text-muted-foreground">Conversion Rate</p>
+              </div>
+
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-600">
+                  {performanceMetrics.totalCalls}
+                </div>
+                <p className="text-sm text-muted-foreground">Total Calls</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
