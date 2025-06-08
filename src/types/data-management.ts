@@ -36,6 +36,23 @@ export interface EnquirySource {
   updatedAt: Date;
 }
 
+export interface RequiredService {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role?: Role;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Form types
 export interface CreateRoleInput {
   name: string;
@@ -73,6 +90,14 @@ export interface CreateEnquirySourceInput {
 }
 
 export interface UpdateEnquirySourceInput extends CreateEnquirySourceInput {
+  id: string;
+}
+
+export interface CreateRequiredServiceInput {
+  name: string;
+}
+
+export interface UpdateRequiredServiceInput extends CreateRequiredServiceInput {
   id: string;
 }
 

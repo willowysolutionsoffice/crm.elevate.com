@@ -106,6 +106,8 @@ type CourseForm = z.infer<typeof courseSchema>;
 type BranchForm = z.infer<typeof branchSchema>;
 type SourceForm = z.infer<typeof sourceSchema>;
 
+type EditingItem = Role | Course | Branch | EnquirySource;
+
 export default function DataManagementPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -115,7 +117,8 @@ export default function DataManagementPage() {
   const [activeTab, setActiveTab] = useState('roles');
   const [searchQuery, setSearchQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Forms
   const roleForm = useForm<RoleForm>({ resolver: zodResolver(roleSchema) });
@@ -128,6 +131,7 @@ export default function DataManagementPage() {
   }, []);
 
   const loadData = async () => {
+    setIsLoading(true);
     try {
       const [rolesResult, coursesResult, branchesResult, sourcesResult] = await Promise.all([
         getAllRoles(),
@@ -142,6 +146,8 @@ export default function DataManagementPage() {
       if (sourcesResult.success) setSources(sourcesResult.data as EnquirySource[]);
     } catch {
       toast.error('Failed to load data');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -293,28 +299,28 @@ export default function DataManagementPage() {
     }
   };
 
-  const openEditDialog = (type: string, item: any) => {
+  const openEditDialog = (type: string, item: EditingItem) => {
     setEditingItem(item);
     setDialogOpen(`edit-${type}`);
 
     switch (type) {
       case 'role':
-        roleForm.reset({ name: item.name, description: item.description || '' });
+        roleForm.reset({ name: item.name, description: (item as Role).description || '' });
         break;
       case 'course':
         courseForm.reset({
           name: item.name,
-          description: item.description || '',
-          duration: item.duration || '',
-          fee: item.fee || undefined,
+          description: (item as Course).description || '',
+          duration: (item as Course).duration || '',
+          fee: (item as Course).fee || undefined,
         });
         break;
       case 'branch':
         branchForm.reset({
           name: item.name,
-          address: item.address || '',
-          phone: item.phone || '',
-          email: item.email || '',
+          address: (item as Branch).address || '',
+          phone: (item as Branch).phone || '',
+          email: (item as Branch).email || '',
         });
         break;
       case 'source':
@@ -323,9 +329,9 @@ export default function DataManagementPage() {
     }
   };
 
-  const renderDataTable = (type: string, data: any[], columns: string[]) => {
+  const renderDataTable = (type: string, data: unknown[], columns: string[]) => {
     const filteredData = data.filter((item) =>
-      item.name.toLowerCase().includes(searchQuery.toLowerCase())
+      (item as { name: string }).name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -378,107 +384,125 @@ export default function DataManagementPage() {
                     colSpan={columns.length + (type !== 'role' ? 2 : 1)}
                     className="text-center py-4"
                   >
-                    No {type}s found
+                    {isLoading ? 'Loading...' : `No ${type}s found`}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredData.map((item) => (
-                  <TableRow key={item.id}>
-                    {columns.map((column) => (
-                      <TableCell key={column}>
-                        {column === 'Name' ? (
-                          <div className="font-medium">{item.name}</div>
-                        ) : column === 'Description' ? (
-                          <div className="max-w-xs truncate">{item.description || '-'}</div>
-                        ) : column === 'Duration' ? (
-                          item.duration || '-'
-                        ) : column === 'Fee' ? (
-                          item.fee ? (
-                            `₹${item.fee}`
-                          ) : (
-                            '-'
-                          )
-                        ) : column === 'Address' ? (
-                          <div className="max-w-xs truncate">{item.address || '-'}</div>
-                        ) : column === 'Phone' ? (
-                          item.phone || '-'
-                        ) : column === 'Email' ? (
-                          item.email || '-'
-                        ) : (
-                          '-'
-                        )}
-                      </TableCell>
-                    ))}
-                    {type !== 'role' && (
-                      <TableCell>
-                        <Badge variant={item.isActive ? 'default' : 'secondary'}>
-                          {item.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                    )}
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDialog(type, item)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onSelect={(e) => e.preventDefault()}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently delete the{' '}
-                                  {type}.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => {
-                                    switch (type) {
-                                      case 'role':
-                                        handleDeleteRole(item.id);
-                                        break;
-                                      case 'course':
-                                        handleDeleteCourse(item.id);
-                                        break;
-                                      case 'branch':
-                                        handleDeleteBranch(item.id);
-                                        break;
-                                      case 'source':
-                                        handleDeleteSource(item.id);
-                                        break;
-                                    }
-                                  }}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                filteredData.map((item) => {
+                  const typedItem = item as Record<string, unknown> & {
+                    id: string;
+                    name: string;
+                    isActive?: boolean;
+                  };
+                  return (
+                    <TableRow key={typedItem.id}>
+                      {columns.map((column) => (
+                        <TableCell key={column}>
+                          {(() => {
+                            switch (column) {
+                              case 'Name':
+                                return <div className="font-medium">{typedItem.name}</div>;
+                              case 'Description':
+                                return (
+                                  <div className="max-w-xs truncate">
+                                    {(typedItem.description as string) || '-'}
+                                  </div>
+                                );
+                              case 'Duration':
+                                return (typedItem.duration as string) || '-';
+                              case 'Fee':
+                                return typedItem.fee ? `₹${typedItem.fee}` : '-';
+                              case 'Address':
+                                return (
+                                  <div className="max-w-xs truncate">
+                                    {(typedItem.address as string) || '-'}
+                                  </div>
+                                );
+                              case 'Phone':
+                                return (typedItem.phone as string) || '-';
+                              case 'Email':
+                                return (typedItem.email as string) || '-';
+                              default:
+                                return '-';
+                            }
+                          })()}
+                        </TableCell>
+                      ))}
+                      {type !== 'role' && (
+                        <TableCell>
+                          <Badge variant={typedItem.isActive ? 'default' : 'secondary'}>
+                            {typedItem.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+                      )}
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                openEditDialog(type, typedItem as unknown as EditingItem)
+                              }
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onSelect={(e) => e.preventDefault()}
                                 >
+                                  <Trash2 className="mr-2 h-4 w-4" />
                                   Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the{' '}
+                                    {type}.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => {
+                                      switch (type) {
+                                        case 'role':
+                                          handleDeleteRole(typedItem.id);
+                                          break;
+                                        case 'course':
+                                          handleDeleteCourse(typedItem.id);
+                                          break;
+                                        case 'branch':
+                                          handleDeleteBranch(typedItem.id);
+                                          break;
+                                        case 'source':
+                                          handleDeleteSource(typedItem.id);
+                                          break;
+                                      }
+                                    }}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

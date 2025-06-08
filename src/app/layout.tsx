@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
 import './globals.css';
 import { APP_CONFIG } from '@/config/app';
+import { Toaster } from 'sonner';
 
 const fontSans = DM_Sans({
   variable: '--font-sans',
@@ -20,7 +21,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${fontSans.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${fontSans.variable} font-sans antialiased`}>
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }

@@ -30,6 +30,12 @@ model User {
   banReason  String?
   banExpires DateTime?
 
+  // CRM Relations
+  assignedEnquiries Enquiry[]  @relation("AssignedEnquiries")
+  createdEnquiries  Enquiry[]  @relation("CreatedEnquiries")
+  createdFollowUps  FollowUp[] @relation("CreatedFollowUps")
+  createdCallLogs   CallLog[]  @relation("CreatedCallLogs")
+
   @@unique([email])
   @@map("user")
 }
@@ -92,37 +98,150 @@ model Verification {
 }
 
 model Course {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String   @unique
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String    @unique
   description String?
   duration    String?
   fee         Float?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  enquiries   Enquiry[]
 
   @@map("course")
 }
 
 model Branch {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String   @unique
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String    @unique
   address   String?
   phone     String?
   email     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  enquiries Enquiry[]
 
   @@map("branch")
 }
 
 model EnquirySource {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String   @unique
-  isActive  Boolean  @default(true)
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  enquiries Enquiry[]
+
+  @@map("enquiry_source")
+}
+
+model RequiredService {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  enquiries Enquiry[]
+
+  @@map("required_service")
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  NOT_INTERESTED
+  FOLLOW_UP
+  ENROLLED
+  DROPPED
+  INVALID
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+model Enquiry {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  candidateName   String
+  phone           String
+  contact2        String?
+  email           String?
+  address         String?
+  status          EnquiryStatus @default(NEW)
+  notes           String?
+  feedback        String?
+  lastContactDate DateTime?
+
+  // Relationships
+  branchId String? @db.ObjectId
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  preferredCourseId String? @db.ObjectId
+  preferredCourse   Course? @relation(fields: [preferredCourseId], references: [id])
+
+  enquirySourceId String?        @db.ObjectId
+  enquirySource   EnquirySource? @relation(fields: [enquirySourceId], references: [id])
+
+  requiredServiceId String?          @db.ObjectId
+  requiredService   RequiredService? @relation(fields: [requiredServiceId], references: [id])
+
+  assignedToUserId String?
+  assignedTo       User?   @relation("AssignedEnquiries", fields: [assignedToUserId], references: [id])
+
+  createdByUserId String
+  createdBy       User   @relation("CreatedEnquiries", fields: [createdByUserId], references: [id])
+
+  // Child relationships
+  followUps FollowUp[]
+  callLogs  CallLog[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("enquiry_source")
+  @@map("enquiry")
+}
+
+model FollowUp {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  scheduledAt DateTime
+  status      FollowUpStatus @default(PENDING)
+  outcome     String?
+  notes       String?
+
+  // Relationships
+  enquiryId String  @db.ObjectId
+  enquiry   Enquiry @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+
+  createdByUserId String
+  createdBy       User   @relation("CreatedFollowUps", fields: [createdByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("follow_up")
+}
+
+model CallLog {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  callDate DateTime @default(now())
+  duration Int? // in minutes
+  outcome  String?
+  notes    String?
+
+  // Relationships
+  enquiryId String  @db.ObjectId
+  enquiry   Enquiry @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+
+  createdByUserId String
+  createdBy       User   @relation("CreatedCallLogs", fields: [createdByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("call_log")
 }

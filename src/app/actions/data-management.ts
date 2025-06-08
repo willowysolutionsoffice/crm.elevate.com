@@ -15,7 +15,7 @@ import {
 } from '@/types/data-management';
 
 // Generic response type
-interface ActionResponse<T = any> {
+interface ActionResponse<T = unknown> {
   success: boolean;
   message: string;
   data?: T;
