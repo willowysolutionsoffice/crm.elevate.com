@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorMessage } from '@/components/ui/error-message';
 
-import type { LoginData } from '@/types';
+import type { LoginData } from '@/types/auth';
 
 type LoginFormData = LoginData;
 

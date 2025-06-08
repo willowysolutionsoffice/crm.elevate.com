@@ -17,10 +17,10 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { SIDEBAR_DATA, COMPANY_INFO } from '@/constants/navigation';
-import type { AuthUser } from '@/types';
+import { User } from '@prisma/client';
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  user?: AuthUser;
+  user?: User;
 }
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
@@ -40,7 +40,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={SIDEBAR_DATA.navMain} />
-        {user?.role === 'ADMIN' && <NavAdmin items={SIDEBAR_DATA.admin} />}
+        {user?.role === 'admin' && <NavAdmin items={SIDEBAR_DATA.admin} />}
         <NavSecondary items={SIDEBAR_DATA.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

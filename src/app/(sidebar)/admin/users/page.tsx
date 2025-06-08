@@ -1,13 +1,9 @@
 import { getAllUsers, getAllRoles } from '@/lib/actions/auth';
 import { UsersTable } from '@/components/users-table';
 import { AddUserDialog } from '@/components/add-user-dialog';
-import type { UserWithRoleRequired, Role } from '@/types/user';
 
 export default async function UsersPage() {
-  const [users, roles] = await Promise.all([
-    getAllUsers() as Promise<UserWithRoleRequired[]>,
-    getAllRoles() as Promise<Role[]>,
-  ]);
+  const [users, roles] = await Promise.all([getAllUsers(), getAllRoles()]);
 
   return (
     <div className="p-6 space-y-6">

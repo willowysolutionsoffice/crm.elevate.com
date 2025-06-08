@@ -1,10 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useAction } from 'next-safe-action/hooks';
-import { createUserAction, updateUserAction } from '@/lib/actions/auth';
 import { userFormSchema } from '@/schema/user-schema';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,74 +22,67 @@ import {
 } from '@/components/ui/select';
 import { ErrorMessage } from '@/components/ui/error-message';
 import type { UserFormProps, UserFormData } from '@/types/user';
+import { createUserAction } from '@/lib/actions/auth';
+import { useState, useEffect } from 'react';
+import { useAction } from 'next-safe-action/hooks';
+import { toast } from 'sonner';
 
 type CreateUserFormData = UserFormData;
 
-export function UserForm({
-  roles,
-  onSuccess,
-  initialData,
-  isEditing = false,
-  userId,
-}: UserFormProps) {
-  const {
-    execute: executeCreate,
-    result: createResult,
-    isExecuting: isCreating,
-  } = useAction(createUserAction);
-  const {
-    execute: executeUpdate,
-    result: updateResult,
-    isExecuting: isUpdating,
-  } = useAction(updateUserAction);
-
-  const isExecuting = isCreating || isUpdating;
-  const result = isEditing ? updateResult : createResult;
+export function UserForm({ roles, onSuccess, initialData }: UserFormProps) {
+  const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm<CreateUserFormData>({
     resolver: zodResolver(userFormSchema),
-    defaultValues: isEditing
-      ? {
-          name: initialData?.name || '',
-          email: initialData?.email || 'placeholder@example.com', // placeholder for validation
-          password: 'placeholder123', // placeholder for validation
-          confirmPassword: 'placeholder123', // placeholder for validation
-          roleId: initialData?.roleId || '',
-        }
-      : initialData || {
-          name: '',
-          email: '',
-          password: '',
-          confirmPassword: '',
-          roleId: '',
-        },
-    mode: 'onChange',
+    defaultValues: {
+      name: initialData?.name || '',
+      email: initialData?.email || '',
+      password: '',
+      confirmPassword: '',
+      role: initialData?.role || '',
+    },
   });
 
-  const handleSubmit = (data: CreateUserFormData) => {
-    if (isEditing && userId) {
-      executeUpdate({
-        userId,
-        name: data.name,
-        roleId: data.roleId,
-      });
-    } else {
-      executeCreate(data);
-    }
-  };
-
-  // Handle success in useEffect
+  // Reset form when initialData changes
   useEffect(() => {
-    if (result?.data?.success) {
-      form.reset();
-      onSuccess?.();
+    if (initialData) {
+      form.reset({
+        name: initialData.name || '',
+        email: initialData.email || '',
+        password: '',
+        confirmPassword: '',
+        role: initialData.role || '',
+      });
     }
-  }, [result, form, onSuccess]);
+  }, [initialData, form]);
+
+  const { execute, isExecuting } = useAction(createUserAction, {
+    onSuccess: ({ data }) => {
+      if (data?.success) {
+        toast.success(data.message || 'User created successfully');
+        form.reset();
+        setFormError(null);
+        if (onSuccess) {
+          onSuccess();
+        }
+      }
+    },
+    onError: (error) => {
+      console.error('Action error:', error);
+      setFormError('An unexpected error occurred');
+    },
+  });
+
+  const submit = async (data: CreateUserFormData) => {
+    setFormError(null); // Clear any previous errors
+    execute(data);
+  };
 
   return (
     <div className="space-y-4">
+      {formError && <ErrorMessage message={formError} />}
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
           <FormField
             control={form.control}
             name="name"
@@ -113,73 +103,71 @@ export function UserForm({
             )}
           />
 
-          {!isEditing && (
-            <>
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter user's email address"
-                        type="email"
-                        autoComplete="email"
-                        disabled={isExecuting}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter user's email address"
+                      type="email"
+                      autoComplete="email"
+                      disabled={isExecuting}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter user's password"
-                        type="password"
-                        autoComplete="new-password"
-                        disabled={isExecuting}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter user's password"
+                      type="password"
+                      autoComplete="new-password"
+                      disabled={isExecuting}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Confirm user's password"
-                        type="password"
-                        autoComplete="new-password"
-                        disabled={isExecuting}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </>
-          )}
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Confirm user's password"
+                      type="password"
+                      autoComplete="new-password"
+                      disabled={isExecuting}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
 
           <FormField
             control={form.control}
-            name="roleId"
+            name="role"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Role</FormLabel>
@@ -193,7 +181,7 @@ export function UserForm({
                       <SelectValue placeholder="Select a role">
                         {field.value && (
                           <span className="truncate">
-                            {roles.find((role) => role.id === field.value)?.name}
+                            {roles.find((role) => role.name === field.value)?.name}
                           </span>
                         )}
                       </SelectValue>
@@ -201,7 +189,7 @@ export function UserForm({
                   </FormControl>
                   <SelectContent>
                     {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.id}>
+                      <SelectItem key={role.id} value={role.name}>
                         <div className="flex flex-col">
                           <span className="font-medium">{role.name}</span>
                           {role.description && (
@@ -219,22 +207,9 @@ export function UserForm({
             )}
           />
 
-          <ErrorMessage message={result?.serverError} />
-          <ErrorMessage message={result?.validationErrors?._errors} />
-          {!isEditing && result?.validationErrors && 'email' in result.validationErrors && (
-            <ErrorMessage message={result.validationErrors.email?._errors} />
-          )}
-          <ErrorMessage message={result?.validationErrors?.roleId?._errors} />
-
           <div className="flex justify-end pt-4">
             <Button type="submit" disabled={isExecuting} className="w-full">
-              {isExecuting
-                ? isEditing
-                  ? 'Updating...'
-                  : 'Creating...'
-                : isEditing
-                ? 'Update User'
-                : 'Create User'}
+              {isExecuting ? 'Creating User...' : 'Create User'}
             </Button>
           </div>
         </form>

@@ -1,15 +1,13 @@
-import type { RoleName } from '@/types/user';
-
 // Role badge variant mapping
 export function getRoleBadgeVariant(
   roleName: string
 ): 'destructive' | 'default' | 'secondary' | 'outline' {
-  switch (roleName as RoleName) {
-    case 'ADMIN':
+  switch (roleName as string) {
+    case 'admin':
       return 'destructive';
-    case 'EXECUTIVE':
+    case 'executive':
       return 'default';
-    case 'TELECALLER':
+    case 'telecaller':
       return 'secondary';
     default:
       return 'outline';
@@ -17,16 +15,16 @@ export function getRoleBadgeVariant(
 }
 
 // Role permission checks
-export function hasPermission(userRole: string | null, requiredRole: RoleName): boolean {
+export function hasPermission(userRole: string | null, requiredRole: string): boolean {
   if (!userRole) return false;
 
-  const roleHierarchy: Record<RoleName, number> = {
-    TELECALLER: 1,
-    EXECUTIVE: 2,
-    ADMIN: 3,
+  const roleHierarchy: Record<string, number> = {
+    telecaller: 1,
+    executive: 2,
+    admin: 3,
   };
 
-  const userLevel = roleHierarchy[userRole as RoleName] || 0;
+  const userLevel = roleHierarchy[userRole as string] || 0;
   const requiredLevel = roleHierarchy[requiredRole] || 0;
 
   return userLevel >= requiredLevel;
@@ -34,20 +32,20 @@ export function hasPermission(userRole: string | null, requiredRole: RoleName): 
 
 // Check if user is admin
 export function isAdmin(userRole: string | null): boolean {
-  return userRole === 'ADMIN';
+  return userRole === 'admin';
 }
 
 // Check if user is executive or higher
 export function isExecutiveOrHigher(userRole: string | null): boolean {
-  return hasPermission(userRole, 'EXECUTIVE');
+  return hasPermission(userRole, 'executive');
 }
 
 // Get role display name
 export function getRoleDisplayName(roleName: string): string {
   const displayNames: Record<string, string> = {
-    ADMIN: 'Administrator',
-    EXECUTIVE: 'Executive',
-    TELECALLER: 'Telecaller',
+    admin: 'Administrator',
+    executive: 'Executive',
+    telecaller: 'Telecaller',
   };
 
   return displayNames[roleName] || roleName;

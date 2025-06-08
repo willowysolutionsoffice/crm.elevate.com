@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { useAction } from 'next-safe-action/hooks';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { IconSearch, IconDotsVertical, IconEdit, IconTrash } from '@tabler/icons-react';
+import { IconSearch, IconDotsVertical, IconTrash } from '@tabler/icons-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -20,16 +25,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,25 +38,18 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatDate } from '@/lib/utils';
-import { getRoleBadgeVariant } from '@/lib/role-utils';
-import { UserForm } from '@/components/user-form';
-import { deleteUserAction } from '@/lib/actions/auth';
-import type { UsersTableProps, UserWithRoleRequired } from '@/types/user';
+import { toast } from 'sonner';
+import type { UsersTableProps } from '@/types/user';
+import { authClient } from '@/lib/auth-client';
+import { User } from '@prisma/client';
 
 export function UsersTable({ users, roles }: UsersTableProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [editUser, setEditUser] = useState<UserWithRoleRequired | null>(null);
-  const [deleteUser, setDeleteUser] = useState<UserWithRoleRequired | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
   const router = useRouter();
-
-  const {
-    execute: executeDelete,
-    result: deleteResult,
-    isExecuting: isDeleting,
-  } = useAction(deleteUserAction);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null);
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery) return users;
@@ -69,176 +59,233 @@ export function UsersTable({ users, roles }: UsersTableProps) {
       (user) =>
         user.name.toLowerCase().includes(query) ||
         user.email.toLowerCase().includes(query) ||
-        (user.role?.name && user.role.name.toLowerCase().includes(query))
+        (user.role && user.role.toLowerCase().includes(query))
     );
   }, [users, searchQuery]);
 
-  const handleEditUser = (user: UserWithRoleRequired) => {
-    setEditUser(user);
-    setIsEditDialogOpen(true);
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user);
+    setShowDeleteDialog(true);
   };
 
-  const handleDeleteUser = (user: UserWithRoleRequired) => {
-    setDeleteUser(user);
-    setIsDeleteDialogOpen(true);
-  };
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
 
-  const handleEditSuccess = () => {
-    setIsEditDialogOpen(false);
-    setEditUser(null);
-    router.refresh();
-  };
+    setIsDeleting(true);
+    try {
+      await authClient.admin.removeUser({
+        userId: userToDelete.id,
+      });
 
-  // Handle delete success
-  useEffect(() => {
-    if (deleteResult?.data?.success) {
-      setIsDeleteDialogOpen(false);
-      setDeleteUser(null);
+      toast.success(`User ${userToDelete.name} deleted successfully`);
+      setShowDeleteDialog(false);
+      setUserToDelete(null);
+
+      // Refresh the page to update the user list
       router.refresh();
+    } catch (error) {
+      console.error('Delete user error:', error);
+      toast.error('Failed to delete user. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
-  }, [deleteResult, router]);
+  };
 
-  const confirmDelete = () => {
-    if (deleteUser) {
-      executeDelete({ userId: deleteUser.id });
+  const handleDeleteCancel = () => {
+    setShowDeleteDialog(false);
+    setUserToDelete(null);
+  };
+
+  const handleRoleUpdate = async (userId: string, newRole: string, currentRole: string) => {
+    if (newRole === currentRole) return; // No change needed
+
+    setUpdatingRoleUserId(userId);
+    try {
+      await authClient.admin.setRole({
+        userId,
+        role: newRole as 'admin' | 'user',
+      });
+
+      toast.success(`User role updated to ${newRole.toUpperCase()}`);
+
+      // Refresh the page to update the user list
+      router.refresh();
+    } catch (error) {
+      console.error('Update role error:', error);
+      toast.error('Failed to update user role. Please try again.');
+    } finally {
+      setUpdatingRoleUserId(null);
     }
+  };
+
+  const RoleSelect = ({ user }: { user: User }) => {
+    const isUpdating = updatingRoleUserId === user.id;
+    const currentRole = user.role || '';
+
+    const getRoleDisplayText = (role: string | null) => {
+      if (!role) return 'No Role';
+      return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+    };
+
+    const getRoleColor = (role: string | null) => {
+      if (!role) return 'text-muted-foreground';
+      switch (role.toLowerCase()) {
+        case 'admin':
+          return 'text-red-600 dark:text-red-400';
+        case 'executive':
+          return 'text-blue-600 dark:text-blue-400';
+        case 'telecaller':
+          return 'text-green-600 dark:text-green-400';
+        default:
+          return 'text-gray-600 dark:text-gray-400';
+      }
+    };
+
+    return (
+      <div className="flex items-center gap-2">
+        <Select
+          value={currentRole}
+          onValueChange={(newRole) => handleRoleUpdate(user.id, newRole, currentRole)}
+          disabled={isUpdating}
+        >
+          <SelectTrigger className="w-32 h-8 border-none shadow-none p-2 hover:bg-muted/50 focus:ring-1 focus:ring-ring">
+            <SelectValue>
+              <span className={`text-sm font-medium ${getRoleColor(currentRole)}`}>
+                {getRoleDisplayText(currentRole)}
+              </span>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {roles.map((role) => (
+              <SelectItem key={role.id} value={role.name} className="cursor-pointer">
+                <div className="flex flex-col">
+                  <span className={`font-medium text-sm ${getRoleColor(role.name)}`}>
+                    {getRoleDisplayText(role.name)}
+                  </span>
+                  {role.description && (
+                    <span className="text-xs text-muted-foreground">{role.description}</span>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {isUpdating && (
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+        )}
+      </div>
+    );
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>System Users</CardTitle>
-        <CardDescription>
-          Manage user accounts and permissions. Total users: {users.length}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <IconSearch className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search users..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="max-w-sm"
-            />
-          </div>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>System Users</CardTitle>
+          <CardDescription>
+            Manage user accounts and permissions. Total users: {users.length}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <IconSearch className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
 
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.length === 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-4">
-                      No users found
-                    </TableCell>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        {user.role ? (
-                          <Badge variant={getRoleBadgeVariant(user.role.name)}>
-                            {user.role.name}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">No Role</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{formatDate(user.createdAt)}</TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
-                              <IconDotsVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEditUser(user)}>
-                              <IconEdit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteUser(user)}
-                              className="text-destructive"
-                            >
-                              <IconTrash className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-4">
+                        No users found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <RoleSelect user={user} />
+                        </TableCell>
+                        <TableCell>{formatDate(user.createdAt)}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <IconDotsVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => handleDeleteClick(user)}
+                              >
+                                <IconTrash className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        </div>
-      </CardContent>
-
-      {/* Edit User Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-xl w-full mx-4">
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user information and role</DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[70vh] overflow-y-auto">
-            {editUser && (
-              <UserForm
-                roles={roles}
-                onSuccess={handleEditSuccess}
-                initialData={{
-                  name: editUser.name,
-                  email: editUser.email,
-                  password: '',
-                  confirmPassword: '',
-                  roleId: editUser.roleId || '',
-                }}
-                isEditing={true}
-                userId={editUser.id}
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the user account for{' '}
-              <strong>{deleteUser?.name}</strong> ({deleteUser?.email}).
+              This action cannot be undone. This will permanently delete the user{' '}
+              <span className="font-semibold">{userToDelete?.name}</span> and remove their data from
+              our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={handleDeleteCancel} disabled={isDeleting}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDelete}
+              onClick={handleDeleteConfirm}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete User'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </>
   );
 }

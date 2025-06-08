@@ -1,22 +1,4 @@
-import type { User as PrismaUser, Role as PrismaRole } from '@prisma/client';
-
-// Base exports from Prisma - centralized
-export type { Role } from '@prisma/client';
-
-// Composite types using Prisma types
-export type UserWithRole = PrismaUser & {
-  role: PrismaRole | null;
-};
-
-export type UserWithRoleRequired = PrismaUser & {
-  role: PrismaRole;
-};
-
-// Extended user type for auth contexts
-export type AuthUser = PrismaUser & {
-  role: string | null;
-  roleId: string | null;
-};
+import type { User, Role } from '@prisma/client';
 
 // Form-related types
 export interface UserFormData {
@@ -24,21 +6,19 @@ export interface UserFormData {
   email: string;
   password: string;
   confirmPassword: string;
-  roleId: string;
+  role: string;
 }
 
 export interface UserFormProps {
-  roles: PrismaRole[];
+  roles: Role[];
   onSuccess?: () => void;
   initialData?: Partial<UserFormData>;
-  isEditing?: boolean;
-  userId?: string;
 }
 
 // Table and UI component types
 export interface UsersTableProps {
-  users: UserWithRoleRequired[];
-  roles: PrismaRole[];
+  users: User[];
+  roles: Role[];
 }
 
 // User profile for navigation/display purposes
@@ -50,11 +30,8 @@ export interface UserProfile {
   role?: string | null;
 }
 
-// Role-related utilities
-export type RoleName = 'ADMIN' | 'EXECUTIVE' | 'TELECALLER';
-
 export interface RoleConfig {
-  name: RoleName;
+  name: string;
   description: string;
   permissions?: string[];
 }

@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
   // Check if user is trying to access admin routes
   if (pathname.startsWith('/admin')) {
     // Only allow admin users to access admin routes
-    if (user.role !== 'ADMIN') {
+    if (user.role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }

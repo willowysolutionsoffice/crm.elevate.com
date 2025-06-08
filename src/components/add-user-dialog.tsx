@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { UserForm } from '@/components/user-form';
-import type { Role } from '@/types/user';
+import type { Role } from '@prisma/client';
 
 interface AddUserDialogProps {
   roles: Role[];

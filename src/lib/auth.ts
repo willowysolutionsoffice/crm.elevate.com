@@ -1,8 +1,8 @@
 import { betterAuth } from 'better-auth';
 import prisma from '@/lib/prisma';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { customSession } from 'better-auth/plugins';
 import { nextCookies } from 'better-auth/next-js';
+import { admin } from 'better-auth/plugins/admin';
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -14,39 +14,17 @@ export const auth = betterAuth({
   },
   user: {
     additionalFields: {
-      roleId: {
+      role: {
         type: 'string',
         required: false,
-        input: false, // don't allow user to set role directly
+        defaultValue: 'telecaller',
+        input: true,
       },
     },
   },
   plugins: [
-    customSession(async ({ user, session }) => {
-      // Fetch user role from database
-      let userRole = null;
-      let roleName = null;
-
-      const userWithRole = user as typeof user & { roleId?: string };
-
-      if (userWithRole.roleId) {
-        const role = await prisma.role.findUnique({
-          where: { id: userWithRole.roleId },
-        });
-        if (role) {
-          userRole = role.id;
-          roleName = role.name;
-        }
-      }
-
-      return {
-        user: {
-          ...user,
-          role: roleName,
-          roleId: userRole,
-        },
-        session,
-      };
+    admin({
+      adminRoles: ['admin'],
     }),
     nextCookies(), // This MUST be the last plugin
   ],
