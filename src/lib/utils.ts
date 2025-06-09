@@ -22,8 +22,8 @@ export function getInitials(name: string): string {
  */
 export function formatCurrency(
   amount: number,
-  currency: string = 'USD',
-  locale: string = 'en-US'
+  currency: string = 'INR',
+  locale: string = 'en-IN'
 ): string {
   return new Intl.NumberFormat(locale, {
     style: 'currency',

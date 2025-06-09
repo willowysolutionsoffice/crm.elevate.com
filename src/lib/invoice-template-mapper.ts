@@ -1,4 +1,5 @@
 import { InvoiceWithItems } from '@/types/invoice';
+import { formatCurrency } from '@/lib/utils';
 
 // Define specific types for template inputs to avoid using 'any'
 interface TemplateInputs {
@@ -10,6 +11,10 @@ interface TemplateInputs {
   subtotal: number;
   tax: number;
   total: number;
+  // Add formatted currency values for PDF display
+  subtotalFormatted: string;
+  taxFormatted: string;
+  totalFormatted: string;
 }
 
 interface PreviewData {
@@ -53,8 +58,8 @@ export class InvoiceTemplateMapper {
     const orderItems = invoice.items.map((item) => [
       item.itemDescription,
       item.quantity.toString(),
-      item.unitPrice.toString(),
-      item.lineTotal.toString(),
+      formatCurrency(item.unitPrice), // Format unit price in INR
+      formatCurrency(item.lineTotal), // Format line total in INR
     ]);
 
     // Prepare template inputs according to template field names
@@ -79,10 +84,15 @@ export class InvoiceTemplateMapper {
       // For static footer calculations
       date: dueDate,
 
-      // Additional computed values that might be referenced
+      // Additional computed values that might be referenced - format in INR
       subtotal: invoice.subtotal,
       tax: invoice.taxAmount,
       total: invoice.totalAmount,
+
+      // Formatted currency values for PDF display
+      subtotalFormatted: formatCurrency(invoice.subtotal),
+      taxFormatted: formatCurrency(invoice.taxAmount),
+      totalFormatted: formatCurrency(invoice.totalAmount),
     };
   }
   /**
