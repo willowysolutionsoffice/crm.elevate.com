@@ -13,7 +13,6 @@ import {
   Calendar,
   User,
   Receipt,
-  DollarSign,
   Clock,
   CheckCircle,
   AlertCircle,

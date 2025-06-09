@@ -56,7 +56,7 @@ const createInvoiceSchema = z.object({
   invoiceDate: z.date().optional(),
   dueDate: z.date().optional(),
   notes: z.string().optional(),
-  taxRate: z.number().min(0).max(1).optional(),
+  taxRate: z.number().min(0).max(1),
 });
 
 // Schema for updating invoice
@@ -135,7 +135,7 @@ export const createInvoice = action.schema(createInvoiceSchema).action(async ({ 
         invoiceDate: parsedInput.invoiceDate || new Date(),
         dueDate: parsedInput.dueDate,
         notes: parsedInput.notes,
-        taxRate: parsedInput.taxRate || 0.18,
+        taxRate: parsedInput.taxRate,
         subtotal: 0,
         taxAmount: 0,
         totalAmount: 0,

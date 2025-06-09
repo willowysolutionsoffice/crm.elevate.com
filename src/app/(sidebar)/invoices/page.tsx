@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Search, Filter, Eye, Edit, Trash2, MoreVertical, FileText } from 'lucide-react';
+import { Search, Filter, Eye, Edit, Trash2, MoreVertical } from 'lucide-react';
 import { getInvoices } from '@/app/actions/invoice-actions';
 import { InvoiceFormDialog } from '@/components/invoice/invoice-form-dialog';
 import { DeleteInvoiceDialog } from '@/components/invoice/delete-invoice-dialog';
@@ -107,7 +107,7 @@ export default function InvoicesPage() {
     setDeleteDialogOpen(true);
   };
 
-  const handleGeneratePDF = async (invoiceId: string, invoiceNumber: string) => {
+  const handleGeneratePDF = async (invoiceId: string) => {
     try {
       toast.info('Opening PDF preview...');
 
@@ -271,9 +271,7 @@ export default function InvoicesPage() {
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleGeneratePDF(invoice.id, invoice.invoiceNumber)}
-                            >
+                            <DropdownMenuItem onClick={() => handleGeneratePDF(invoice.id)}>
                               <Eye className="mr-2 h-4 w-4" />
                               Preview PDF
                             </DropdownMenuItem>

@@ -41,7 +41,7 @@ const invoiceFormSchema = z.object({
   }),
   dueDate: z.date().optional(),
   notes: z.string().optional(),
-  taxRate: z.number().min(0).max(1).optional(),
+  taxRate: z.number().min(0).max(1),
 });
 
 type InvoiceFormData = z.infer<typeof invoiceFormSchema>;
@@ -83,7 +83,6 @@ export function InvoiceFormDialog({
 
   const onSubmit = async (data: InvoiceFormData) => {
     setIsSubmitting(true);
-
     try {
       let result;
       if (mode === 'edit' && invoice) {
