@@ -223,22 +223,22 @@ This document outlines the comprehensive tasks required to implement an invoice 
   - [ ] Test with various invoice data scenarios
   - [ ] Ensure proper data formatting in generated PDFs
 
-- [ ] **UI/UX Testing**
-  - [ ] Test responsive design on different screen sizes
-  - [ ] Verify form validations work correctly
-  - [ ] Test navigation and user flows
+- [x] **UI/UX Testing**
+  - [x] Test responsive design on different screen sizes
+  - [x] Verify form validations work correctly
+  - [x] Test navigation and user flows
 
 ### **Task 10: Documentation and Deployment**
 
-- [ ] **Code Documentation**
+- [x] **Code Documentation**
 
-  - [ ] Add JSDoc comments to all functions
-  - [ ] Document API endpoints
-  - [ ] Update README if needed
+  - [x] Add JSDoc comments to all functions
+  - [x] Document API endpoints
+  - [x] Update README if needed
 
-- [ ] **Database Seeding**
-  - [ ] Add sample invoice data to `prisma/seed.ts`
-  - [ ] Include test invoice items for development
+- [x] **Database Seeding**
+  - [x] Add sample invoice data to `prisma/seed.ts`
+  - [x] Include test invoice items for development
 
 ## Implementation Notes
 
@@ -268,3 +268,367 @@ This document outlines the comprehensive tasks required to implement an invoice 
 - Use optimistic updates for real-time calculations
 - Consider caching strategies for frequently accessed data
 - Optimize PDF generation for large invoices
+
+---
+
+# Admission Form Feature Implementation Tasks
+
+This document section outlines the comprehensive tasks required to implement an admission form feature within the existing Next.js CRM application. The tasks follow established patterns from the invoice feature and are presented in a story point view with checkboxes for easy tracking and completion by an AI coding agent.
+
+## Prerequisites (Admission Feature)
+
+- [ ] **pdfme Documentation Reference**: Use Context7 MCP for latest pdfme documentation: `/pdfme/pdfme`
+- [ ] **Package Management**: Always use PNPM as package manager (`pnpm add`, `pnpm dlx`)
+- [ ] **Database Operations**: Use Prisma MCP for all database-related operations
+- [ ] **TypeScript Types**: Follow project rule - ALL interfaces/types MUST be in `@/types/` folder
+- [ ] **Follow Existing Patterns**: Use patterns from invoice and enquiry features
+
+## Story Point: Add a new feature: Admissions
+
+### **Task 1: Database Schema Setup (Prisma)**
+
+- [ ] **Define Admission Model in Prisma Schema**
+
+  - [ ] Add `Admission` model to `prisma/schema.prisma` with fields:
+    - `id` (String, @id, @default(auto()), @map("\_id"), @db.ObjectId)
+    - `admissionNumber` (String, @unique, format: ADM-YYYYMMDD-XXXX)
+    - `candidateName` (String)
+    - `mobileNumber` (String)
+    - `email` (String?, optional)
+    - `gender` (AdmissionGender enum: MALE, FEMALE, OTHER)
+    - `dateOfBirth` (DateTime)
+    - `address` (String)
+    - `idProofUploadUrl` (String?, optional - URL to uploaded file)
+    - `leadSource` (String?, optional - auto-filled from enquiry)
+    - `enquiryId` (String?, @db.ObjectId, optional foreign key to Enquiry)
+    - `lastQualification` (String)
+    - `yearOfPassing` (Int)
+    - `percentageCGPA` (String)
+    - `instituteName` (String)
+    - `additionalNotes` (String?, optional)
+    - `courseId` (String, @db.ObjectId, foreign key to Course)
+    - `courseTotalFee` (Float)
+    - `semesterFee` (Float?, optional)
+    - `admissionFee` (Float)
+    - `nextDueDate` (DateTime)
+    - `amountCollectedTowards` (AmountCollectedType enum: ADMISSION_FEE, SEMESTER_FEE)
+    - `paymentMode` (PaymentMode enum: CASH, UPI, CARD, BANK_TRANSFER)
+    - `transactionIdReferenceNumber` (String?, optional)
+    - `receiptNumber` (String, auto-generated)
+    - `remainingBalance` (Float)
+    - `status` (AdmissionStatus enum: PENDING, CONFIRMED, COMPLETED, CANCELLED)
+    - `createdByUserId` (String, foreign key to User)
+    - `createdAt` (DateTime, @default(now()))
+    - `updatedAt` (DateTime, @updatedAt)
+
+- [ ] **Define New Enums in Prisma Schema**
+
+  - [ ] Add `AdmissionGender` enum: MALE, FEMALE, OTHER
+  - [ ] Add `AmountCollectedType` enum: ADMISSION_FEE, SEMESTER_FEE
+  - [ ] Add `PaymentMode` enum: CASH, UPI, CARD, BANK_TRANSFER
+  - [ ] Add `AdmissionStatus` enum: PENDING, CONFIRMED, COMPLETED, CANCELLED
+
+- [ ] **Update Course Model in Prisma Schema**
+
+  - [ ] Add `hasSemesterFee` (Boolean, default: true)
+  - [ ] Add relation to admissions: `admissions Admission[]`
+  - [ ] Verify existing fields: `totalFee`, `semesterFee`, `admissionFee` are present
+
+- [ ] **Create TypeScript Types**
+
+  - [ ] Create `@/types/admission.ts` with interfaces:
+    - `Admission` interface matching Prisma model
+    - `AdmissionWithRelations` interface (with course, enquiry, createdBy)
+    - `AdmissionGender`, `AmountCollectedType`, `PaymentMode`, `AdmissionStatus` enums
+    - `CreateAdmissionInput` type for form submission
+    - `UpdateAdmissionInput` type for updates
+    - `AdmissionFormData` type for multi-step form
+    - `AdmissionFilters` type for filtering/search
+    - `ReceiptData` type for receipt generation
+
+- [ ] **Run Prisma Migration**
+  - [ ] Generate Prisma client for MongoDB (migrations not applicable for MongoDB)
+  - [ ] Verify schema update successful
+
+### **Task 2: Admission Actions Setup**
+
+- [ ] **Create Admission Server Actions**
+  - [ ] Create `src/app/actions/admission-actions.ts` following existing patterns from `invoice-actions.ts`
+  - [ ] Implement server actions:
+    - `createAdmission()` - Create new admission with auto-generated admission number and receipt
+    - `updateAdmission()` - Update existing admission
+    - `deleteAdmission()` - Soft delete admission
+    - `getAdmissions()` - Fetch all admissions with pagination and filters
+    - `getAdmissionById()` - Fetch single admission with relations
+    - `getAdmissionsByEnquiry()` - Get admissions linked to an enquiry
+    - `generateReceiptNumber()` - Generate unique receipt number
+    - `calculateAdmissionTotals()` - Calculate remaining balance and totals
+    - `getCoursesForAdmission()` - Get active courses with fee details
+
+### **Task 3: Admission Data Table View (Shadcn UI)**
+
+- [ ] **Create Admission List Page**
+
+  - [ ] Create `src/app/(sidebar)/admissions/page.tsx`
+  - [ ] Follow existing pattern from `src/app/(sidebar)/invoices/page.tsx`
+  - [ ] Implement data table using native table components:
+    - Display columns: Admission Number, Candidate Name, Mobile, Course, Status, Total Fee, Remaining Balance, Created Date
+    - Add search/filter functionality by candidate name, mobile, course
+    - Include pagination
+    - Add status filter dropdown
+    - Export functionality
+
+- [ ] **Create Admission Table Component Features**
+
+  - [ ] Integrate table directly in page component (following existing pattern)
+  - [ ] Follow pattern from existing table components
+  - [ ] Include action buttons for View, Edit, Delete, Generate Receipt PDF
+  - [ ] Add status badges with proper styling (follow invoice status styling)
+  - [ ] Add course and fee display formatting
+  - [ ] Include responsive design for mobile view
+
+### **Task 4: Multi-Step Admission Form Dialog**
+
+- [ ] **Create Multi-Step Admission Form Dialog**
+
+  - [ ] Create `src/components/admission/admission-form-dialog.tsx`
+  - [ ] Follow pattern from existing form dialogs but implement multi-step functionality
+  - [ ] Use `react-hook-form` with `zod` validation
+  - [ ] Implement proper state management for multi-step form
+  - [ ] Include stepper component for navigation
+
+- [ ] **Step 1: Basic Details Form**
+
+  - [ ] Candidate Name (Text input, required)
+  - [ ] Mobile Number (Text input, required, validation for phone format)
+  - [ ] Email (Email input, optional)
+  - [ ] Gender (Select: Male/Female/Other, required)
+  - [ ] Date of Birth (Date picker, required)
+  - [ ] Address (Textarea, required)
+  - [ ] ID Proof Upload (File input, optional - store URL for now, implement file service later)
+  - [ ] Lead Source (Text input, auto-filled if from enquiry, otherwise editable)
+
+- [ ] **Step 2: Education Details Form**
+
+  - [ ] Last Qualification (Text input, required)
+  - [ ] Year of Passing (Number input or dropdown, required)
+  - [ ] Percentage/CGPA (Text input, required)
+  - [ ] Institute Name (Text input, required)
+  - [ ] Additional Notes (Textarea, optional)
+
+- [ ] **Step 3: Course & Fee Details Form**
+
+  - [ ] Course Selection (Dropdown populated from Course model, required)
+  - [ ] Display dynamic course information on selection:
+    - Course Total Fee (Display only, auto-populated)
+    - Semester Fee (Display only if course has semester fee)
+    - Admission Fee (Display only, auto-populated)
+  - [ ] Next Due Date (Date picker, required)
+  - [ ] Amount Collected Towards (Dropdown: Admission Fee/Semester Fee)
+  - [ ] Payment Mode (Dropdown: Cash/UPI/Card/Bank Transfer, required)
+  - [ ] Transaction ID/Reference Number (Text input, conditional based on payment mode)
+
+- [ ] **Step 4: Preview & Confirmation**
+
+  - [ ] Display all entered values for review
+  - [ ] Show calculated remaining balance
+  - [ ] Clearly indicate optional fields that are empty
+  - [ ] Show fee breakdown and payment details
+  - [ ] Submit button to create admission
+
+### **Task 5: Individual Admission Detail Page**
+
+- [ ] **Create Dynamic Admission Detail Page**
+
+  - [ ] Create `src/app/(sidebar)/admissions/[id]/page.tsx`
+  - [ ] Follow pattern from `src/app/(sidebar)/invoices/[id]/page.tsx`
+  - [ ] Display comprehensive admission information in cards:
+    - Personal details card
+    - Education details card
+    - Course and fee details card
+    - Payment information card
+    - Receipt information card
+
+- [ ] **Create Admission Detail Components**
+
+  - [ ] Create `src/components/admission/admission-details-section.tsx`
+  - [ ] Create `src/components/admission/fee-breakdown-section.tsx`
+  - [ ] Create `src/components/admission/payment-history-section.tsx`
+  - [ ] Create `src/components/admission/admission-status-update.tsx`
+  - [ ] Follow existing component patterns for consistency
+
+### **Task 6: Receipt PDF Generation Setup**
+
+- [ ] **Create Receipt PDF Template**
+
+  - [ ] Create `public/pdf/receipt_template.json`
+  - [ ] Design receipt template following the provided receipt format:
+    - Receipt header with number and date
+    - Student information
+    - Course information
+    - Fee breakdown (admission fee paid, total course fee, remaining balance)
+    - Payment details (mode, transaction reference)
+    - Next due date
+    - Thank you message
+    - Company footer
+
+- [ ] **Create Receipt PDF Service**
+
+  - [ ] Create `src/lib/receipt-pdf-service.ts` following `src/lib/pdf-service.ts` pattern
+  - [ ] Implement receipt PDF generation functions:
+    - `generateReceiptPDF(admission)` - Generate receipt PDF from admission data
+    - `loadReceiptTemplate()` - Load template from public directory
+    - `validateAdmissionData()` - Validate admission data for receipt generation
+    - `generateReceiptFileName()` - Generate appropriate filename
+
+- [ ] **Create Receipt Template Mapper**
+
+  - [ ] Create `src/lib/receipt-template-mapper.ts` following `src/lib/invoice-template-mapper.ts` pattern
+  - [ ] Map admission data to receipt template format:
+    - Map receipt number, date, student info
+    - Map course details and fee breakdown
+    - Map payment information
+    - Format currency values appropriately
+
+### **Task 7: Receipt PDF API and Generation**
+
+- [ ] **Create Receipt PDF API Route**
+
+  - [ ] Create `src/app/api/admissions/[id]/receipt/route.ts`
+  - [ ] Follow pattern from `src/app/api/invoices/[id]/pdf/route.ts`
+  - [ ] Implement GET method for receipt generation
+  - [ ] Return PDF as downloadable file with proper headers
+  - [ ] Include authentication and error handling
+
+- [ ] **Add Receipt Generation UI**
+
+  - [ ] Add "Generate Receipt" button to admission detail page
+  - [ ] Add "Download Receipt" action to admissions table
+  - [ ] Implement proper loading states and error handling
+  - [ ] Automatic receipt generation on admission creation
+
+### **Task 8: Enhanced Features and Integrations**
+
+- [ ] **File Upload Service (Optional)**
+
+  - [ ] Create `src/lib/file-upload-service.ts` for ID proof uploads
+  - [ ] Implement local file storage or cloud storage integration
+  - [ ] Add file validation (file type, size limits)
+  - [ ] Update admission form to handle file uploads
+
+- [ ] **Enquiry to Admission Conversion**
+
+  - [ ] Add "Convert to Admission" action in enquiry detail page
+  - [ ] Pre-fill admission form with enquiry data
+  - [ ] Link admission to original enquiry
+  - [ ] Update enquiry status to "ENROLLED" when admission is created
+
+- [ ] **Advanced Filtering and Search**
+
+  - [ ] Implement advanced filters in admissions list:
+    - Filter by course, status, date range
+    - Search by candidate name, mobile, email
+    - Filter by payment status
+  - [ ] Add export functionality for admission data
+
+### **Task 9: Delete Admission Dialog**
+
+- [ ] **Create Delete Admission Dialog**
+  - [ ] Create `src/components/admission/delete-admission-dialog.tsx`
+  - [ ] Follow pattern from existing delete dialogs
+  - [ ] Include confirmation with admission details
+  - [ ] Implement soft delete with proper authorization
+
+### **Task 10: Testing and Validation**
+
+- [ ] **Test Database Operations**
+
+  - [ ] Verify admission creation with auto-generated numbers
+  - [ ] Test course fee calculations and remaining balance
+  - [ ] Validate form submissions and validations
+  - [ ] Test enquiry to admission conversion
+
+- [ ] **Test Receipt Generation**
+
+  - [ ] Verify receipt PDF output matches template design
+  - [ ] Test with various admission scenarios
+  - [ ] Ensure proper data formatting in generated receipts
+  - [ ] Test automatic receipt generation on admission creation
+
+- [ ] **UI/UX Testing**
+  - [ ] Test multi-step form navigation and validation
+  - [ ] Verify responsive design on different screen sizes
+  - [ ] Test file upload functionality
+  - [ ] Test search and filtering features
+
+### **Task 11: Database Seeding and Documentation**
+
+- [ ] **Update Database Seeding**
+
+  - [ ] Add sample admission data to `prisma/seed.ts`
+  - [ ] Include test admissions with different statuses
+  - [ ] Add sample receipt data for development
+  - [ ] Link sample admissions to existing courses
+
+- [ ] **Code Documentation**
+  - [ ] Add JSDoc comments to all functions
+  - [ ] Document API endpoints and receipt generation
+  - [ ] Update README with admission feature documentation
+
+## Receipt Format Reference
+
+```
+-----------------------------------------------------
+Receipt #: REC-20241215-001 | Date: 15 December 2024
+-----------------------------------------------------
+Student: Ravi Kumar
+Course: Diploma in Digital Marketing
+Admission Fee Paid: ₹5,000
+Total Course Fee: ₹20,000
+Remaining Balance: ₹15,000
+Payment Mode: UPI
+Transaction Ref: TXN8759232
+Next Due Date: 15 January 2025
+Thank you for your payment.
+-----------------------------------------------------
+```
+
+## Implementation Notes (Admission Feature)
+
+### **Coding Standards**
+
+- Follow existing patterns from invoice and enquiry components
+- Use TypeScript strict mode with proper type definitions in `@/types/` folder
+- Implement proper error boundaries and loading states
+- Use shadcn/ui components for consistency
+- Follow multi-step form best practices with proper state management
+
+### **Database Patterns**
+
+- Follow MongoDB ObjectId patterns used in existing models
+- Use Prisma relations properly between Admission, Course, User, and Enquiry
+- Implement proper indexing for search functionality
+- Follow existing enum patterns
+
+### **Receipt Generation Best Practices**
+
+- Use server-side PDF generation for security (same as invoice feature)
+- Implement proper error handling for PDF operations
+- Follow pdfme documentation patterns from Context7
+- Generate receipts automatically on admission creation
+- Store receipt metadata in database for tracking
+
+### **File Upload Considerations**
+
+- Start with URL storage field for ID proof
+- Implement file upload service later as enhancement
+- Consider cloud storage integration (AWS S3, Cloudinary)
+- Implement proper file validation and security
+
+### **Performance Considerations**
+
+- Implement pagination for admission lists
+- Use proper indexing for search queries
+- Optimize PDF generation performance
+- Consider caching strategies for course data
+- Implement efficient filtering and search
