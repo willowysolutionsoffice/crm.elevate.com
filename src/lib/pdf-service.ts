@@ -82,6 +82,24 @@ export class PDFService {
   }
 
   /**
+   * Generate preview URL for invoice PDF
+   * @param invoiceId - Invoice ID
+   * @returns Preview URL string
+   */
+  static generatePreviewUrl(invoiceId: string): string {
+    return `/api/invoices/${invoiceId}/pdf?preview=true`;
+  }
+
+  /**
+   * Generate download URL for invoice PDF
+   * @param invoiceId - Invoice ID
+   * @returns Download URL string
+   */
+  static generateDownloadUrl(invoiceId: string): string {
+    return `/api/invoices/${invoiceId}/pdf`;
+  }
+
+  /**
    * Generate filename for invoice PDF
    * @param invoice - Invoice data
    * @returns Filename string

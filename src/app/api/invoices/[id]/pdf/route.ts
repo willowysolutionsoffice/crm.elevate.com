@@ -18,6 +18,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id: invoiceId } = await params;
 
+    // Check if preview mode is requested
+    const { searchParams } = new URL(request.url);
+    const preview = searchParams.get('preview') === 'true';
+
     // Fetch the invoice with items
     const result = await getInvoiceById({ id: invoiceId });
 
@@ -33,12 +37,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Generate filename
     const fileName = PDFService.generateFileName(invoice as InvoiceWithItems);
 
-    // Return PDF as response
+    // Return PDF as response with appropriate headers for preview or download
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': preview
+          ? `inline; filename="${fileName}"`
+          : `attachment; filename="${fileName}"`,
         'Cache-Control': 'no-cache',
       },
     });
@@ -89,7 +95,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const pdfBuffer = await PDFService.generateInvoicePDF(invoiceData);
 
     // Determine response type based on request
-    const responseType = body.responseType || 'download';
+    const responseType = body.responseType || 'preview';
+    const preview = body.preview !== false; // Default to preview mode
 
     if (responseType === 'base64') {
       // Return PDF as base64 string for preview
@@ -101,14 +108,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       });
     }
 
-    // Default: Return as downloadable file
+    // Default: Return as previewable/downloadable file
     const fileName = PDFService.generateFileName(invoiceData);
 
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': preview
+          ? `inline; filename="${fileName}"`
+          : `attachment; filename="${fileName}"`,
         'Cache-Control': 'no-cache',
       },
     });

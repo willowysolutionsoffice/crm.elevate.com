@@ -21,6 +21,7 @@ import {
   AlertCircle,
   XCircle,
   Circle,
+  Eye,
 } from 'lucide-react';
 import { getInvoiceById } from '@/app/actions/invoice-actions';
 import { toast } from 'sonner';
@@ -69,36 +70,21 @@ export default function InvoiceDetailPage() {
     router.push('/invoices');
   };
 
-  const handleGeneratePDF = async () => {
+  const handleGeneratePDF = async (download: boolean = false) => {
     try {
       setIsGeneratingPDF(true);
-      toast.info('Generating PDF...');
+      toast.info('Opening PDF preview...');
 
-      const response = await fetch(`/api/invoices/${invoiceId}/pdf`, {
-        method: 'GET',
-      });
+      // Open PDF in new tab for preview
+      let previewUrl = `/api/invoices/${invoiceId}/pdf`;
+      if (!download) previewUrl += '?preview=true';
+      window.open(previewUrl, '_blank');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to generate PDF');
-      }
-
-      const pdfBlob = await response.blob();
-      const url = window.URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Invoice_${invoice?.invoiceNumber || invoiceId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success('PDF downloaded successfully!');
+      toast.success('PDF preview opened in new tab!');
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('Error opening PDF preview:', error);
       toast.error(
-        'Failed to generate PDF: ' + (error instanceof Error ? error.message : 'Unknown error')
+        'Failed to open PDF preview: ' + (error instanceof Error ? error.message : 'Unknown error')
       );
     } finally {
       setIsGeneratingPDF(false);
@@ -264,19 +250,19 @@ export default function InvoiceDetailPage() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={handleGeneratePDF}
+            onClick={() => handleGeneratePDF()}
             disabled={isGeneratingPDF}
             className="gap-2"
           >
             {isGeneratingPDF ? (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Generating...
+                Opening...
               </>
             ) : (
               <>
-                <Download className="h-4 w-4" />
-                Download PDF
+                <Eye className="h-4 w-4" />
+                Preview PDF
               </>
             )}
           </Button>
@@ -406,11 +392,20 @@ export default function InvoiceDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start gap-2"
-                  onClick={handleGeneratePDF}
+                  onClick={() => handleGeneratePDF()}
                   disabled={isGeneratingPDF}
                 >
-                  <FileText className="h-4 w-4" />
-                  {isGeneratingPDF ? 'Generating PDF...' : 'Generate PDF'}
+                  <Eye className="h-4 w-4" />
+                  {isGeneratingPDF ? 'Opening PDF...' : 'Preview PDF'}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => handleGeneratePDF(true)}
+                  disabled={isGeneratingPDF}
+                >
+                  <Download className="h-4 w-4" />
+                  {isGeneratingPDF ? 'Opening PDF...' : 'Download PDF'}
                 </Button>
               </div>
             </CardContent>

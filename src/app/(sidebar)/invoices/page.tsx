@@ -109,38 +109,17 @@ export default function InvoicesPage() {
 
   const handleGeneratePDF = async (invoiceId: string, invoiceNumber: string) => {
     try {
-      toast.info('Generating PDF...');
+      toast.info('Opening PDF preview...');
 
-      // Call the PDF generation API
-      const response = await fetch(`/api/invoices/${invoiceId}/pdf`, {
-        method: 'GET',
-      });
+      // Open PDF in new tab for preview
+      const previewUrl = `/api/invoices/${invoiceId}/pdf?preview=true`;
+      window.open(previewUrl, '_blank');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to generate PDF');
-      }
-
-      // Get the PDF blob
-      const pdfBlob = await response.blob();
-
-      // Create download link
-      const url = window.URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Invoice_${invoiceNumber}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success('PDF downloaded successfully!');
+      toast.success('PDF preview opened in new tab!');
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('Error opening PDF preview:', error);
       toast.error(
-        'Failed to generate PDF: ' + (error instanceof Error ? error.message : 'Unknown error')
+        'Failed to open PDF preview: ' + (error instanceof Error ? error.message : 'Unknown error')
       );
     }
   };
@@ -295,8 +274,8 @@ export default function InvoicesPage() {
                             <DropdownMenuItem
                               onClick={() => handleGeneratePDF(invoice.id, invoice.invoiceNumber)}
                             >
-                              <FileText className="mr-2 h-4 w-4" />
-                              Generate PDF
+                              <Eye className="mr-2 h-4 w-4" />
+                              Preview PDF
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
