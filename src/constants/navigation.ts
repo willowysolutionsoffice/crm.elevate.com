@@ -59,8 +59,8 @@ export const SIDEBAR_DATA: SidebarData = {
   ],
   navSecondary: [
     {
-      title: 'Invoice',
-      url: '/invoice',
+      title: 'Invoices',
+      url: '/invoices',
       icon: IconFileInvoice,
     },
   ],
