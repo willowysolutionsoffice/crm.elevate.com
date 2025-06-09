@@ -9,8 +9,6 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft,
-  Edit,
-  FileText,
   Download,
   Calendar,
   User,
@@ -22,6 +20,7 @@ import {
   XCircle,
   Circle,
   Eye,
+  IndianRupee,
 } from 'lucide-react';
 import { getInvoiceById } from '@/app/actions/invoice-actions';
 import { toast } from 'sonner';
@@ -337,7 +336,7 @@ export default function InvoiceDetailPage() {
 
                     <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                       <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <IndianRupee className="h-4 w-4 text-green-600" />
                         <span className="text-sm font-medium text-green-900">Tax Rate</span>
                       </div>
                       <span className="text-sm font-semibold text-green-900">
