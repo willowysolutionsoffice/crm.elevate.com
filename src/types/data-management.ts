@@ -69,9 +69,9 @@ export interface CreateCourseInput {
   name: string;
   description?: string;
   duration?: string;
-  totalFee?: number;
+  totalFee: number;
   semesterFee?: number;
-  admissionFee?: number;
+  admissionFee: number;
 }
 
 export interface UpdateCourseInput extends CreateCourseInput {
