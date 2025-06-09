@@ -15,8 +15,8 @@ interface InvoiceTotalsProps {
 
 export function InvoiceTotals({ subtotal, taxRate, taxAmount, totalAmount }: InvoiceTotalsProps) {
   return (
-    <Card className="w-full overflow-hidden shadow-sm">
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+    <Card className="w-full overflow-hidden shadow-sm py-0">
+      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b py-6">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Calculator className="h-5 w-5 text-blue-600" />
           Invoice Summary
@@ -50,10 +50,7 @@ export function InvoiceTotals({ subtotal, taxRate, taxAmount, totalAmount }: Inv
         {/* Total */}
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-green-600" />
-              <span className="text-lg font-bold text-green-900">Total Amount</span>
-            </div>
+            <span className="text-lg font-bold text-green-900">Total Amount</span>
             <span className="text-2xl font-bold text-green-900">{formatCurrency(totalAmount)}</span>
           </div>
         </div>
@@ -69,16 +66,6 @@ export function InvoiceTotals({ subtotal, taxRate, taxAmount, totalAmount }: Inv
               <div className="w-1 h-1 bg-current rounded-full" />
               <span>Totals automatically update when items change</span>
             </div>
-          </div>
-        </div>
-
-        {/* Payment Status Indicator */}
-        <div className="pt-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Payment Status</span>
-            <Badge variant="outline" className="text-orange-700 border-orange-200 bg-orange-50">
-              Pending
-            </Badge>
           </div>
         </div>
       </CardContent>

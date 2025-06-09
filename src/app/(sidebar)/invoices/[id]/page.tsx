@@ -412,16 +412,6 @@ export default function InvoiceDetailPage() {
                   <FileText className="h-4 w-4" />
                   {isGeneratingPDF ? 'Generating PDF...' : 'Generate PDF'}
                 </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-2"
-                  onClick={() => {
-                    /* TODO: Add edit functionality */
-                  }}
-                >
-                  <Edit className="h-4 w-4" />
-                  Edit Invoice
-                </Button>
               </div>
             </CardContent>
           </Card>

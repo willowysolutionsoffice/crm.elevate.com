@@ -22,6 +22,7 @@ import {
 import { toast } from 'sonner';
 import { InvoiceItem } from '@/types/invoice';
 import { formatCurrency } from '@/lib/utils';
+import { Label } from '../ui/label';
 
 interface InvoiceItemsSectionProps {
   invoiceId: string;
@@ -178,54 +179,116 @@ export function InvoiceItemsSection({ invoiceId, items, onItemsChange }: Invoice
       <CardContent>
         {/* Add Item Form */}
         {showAddForm && (
-          <div className="mb-6 p-4 border rounded-lg bg-muted/50">
-            <h4 className="font-medium mb-4">Add New Item</h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
+          <div className="mb-6 p-6 border rounded-xl bg-gradient-to-br from-blue-50/50 to-indigo-50/30 border-blue-200/60">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Plus className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900">Add New Item</h4>
+                <p className="text-sm text-gray-600">Enter item details to add to your invoice</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Item Description - Takes more space */}
+              <div className="lg:col-span-5 space-y-2">
+                <Label className="px-1 text-sm font-medium text-gray-700 flex items-center gap-1">
+                  Item Description
+                  <span className="text-red-500">*</span>
+                </Label>
                 <Textarea
-                  placeholder="Item description"
+                  placeholder="Describe the product or service..."
                   value={newItem.itemDescription}
                   onChange={(e) =>
                     setNewItem((prev) => ({ ...prev, itemDescription: e.target.value }))
                   }
-                  className="min-h-[80px]"
+                  className="min-h-[90px] border-gray-300 focus:border-blue-500 focus:ring-blue-500/20 resize-none"
                 />
               </div>
-              <div>
+
+              {/* Quantity */}
+              <div className="lg:col-span-2 space-y-2">
+                <Label className="px-1 text-sm font-medium text-gray-700 flex items-center gap-1">
+                  Quantity
+                  <span className="text-red-500">*</span>
+                </Label>
                 <Input
-                  type="number"
-                  min="1"
-                  placeholder="Quantity"
+                  type="text"
                   value={newItem.quantity}
                   onChange={(e) =>
-                    setNewItem((prev) => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))
+                    setNewItem((prev) => ({ ...prev, quantity: parseInt(e.target.value) || 0 }))
                   }
+                  className="border-gray-300 focus:border-blue-500 focus:ring-blue-500/20 text-center"
                 />
               </div>
-              <div>
+
+              {/* Unit Price */}
+              <div className="lg:col-span-2 space-y-2">
+                <Label className="px-1 text-sm font-medium text-gray-700 flex items-center gap-1">
+                  Unit Price
+                  <span className="text-red-500">*</span>
+                </Label>
                 <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Unit Price"
+                  type="text"
                   value={newItem.unitPrice}
                   onChange={(e) =>
                     setNewItem((prev) => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))
                   }
+                  className="border-gray-300 focus:border-blue-500 focus:ring-blue-500/20 text-right"
                 />
               </div>
+
+              {/* Line Total - Real-time calculation */}
+              <div className="lg:col-span-3 space-y-2">
+                <Label className="px-1 text-sm font-medium text-gray-700">Line Total</Label>
+                <div className="h-10 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md flex items-center justify-end">
+                  <span className="text-lg font-semibold text-gray-900">
+                    {formatCurrency((newItem.quantity || 0) * (newItem.unitPrice || 0))}
+                  </span>
+                </div>
+                <p className="px-1 text-xs text-gray-500">Qty × Price = Total</p>
+              </div>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button
-                variant="outline"
-                onClick={() => setShowAddForm(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleAddItem} disabled={isSubmitting}>
-                {isSubmitting ? 'Adding...' : 'Add Item'}
-              </Button>
+
+            {/* Form Actions */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-6 pt-4 border-t border-gray-200">
+              <div className="text-sm text-gray-600">
+                <span className="text-red-500">*</span> Required fields
+              </div>
+              <div className="flex gap-3 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    // Reset form when canceling
+                    setNewItem({ itemDescription: '', quantity: 1, unitPrice: 0 });
+                  }}
+                  disabled={isSubmitting}
+                  className="flex-1 sm:flex-none border-gray-300 hover:bg-gray-50"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAddItem}
+                  disabled={
+                    isSubmitting || !newItem.itemDescription.trim() || newItem.quantity <= 0
+                  }
+                  className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Item
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         )}
