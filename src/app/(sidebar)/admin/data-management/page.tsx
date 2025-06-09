@@ -87,7 +87,9 @@ const courseSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
   duration: z.string().optional(),
-  fee: z.coerce.number().optional(),
+  totalFee: z.coerce.number().optional(),
+  semesterFee: z.coerce.number().optional(),
+  admissionFee: z.coerce.number().optional(),
 });
 
 const branchSchema = z.object({
@@ -312,7 +314,9 @@ export default function DataManagementPage() {
           name: item.name,
           description: (item as Course).description || '',
           duration: (item as Course).duration || '',
-          fee: (item as Course).fee || undefined,
+          totalFee: (item as Course).totalFee || undefined,
+          semesterFee: (item as Course).semesterFee || undefined,
+          admissionFee: (item as Course).admissionFee || undefined,
         });
         break;
       case 'branch':
@@ -410,8 +414,12 @@ export default function DataManagementPage() {
                                 );
                               case 'Duration':
                                 return (typedItem.duration as string) || '-';
-                              case 'Fee':
-                                return typedItem.fee ? `₹${typedItem.fee}` : '-';
+                              case 'Total Fee':
+                                return typedItem.totalFee ? `₹${typedItem.totalFee}` : '-';
+                              case 'Semester Fee':
+                                return typedItem.semesterFee ? `₹${typedItem.semesterFee}` : '-';
+                              case 'Admission Fee':
+                                return typedItem.admissionFee ? `₹${typedItem.admissionFee}` : '-';
                               case 'Address':
                                 return (
                                   <div className="max-w-xs truncate">
@@ -568,22 +576,40 @@ export default function DataManagementPage() {
                 placeholder="Enter course description"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="course-duration">Duration</Label>
+              <Input
+                id="course-duration"
+                {...courseForm.register('duration')}
+                placeholder="e.g., 6 months"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="course-duration">Duration</Label>
+                <Label htmlFor="course-total-fee">Total Fee (₹)</Label>
                 <Input
-                  id="course-duration"
-                  {...courseForm.register('duration')}
-                  placeholder="e.g., 6 months"
+                  id="course-total-fee"
+                  type="number"
+                  {...courseForm.register('totalFee')}
+                  placeholder="Enter total course fee"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="course-fee">Fee (₹)</Label>
+                <Label htmlFor="course-semester-fee">Semester Fee (₹)</Label>
                 <Input
-                  id="course-fee"
+                  id="course-semester-fee"
                   type="number"
-                  {...courseForm.register('fee')}
-                  placeholder="Enter course fee"
+                  {...courseForm.register('semesterFee')}
+                  placeholder="Enter semester fee"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="course-admission-fee">Admission Fee (₹)</Label>
+                <Input
+                  id="course-admission-fee"
+                  type="number"
+                  {...courseForm.register('admissionFee')}
+                  placeholder="Enter admission fee"
                 />
               </div>
             </div>
@@ -733,7 +759,14 @@ export default function DataManagementPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {renderDataTable('course', courses, ['Name', 'Description', 'Duration', 'Fee'])}
+              {renderDataTable('course', courses, [
+                'Name',
+                'Description',
+                'Duration',
+                'Total Fee',
+                'Semester Fee',
+                'Admission Fee',
+              ])}
             </CardContent>
           </Card>
         </TabsContent>
@@ -845,22 +878,40 @@ export default function DataManagementPage() {
                     placeholder="Enter course description"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-course-duration">Duration</Label>
+                  <Input
+                    id="edit-course-duration"
+                    {...courseForm.register('duration')}
+                    placeholder="e.g., 6 months"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="edit-course-duration">Duration</Label>
+                    <Label htmlFor="edit-course-total-fee">Total Fee (₹)</Label>
                     <Input
-                      id="edit-course-duration"
-                      {...courseForm.register('duration')}
-                      placeholder="e.g., 6 months"
+                      id="edit-course-total-fee"
+                      type="number"
+                      {...courseForm.register('totalFee')}
+                      placeholder="Enter total course fee"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-course-fee">Fee (₹)</Label>
+                    <Label htmlFor="edit-course-semester-fee">Semester Fee (₹)</Label>
                     <Input
-                      id="edit-course-fee"
+                      id="edit-course-semester-fee"
                       type="number"
-                      {...courseForm.register('fee')}
-                      placeholder="Enter course fee"
+                      {...courseForm.register('semesterFee')}
+                      placeholder="Enter semester fee"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-course-admission-fee">Admission Fee (₹)</Label>
+                    <Input
+                      id="edit-course-admission-fee"
+                      type="number"
+                      {...courseForm.register('admissionFee')}
+                      placeholder="Enter admission fee"
                     />
                   </div>
                 </div>

@@ -99,15 +99,17 @@ model Verification {
 }
 
 model Course {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  name        String    @unique
-  description String?
-  duration    String?
-  fee         Float?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  enquiries   Enquiry[]
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  name         String    @unique
+  description  String?
+  duration     String?
+  totalFee     Float?
+  semesterFee  Float?
+  admissionFee Float?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  enquiries    Enquiry[]
 
   @@map("course")
 }

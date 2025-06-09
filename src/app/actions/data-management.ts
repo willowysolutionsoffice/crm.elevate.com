@@ -162,7 +162,14 @@ export async function getAllCourses(): Promise<ActionResponse> {
 export async function createCourse(input: CreateCourseInput): Promise<ActionResponse> {
   try {
     const course = await prisma.course.create({
-      data: input,
+      data: {
+        name: input.name,
+        description: input.description,
+        duration: input.duration,
+        totalFee: input.totalFee,
+        semesterFee: input.semesterFee,
+        admissionFee: input.admissionFee,
+      },
     });
 
     revalidatePath('/admin/data-management');
@@ -189,7 +196,9 @@ export async function updateCourse(input: UpdateCourseInput): Promise<ActionResp
         name: input.name,
         description: input.description,
         duration: input.duration,
-        fee: input.fee,
+        totalFee: input.totalFee,
+        semesterFee: input.semesterFee,
+        admissionFee: input.admissionFee,
       },
     });
 
