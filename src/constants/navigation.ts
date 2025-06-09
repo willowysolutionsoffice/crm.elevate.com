@@ -2,6 +2,7 @@ import {
   IconDashboard,
   IconDatabase,
   IconFileInvoice,
+  IconFilePlus,
   IconFileText,
   IconListDetails,
   IconPhoneCall,
@@ -38,6 +39,11 @@ export const SIDEBAR_DATA: SidebarData = {
       title: 'Call Register',
       url: '/call-register',
       icon: IconPhoneCall,
+    },
+    {
+      title: 'Admissions',
+      url: '/admissions',
+      icon: IconFilePlus,
     },
   ],
   admin: [
