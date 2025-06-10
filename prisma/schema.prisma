@@ -31,11 +31,13 @@ model User {
   banExpires DateTime?
 
   // CRM Relations
-  assignedEnquiries Enquiry[]  @relation("AssignedEnquiries")
-  createdEnquiries  Enquiry[]  @relation("CreatedEnquiries")
-  createdFollowUps  FollowUp[] @relation("CreatedFollowUps")
-  createdCallLogs   CallLog[]  @relation("CreatedCallLogs")
-  createdInvoices   Invoice[]  @relation("CreatedInvoices")
+  assignedEnquiries Enquiry[]   @relation("AssignedEnquiries")
+  createdEnquiries  Enquiry[]   @relation("CreatedEnquiries")
+  createdFollowUps  FollowUp[]  @relation("CreatedFollowUps")
+  createdCallLogs   CallLog[]   @relation("CreatedCallLogs")
+  createdInvoices   Invoice[]   @relation("CreatedInvoices")
+  createdAdmissions Admission[] @relation("CreatedAdmissions")
+  Admission         Admission[]
 
   @@unique([email])
   @@map("user")
@@ -99,17 +101,18 @@ model Verification {
 }
 
 model Course {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  name         String    @unique
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  name         String      @unique
   description  String?
   duration     String?
   totalFee     Float?
   semesterFee  Float?
   admissionFee Float?
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
   enquiries    Enquiry[]
+  admissions   Admission[]
 
   @@map("course")
 }
@@ -176,6 +179,32 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+enum AdmissionGender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AmountCollectedType {
+  ADMISSION_FEE
+  SEMESTER_FEE
+  TOTAL_FEE
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+}
+
+enum AdmissionStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
 model Enquiry {
   id              String        @id @default(auto()) @map("_id") @db.ObjectId
   candidateName   String
@@ -211,8 +240,9 @@ model Enquiry {
   followUps FollowUp[]
   callLogs  CallLog[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  admissions Admission[]
 
   @@map("enquiry")
 }
@@ -298,4 +328,48 @@ model InvoiceItem {
   updatedAt DateTime @updatedAt
 
   @@map("invoice_item")
+}
+
+model Admission {
+  id                           String              @id @default(auto()) @map("_id") @db.ObjectId
+  admissionNumber              String              @unique
+  candidateName                String
+  mobileNumber                 String
+  email                        String?
+  gender                       AdmissionGender
+  dateOfBirth                  DateTime
+  address                      String
+  leadSource                   String?
+  lastQualification            String
+  yearOfPassing                Int
+  percentageCGPA               String
+  instituteName                String
+  additionalNotes              String?
+  courseTotalFee               Float
+  semesterFee                  Float?
+  admissionFee                 Float
+  nextDueDate                  DateTime
+  amountCollectedTowards       AmountCollectedType
+  paymentMode                  PaymentMode
+  transactionIdReferenceNumber String?
+  receiptNumber                String              @unique
+  remainingBalance             Float
+  status                       AdmissionStatus     @default(PENDING)
+
+  // Relationships
+  enquiryId String?  @db.ObjectId
+  enquiry   Enquiry? @relation(fields: [enquiryId], references: [id])
+
+  courseId String @db.ObjectId
+  course   Course @relation(fields: [courseId], references: [id])
+
+  createdByUserId String
+  createdBy       User   @relation("CreatedAdmissions", fields: [createdByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+
+  @@map("admission")
 }

@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useAction } from 'next-safe-action/hooks';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +24,7 @@ import {
   GraduationCap,
   CreditCard,
   Eye,
+  Loader2,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import {
@@ -42,84 +46,309 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Progress } from './ui/progress';
-import { Course, EnquirySource } from '@prisma/client';
+import {
+  Course,
+  EnquirySource,
+  AmountCollectedType as PrismaAmountCollectedType,
+  PaymentMode as PrismaPaymentMode,
+  AdmissionGender as PrismaAdmissionGender,
+} from '@prisma/client';
+import {
+  AdmissionFormData,
+  AdmissionWithRelations,
+  AdmissionGender,
+  PaymentMode,
+  AmountCollectedType,
+} from '@/types/admission';
+import { createAdmission, updateAdmission } from '@/app/actions/admission-actions';
+import { toast } from 'sonner';
+import { Enquiry } from '@/types/enquiry';
 
-// Form data type
-export interface AdmissionFormData {
-  candidateName: string;
-  mobileNumber: string;
-  email?: string;
-  gender: 'MALE' | 'FEMALE' | 'OTHER';
-  dateOfBirth: Date;
-  address: string;
-  idProofUploadUrl?: string;
-  leadSource: string;
-  lastQualification: string;
-  yearOfPassing: number;
-  percentageCGPA: string;
-  instituteName: string;
-  additionalNotes?: string;
-  courseId: string;
-  nextDueDate: Date;
-  amountCollectedTowards: 'ADMISSION_FEE' | 'SEMESTER_FEE';
-  paymentMode: 'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER';
-  transactionIdReferenceNumber?: string;
+interface SimpleCourse {
+  id: string;
+  name: string;
+  description?: string | null;
+  duration?: string | null;
+  totalFee?: number | null;
+  semesterFee?: number | null;
+  admissionFee?: number | null;
 }
 
 interface AdmissionFormDialogProps {
-  courses: Course[];
+  courses: SimpleCourse[];
   enquirySources: EnquirySource[];
   mode?: 'create' | 'edit';
-  admission?: any; // Type this properly later
+  admission?: AdmissionWithRelations;
+  enquiryData?: Enquiry;
   onSuccess?: () => void;
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
+
+// Comprehensive validation schema using Zod
+const admissionFormSchema = z
+  .object({
+    // Basic Details (Step 1)
+    candidateName: z
+      .string()
+      .min(1, 'Candidate name is required')
+      .max(100, 'Name must be less than 100 characters'),
+    mobileNumber: z
+      .string()
+      .min(10, 'Mobile number must be at least 10 digits')
+      .max(15, 'Mobile number must be less than 15 digits')
+      .regex(/^[+]?[\d\s-()]+$/, 'Please enter a valid mobile number'),
+    email: z.string().email('Please enter a valid email address').optional().or(z.literal('')),
+    gender: z.nativeEnum(AdmissionGender, {
+      errorMap: () => ({ message: 'Please select a gender' }),
+    }),
+    dateOfBirth: z
+      .date({
+        required_error: 'Date of birth is required',
+        invalid_type_error: 'Please select a valid date',
+      })
+      .refine((date) => {
+        const today = new Date();
+        const minAge = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
+        const maxAge = new Date(today.getFullYear() - 15, today.getMonth(), today.getDate());
+        return date >= minAge && date <= maxAge;
+      }, 'Candidate must be between 15 and 100 years old'),
+    address: z
+      .string()
+      .min(10, 'Address must be at least 10 characters')
+      .max(500, 'Address must be less than 500 characters'),
+    leadSource: z.string().min(1, 'Lead source is required'),
+
+    // Education Details (Step 2)
+    lastQualification: z
+      .string()
+      .min(1, 'Last qualification is required')
+      .max(100, 'Qualification must be less than 100 characters'),
+    yearOfPassing: z
+      .number()
+      .min(1950, 'Year must be after 1950')
+      .max(new Date().getFullYear(), `Year cannot be more than ${new Date().getFullYear()}`),
+    percentageCGPA: z
+      .string()
+      .min(1, 'Percentage/CGPA is required')
+      .max(20, 'Value must be less than 20 characters'),
+    instituteName: z
+      .string()
+      .min(1, 'Institute name is required')
+      .max(200, 'Institute name must be less than 200 characters'),
+    additionalNotes: z.string().max(1000, 'Notes must be less than 1000 characters').optional(),
+
+    // Course & Fee Details (Step 3)
+    courseId: z.string().min(1, 'Please select a course'),
+    nextDueDate: z
+      .date({
+        required_error: 'Next due date is required',
+        invalid_type_error: 'Please select a valid date',
+      })
+      .refine((date) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return date >= today;
+      }, 'Next due date cannot be in the past'),
+    amountCollectedTowards: z.nativeEnum(AmountCollectedType, {
+      errorMap: () => ({ message: 'Please select what the amount is collected towards' }),
+    }),
+    paymentMode: z.nativeEnum(PaymentMode, {
+      errorMap: () => ({ message: 'Please select a payment mode' }),
+    }),
+    transactionIdReferenceNumber: z
+      .string()
+      .max(100, 'Transaction reference must be less than 100 characters')
+      .optional(),
+    amountPaid: z
+      .number({
+        required_error: 'Amount paid is required',
+        invalid_type_error: 'Please enter a valid amount',
+      })
+      .min(0.01, 'Amount must be greater than 0')
+      .max(1000000, 'Amount cannot exceed 10,00,000'),
+  })
+  .refine(
+    (data) => {
+      // Conditional validation: require transaction reference for non-cash payments
+      if (
+        data.paymentMode !== PaymentMode.CASH &&
+        (!data.transactionIdReferenceNumber || data.transactionIdReferenceNumber.trim() === '')
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Transaction ID/Reference number is required for non-cash payments',
+      path: ['transactionIdReferenceNumber'],
+    }
+  );
+
+type AdmissionFormValues = z.infer<typeof admissionFormSchema>;
 
 export function AdmissionFormDialog({
   courses,
   enquirySources,
   mode = 'create',
   admission,
+  enquiryData,
   onSuccess,
   trigger,
+  open,
+  onOpenChange,
 }: AdmissionFormDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Use external open prop if provided, otherwise use internal state
+  const isOpen = open !== undefined ? open : internalOpen;
+  const setIsOpen = onOpenChange || setInternalOpen;
+
+  // Reset current step when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStep(0);
+    }
+  }, [isOpen]);
 
   const totalSteps = 4;
   const stepTitles = ['Basic Details', 'Education Details', 'Course & Fees', 'Review & Confirm'];
   const stepIcons = [User, GraduationCap, CreditCard, Eye];
 
-  // Form setup without validation
-  const form = useForm<AdmissionFormData>({
+  // Form setup with Zod validation
+  const form = useForm<AdmissionFormValues>({
+    resolver: zodResolver(admissionFormSchema),
     defaultValues: {
-      candidateName: admission?.candidateName || '',
-      mobileNumber: admission?.mobileNumber || '',
-      email: admission?.email || '',
+      candidateName: admission?.candidateName || enquiryData?.candidateName || '',
+      mobileNumber: admission?.mobileNumber || enquiryData?.phone || '',
+      email: admission?.email || enquiryData?.email || '',
       gender: admission?.gender || undefined,
       dateOfBirth: admission?.dateOfBirth ? new Date(admission.dateOfBirth) : undefined,
-      address: admission?.address || '',
-      idProofUploadUrl: admission?.idProofUploadUrl || '',
-      leadSource: admission?.leadSource || '',
+      address: admission?.address || enquiryData?.address || '',
+      leadSource: admission?.leadSource || enquiryData?.enquirySource?.name || '',
       lastQualification: admission?.lastQualification || '',
       yearOfPassing: admission?.yearOfPassing || new Date().getFullYear(),
       percentageCGPA: admission?.percentageCGPA || '',
       instituteName: admission?.instituteName || '',
       additionalNotes: admission?.additionalNotes || '',
-      courseId: admission?.courseId || '',
+      courseId: admission?.courseId || enquiryData?.preferredCourse?.id || '',
       nextDueDate: admission?.nextDueDate ? new Date(admission.nextDueDate) : undefined,
-      amountCollectedTowards: admission?.amountCollectedTowards || 'ADMISSION_FEE',
+      amountCollectedTowards:
+        admission?.amountCollectedTowards || AmountCollectedType.ADMISSION_FEE,
       paymentMode: admission?.paymentMode || undefined,
       transactionIdReferenceNumber: admission?.transactionIdReferenceNumber || '',
+      amountPaid: 0,
     },
     mode: 'onChange',
   });
 
+  // Use next-safe-action hooks - separate for create and update due to different schemas
+  const { execute: executeCreate, isExecuting: isExecutingCreate } = useAction(createAdmission, {
+    onSuccess: ({ data }) => {
+      if (data?.success) {
+        toast.success(data.message || 'Admission created successfully!');
+        setIsOpen(false);
+        setCurrentStep(0);
+        form.reset();
+        onSuccess?.();
+      }
+    },
+    onError: ({ error }) => {
+      toast.error(error.serverError || 'Failed to create admission. Please try again.');
+    },
+    onSettled: ({ result }) => {
+      if (result?.validationErrors) {
+        // Handle validation errors from server action
+        Object.entries(result.validationErrors).forEach(([field, errors]) => {
+          if (
+            errors &&
+            typeof errors === 'object' &&
+            '_errors' in errors &&
+            Array.isArray(errors._errors) &&
+            errors._errors[0]
+          ) {
+            form.setError(field as keyof AdmissionFormValues, {
+              message: errors._errors[0],
+            });
+          }
+        });
+      }
+    },
+  });
+
+  const { execute: executeUpdate, isExecuting: isExecutingUpdate } = useAction(updateAdmission, {
+    onSuccess: ({ data }) => {
+      if (data?.success) {
+        toast.success(data.message || 'Admission updated successfully!');
+        setIsOpen(false);
+        setCurrentStep(0);
+        form.reset();
+        onSuccess?.();
+      }
+    },
+    onError: ({ error }) => {
+      toast.error(error.serverError || 'Failed to update admission. Please try again.');
+    },
+    onSettled: ({ result }) => {
+      if (result?.validationErrors) {
+        // Handle validation errors from server action
+        Object.entries(result.validationErrors).forEach(([field, errors]) => {
+          if (
+            errors &&
+            typeof errors === 'object' &&
+            '_errors' in errors &&
+            Array.isArray(errors._errors) &&
+            errors._errors[0]
+          ) {
+            form.setError(field as keyof AdmissionFormValues, {
+              message: errors._errors[0],
+            });
+          }
+        });
+      }
+    },
+  });
+
+  // Determine which execute function and loading state to use
+  const execute = mode === 'create' ? executeCreate : executeUpdate;
+  const isExecuting = mode === 'create' ? isExecutingCreate : isExecutingUpdate;
+
+  // Reset form with enquiry data when enquiry data changes
+  useEffect(() => {
+    if (enquiryData && isOpen) {
+      form.reset({
+        candidateName: enquiryData.candidateName || '',
+        mobileNumber: enquiryData.phone || '',
+        email: enquiryData.email || '',
+        gender: undefined,
+        dateOfBirth: undefined,
+        address: enquiryData.address || '',
+        leadSource: enquiryData.enquirySource?.name || '',
+        lastQualification: '',
+        yearOfPassing: new Date().getFullYear(),
+        percentageCGPA: '',
+        instituteName: '',
+        additionalNotes: enquiryData.notes ? `Notes from enquiry: ${enquiryData.notes}` : '',
+        courseId: enquiryData.preferredCourse?.id || '',
+        nextDueDate: undefined,
+        amountCollectedTowards: AmountCollectedType.ADMISSION_FEE,
+        paymentMode: undefined,
+        transactionIdReferenceNumber: '',
+        amountPaid: 0,
+      });
+    }
+  }, [enquiryData, isOpen, form]);
+
   // Watch form values for dynamic behavior
   const watchedCourseId = form.watch('courseId');
   const watchedPaymentMode = form.watch('paymentMode');
-  const watchedAmountTowards = form.watch('amountCollectedTowards');
+  const watchedAmountTowards = form.watch('amountCollectedTowards') as
+    | 'ADMISSION_FEE'
+    | 'SEMESTER_FEE'
+    | 'TOTAL_FEE';
+  const watchedAmountPaid = form.watch('amountPaid');
 
   // Get selected course details
   const selectedCourse = courses.find((course) => course.id === watchedCourseId);
@@ -127,9 +356,40 @@ export function AdmissionFormDialog({
   // Calculate progress
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
+  // Step validation functions
+  const validateStep = async (stepIndex: number): Promise<boolean> => {
+    const fieldsToValidate: { [key: number]: (keyof AdmissionFormValues)[] } = {
+      0: [
+        'candidateName',
+        'mobileNumber',
+        'email',
+        'gender',
+        'dateOfBirth',
+        'address',
+        'leadSource',
+      ],
+      1: ['lastQualification', 'yearOfPassing', 'percentageCGPA', 'instituteName'],
+      2: [
+        'courseId',
+        'nextDueDate',
+        'amountCollectedTowards',
+        'paymentMode',
+        'transactionIdReferenceNumber',
+        'amountPaid',
+      ],
+    };
+
+    const fields = fieldsToValidate[stepIndex];
+    if (!fields) return true;
+
+    const result = await form.trigger(fields);
+    return result;
+  };
+
   // Navigation functions
-  const handleNext = () => {
-    if (currentStep < totalSteps - 1) {
+  const handleNext = async () => {
+    const isValid = await validateStep(currentStep);
+    if (isValid && currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -140,58 +400,104 @@ export function AdmissionFormDialog({
     }
   };
 
-  const handleStepClick = (stepIndex: number) => {
-    setCurrentStep(stepIndex);
+  const handleStepClick = async (stepIndex: number) => {
+    // Allow going back to previous steps
+    if (stepIndex < currentStep) {
+      setCurrentStep(stepIndex);
+      return;
+    }
+
+    // For moving forward, validate all previous steps
+    let canProceed = true;
+    for (let i = currentStep; i < stepIndex; i++) {
+      const isStepValid = await validateStep(i);
+      if (!isStepValid) {
+        canProceed = false;
+        break;
+      }
+    }
+
+    if (canProceed) {
+      setCurrentStep(stepIndex);
+    }
   };
 
   // Form submission
-  const onSubmit = async (data: AdmissionFormData) => {
-    setIsSubmitting(true);
-    try {
-      // TODO: Implement actual form submission
-      console.log('Admission form data:', data);
+  const onSubmit = async (data: AdmissionFormValues) => {
+    if (mode === 'create') {
+      // Convert form data to match the create admission schema
+      const createData = {
+        ...data,
+        email: data.email || undefined, // Convert empty string to undefined
+      };
+      executeCreate(createData);
+    } else {
+      // Convert form data to match the update admission schema
+      if (!admission?.id) {
+        toast.error('No admission ID found for update');
+        return;
+      }
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      setOpen(false);
-      setCurrentStep(0);
-      form.reset();
-      onSuccess?.();
-    } catch (error) {
-      console.error('Error submitting admission form:', error);
-    } finally {
-      setIsSubmitting(false);
+      const updateData = {
+        id: admission.id,
+        candidateName: data.candidateName,
+        mobileNumber: data.mobileNumber,
+        email: data.email || undefined,
+        gender: data.gender,
+        dateOfBirth: data.dateOfBirth,
+        address: data.address,
+        leadSource: data.leadSource,
+        lastQualification: data.lastQualification,
+        yearOfPassing: data.yearOfPassing,
+        percentageCGPA: data.percentageCGPA,
+        instituteName: data.instituteName,
+        additionalNotes: data.additionalNotes,
+        courseId: data.courseId,
+        nextDueDate: data.nextDueDate,
+        amountCollectedTowards: data.amountCollectedTowards,
+        paymentMode: data.paymentMode,
+        transactionIdReferenceNumber: data.transactionIdReferenceNumber,
+        amountPaid: data.amountPaid,
+      };
+      executeUpdate(updateData);
     }
   };
 
   // Reset form when dialog closes
   const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen && !isSubmitting) {
+    if (!newOpen && !isExecuting) {
       setCurrentStep(0);
       form.reset();
     }
-    setOpen(newOpen);
+    setIsOpen(newOpen);
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            {mode === 'edit' ? 'Edit Admission' : 'Create Admission'}
-          </Button>
-        )}
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      {trigger !== null && (
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              {mode === 'edit' ? 'Edit Admission' : 'Create Admission'}
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-screen-sm max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader className="pb-4">
           <DialogTitle className="text-2xl font-bold">
             {mode === 'edit' ? 'Edit Admission' : 'Create New Admission'}
+            {enquiryData && (
+              <span className="text-lg font-normal text-blue-600 ml-2">(from enquiry)</span>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Fill in the details to {mode === 'edit' ? 'update the' : 'create a new'} admission
-            record.
+            {enquiryData
+              ? `Creating admission for ${enquiryData.candidateName} from enquiry. Some fields have been pre-filled.`
+              : `Fill in the details to ${
+                  mode === 'edit' ? 'update the' : 'create a new'
+                } admission record.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -217,7 +523,7 @@ export function AdmissionFormDialog({
               <button
                 key={index}
                 onClick={() => handleStepClick(index)}
-                className="flex flex-col items-center space-y-2 transition-all duration-200 cursor-pointer"
+                className="flex flex-col items-center space-y-2 transition-all duration-200 cursor-pointer focus:outline-none"
               >
                 <div
                   className={cn(
@@ -270,7 +576,14 @@ export function AdmissionFormDialog({
                         name="candidateName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Candidate Name *</FormLabel>
+                            <FormLabel>
+                              Candidate Name *
+                              {enquiryData?.candidateName && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  From enquiry
+                                </Badge>
+                              )}
+                            </FormLabel>
                             <FormControl>
                               <Input placeholder="Enter full name" {...field} />
                             </FormControl>
@@ -284,7 +597,14 @@ export function AdmissionFormDialog({
                         name="mobileNumber"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Mobile Number *</FormLabel>
+                            <FormLabel>
+                              Mobile Number *
+                              {enquiryData?.phone && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  From enquiry
+                                </Badge>
+                              )}
+                            </FormLabel>
                             <FormControl>
                               <Input placeholder="+91 9876543210" {...field} />
                             </FormControl>
@@ -298,7 +618,14 @@ export function AdmissionFormDialog({
                         name="email"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email Address</FormLabel>
+                            <FormLabel>
+                              Email Address
+                              {enquiryData?.email && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  From enquiry
+                                </Badge>
+                              )}
+                            </FormLabel>
                             <FormControl>
                               <Input type="email" placeholder="example@email.com" {...field} />
                             </FormControl>
@@ -320,9 +647,9 @@ export function AdmissionFormDialog({
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="MALE">Male</SelectItem>
-                                <SelectItem value="FEMALE">Female</SelectItem>
-                                <SelectItem value="OTHER">Other</SelectItem>
+                                <SelectItem value={AdmissionGender.MALE}>Male</SelectItem>
+                                <SelectItem value={AdmissionGender.FEMALE}>Female</SelectItem>
+                                <SelectItem value={AdmissionGender.OTHER}>Other</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -366,7 +693,6 @@ export function AdmissionFormDialog({
                                   captionLayout="dropdown"
                                   startMonth={new Date(1940, 0, 1)}
                                   endMonth={new Date()}
-                                  autoFocus
                                 />
                               </PopoverContent>
                             </Popover>
@@ -380,7 +706,14 @@ export function AdmissionFormDialog({
                         name="leadSource"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Lead Source *</FormLabel>
+                            <FormLabel>
+                              Lead Source *
+                              {enquiryData?.enquirySource?.name && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  From enquiry
+                                </Badge>
+                              )}
+                            </FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger className="w-full">
@@ -406,41 +739,21 @@ export function AdmissionFormDialog({
                       name="address"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Complete Address *</FormLabel>
+                          <FormLabel>
+                            Address *
+                            {enquiryData?.address && (
+                              <Badge variant="secondary" className="ml-2 text-xs">
+                                From enquiry
+                              </Badge>
+                            )}
+                          </FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder="Enter complete address including city, state, and PIN code"
-                              className="min-h-20"
+                              placeholder="Enter complete address"
+                              className="resize-none"
                               {...field}
                             />
                           </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="idProofUploadUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>ID Proof (Optional)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="file"
-                              accept="image/*,.pdf"
-                              onChange={(e) => {
-                                // TODO: Handle file upload
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  field.onChange(file.name); // Temporary - implement actual upload
-                                }
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Upload Aadhar Card, PAN Card, or Passport (Image or PDF)
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -485,11 +798,15 @@ export function AdmissionFormDialog({
                             <FormLabel>Year of Passing *</FormLabel>
                             <FormControl>
                               <Input
-                                type="text"
+                                type="number"
                                 placeholder="2024"
-                                value={field.value?.toString() || ''}
+                                min="1950"
+                                max={new Date().getFullYear()}
+                                value={field.value || ''}
                                 onChange={(e) => {
-                                  field.onChange(e.target.value.replace(/[^0-9]/g, ''));
+                                  const value =
+                                    parseInt(e.target.value) || new Date().getFullYear();
+                                  field.onChange(value);
                                 }}
                               />
                             </FormControl>
@@ -565,7 +882,14 @@ export function AdmissionFormDialog({
                         name="courseId"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Select Course *</FormLabel>
+                            <FormLabel>
+                              Select Course *
+                              {enquiryData?.preferredCourse && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  From enquiry
+                                </Badge>
+                              )}
+                            </FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger className="w-full">
@@ -694,6 +1018,30 @@ export function AdmissionFormDialog({
 
                         <FormField
                           control={form.control}
+                          name="amountPaid"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Amount Paid *</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="Enter amount"
+                                  step="0.01"
+                                  min="0"
+                                  value={field.value || ''}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0;
+                                    field.onChange(value);
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
                           name="paymentMode"
                           render={({ field }) => (
                             <FormItem>
@@ -716,7 +1064,7 @@ export function AdmissionFormDialog({
                           )}
                         />
 
-                        {watchedPaymentMode && watchedPaymentMode !== 'CASH' && (
+                        {watchedPaymentMode && watchedPaymentMode !== PaymentMode.CASH && (
                           <FormField
                             control={form.control}
                             name="transactionIdReferenceNumber"
@@ -852,7 +1200,7 @@ export function AdmissionFormDialog({
                                   {formatCurrency(selectedCourse.admissionFee || 0)}
                                 </Badge>
                               </div>
-                              {selectedCourse.semesterFee && (
+                              {selectedCourse.semesterFee !== 0 && (
                                 <div>
                                   <span className="font-medium">Semester Fee:</span>{' '}
                                   <Badge variant="outline">
@@ -878,6 +1226,12 @@ export function AdmissionFormDialog({
                             </Badge>
                           </div>
                           <div>
+                            <span className="font-medium">Amount Paid:</span>{' '}
+                            <Badge variant="default">
+                              {formatCurrency(form.getValues('amountPaid') || 0)}
+                            </Badge>
+                          </div>
+                          <div>
                             <span className="font-medium">Payment Mode:</span>{' '}
                             <Badge variant="outline">
                               {form.getValues('paymentMode') || 'N/A'}
@@ -898,22 +1252,19 @@ export function AdmissionFormDialog({
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                               <div>
                                 <span className="font-medium">Amount Paid:</span>{' '}
-                                {watchedAmountTowards === 'ADMISSION_FEE'
-                                  ? formatCurrency(selectedCourse.admissionFee || 0)
-                                  : formatCurrency(selectedCourse.semesterFee || 0)}
+                                <span className="font-bold text-green-600">
+                                  {formatCurrency(watchedAmountPaid || 0)}
+                                </span>
                               </div>
                               <div>
                                 <span className="font-medium">Remaining Balance:</span>{' '}
                                 <span className="font-bold text-orange-600">
-                                  {watchedAmountTowards === 'ADMISSION_FEE'
-                                    ? formatCurrency(
-                                        (selectedCourse.totalFee || 0) -
-                                          (selectedCourse.admissionFee || 0)
-                                      )
-                                    : formatCurrency(
-                                        (selectedCourse.totalFee || 0) -
-                                          (selectedCourse.semesterFee || 0)
-                                      )}
+                                  {formatCurrency(
+                                    Math.max(
+                                      0,
+                                      (selectedCourse.totalFee || 0) - (watchedAmountPaid || 0)
+                                    )
+                                  )}
                                 </span>
                               </div>
                             </div>
@@ -934,7 +1285,7 @@ export function AdmissionFormDialog({
             type="button"
             variant="outline"
             onClick={handlePrevious}
-            disabled={currentStep === 0 || isSubmitting}
+            disabled={currentStep === 0 || isExecuting}
             className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -946,7 +1297,7 @@ export function AdmissionFormDialog({
               type="button"
               variant="outline"
               onClick={() => handleOpenChange(false)}
-              disabled={isSubmitting}
+              disabled={isExecuting}
             >
               Cancel
             </Button>
@@ -960,10 +1311,10 @@ export function AdmissionFormDialog({
               <Button
                 type="submit"
                 onClick={form.handleSubmit(onSubmit)}
-                disabled={isSubmitting}
+                disabled={isExecuting}
                 className="gap-2"
               >
-                {isSubmitting ? (
+                {isExecuting ? (
                   <>
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     {mode === 'edit' ? 'Updating...' : 'Creating...'}

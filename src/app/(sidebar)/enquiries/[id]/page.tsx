@@ -51,6 +51,7 @@ import { toast } from 'sonner';
 import { EnquiryFormDialog } from '@/components/enquiry/enquiry-form-dialog';
 import { EnquiryStatus, Enquiry, FollowUp, CallLog } from '@/types/enquiry';
 import { User } from '@/types/data-management';
+import Link from 'next/link';
 
 // Form schemas
 const followUpSchema = z.object({
@@ -331,6 +332,12 @@ export default function EnquiryDetailPage() {
 
       {/* Action Buttons */}
       <div className="flex items-center space-x-4">
+        <Link href={`/admissions?enquiryId=${enquiry.id}`}>
+          <Button>
+            <UserPlus className="mr-2 size-4" />
+            Take Admission
+          </Button>
+        </Link>
         <Dialog open={isCallLogDialogOpen} onOpenChange={setIsCallLogDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline">
