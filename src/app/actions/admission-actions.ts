@@ -399,6 +399,14 @@ export const deleteAdmission = action
         throw new Error('Admission not found');
       }
 
+      // Perform soft delete by updating status to CANCELLED
+      await prisma.admission.update({
+        where: { id },
+        data: {
+          status: AdmissionStatus.CANCELLED,
+        },
+      });
+
       revalidatePath('/admissions');
       return { success: true, message: 'Admission deleted successfully' };
     } catch (error) {
