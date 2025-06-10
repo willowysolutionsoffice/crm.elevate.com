@@ -4,21 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft,
-  Download,
-  Calendar,
   User,
   Receipt,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  XCircle,
-  Circle,
-  Eye,
   IndianRupee,
   FileText,
   Phone,
@@ -33,13 +24,11 @@ import { getAdmissionById } from '@/app/actions/admission-actions';
 import { toast } from 'sonner';
 import {
   AdmissionWithRelations,
-  AdmissionStatus,
-  AdmissionStatusLabels,
   PaymentModeLabels,
   AmountCollectedTypeLabels,
   AdmissionGenderLabels,
 } from '@/types/admission';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 export default function AdmissionDetailPage() {
   const params = useParams();
@@ -97,49 +86,6 @@ export default function AdmissionDetailPage() {
     } finally {
       setIsGeneratingReceipt(false);
     }
-  };
-
-  const getStatusConfig = (status: AdmissionStatus) => {
-    switch (status) {
-      case AdmissionStatus.PENDING:
-        return {
-          color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-          icon: Clock,
-          label: AdmissionStatusLabels[status],
-        };
-      case AdmissionStatus.CONFIRMED:
-        return {
-          color: 'bg-blue-100 text-blue-800 border-blue-200',
-          icon: CheckCircle,
-          label: AdmissionStatusLabels[status],
-        };
-      case AdmissionStatus.COMPLETED:
-        return {
-          color: 'bg-green-100 text-green-800 border-green-200',
-          icon: CheckCircle,
-          label: AdmissionStatusLabels[status],
-        };
-      case AdmissionStatus.CANCELLED:
-        return {
-          color: 'bg-red-100 text-red-800 border-red-200',
-          icon: XCircle,
-          label: AdmissionStatusLabels[status],
-        };
-      default:
-        return {
-          color: 'bg-gray-100 text-gray-800 border-gray-200',
-          icon: Circle,
-          label: status,
-        };
-    }
-  };
-
-  const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
   };
 
   // Loading skeleton
@@ -209,9 +155,6 @@ export default function AdmissionDetailPage() {
     );
   }
 
-  const statusConfig = getStatusConfig(admission.status);
-  const StatusIcon = statusConfig.icon;
-
   return (
     <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
       {/* Header */}
@@ -227,16 +170,10 @@ export default function AdmissionDetailPage() {
             <p className="text-muted-foreground">View and manage admission information</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge className={`gap-1 ${statusConfig.color}`}>
-            <StatusIcon className="h-3 w-3" />
-            {statusConfig.label}
-          </Badge>
-          <Button onClick={handleGenerateReceipt} disabled={isGeneratingReceipt} className="gap-2">
-            <FileText className="h-4 w-4" />
-            {isGeneratingReceipt ? 'Generating...' : 'Generate Receipt'}
-          </Button>
-        </div>
+        <Button onClick={handleGenerateReceipt} disabled={isGeneratingReceipt} className="gap-2">
+          <FileText className="h-4 w-4" />
+          {isGeneratingReceipt ? 'Generating...' : 'Generate Receipt'}
+        </Button>
       </div>
 
       {/* Main Content */}

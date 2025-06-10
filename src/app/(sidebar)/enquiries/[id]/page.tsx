@@ -124,6 +124,31 @@ export default function EnquiryDetailPage() {
     }
   }, [enquiryId, fetchEnquiry]);
 
+  // Refresh enquiry data when page becomes visible (user returns from admissions page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && enquiryId) {
+        fetchEnquiry();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Also listen for focus events
+    const handleFocus = () => {
+      if (enquiryId) {
+        fetchEnquiry();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [enquiryId, fetchEnquiry]);
+
   const handleStatusUpdate = async (newStatus: string) => {
     setIsUpdatingStatus(true);
     try {
@@ -282,6 +307,11 @@ export default function EnquiryDetailPage() {
                 </div>
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 sm:text-base">
                   Enquiry Details • Created {formatDate(enquiry.createdAt)}
+                  {enquiry.status === 'ENROLLED' && (
+                    <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-200">
+                      ✓ Admission Completed
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -413,12 +443,30 @@ export default function EnquiryDetailPage() {
               Quick Actions
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Link href={`/admissions?enquiryId=${enquiry.id}`} className="relative z-10 w-full">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700">
+              {enquiry.status !== EnquiryStatus.ENROLLED ? (
+                <Link href={`/admissions?enquiryId=${enquiry.id}`} className="relative z-10 w-full">
+                  <Button
+                    className="relative z-10 w-full cursor-pointer"
+                    onClick={() => {
+                      if (enquiry.status === EnquiryStatus.ENROLLED) {
+                        toast.info(
+                          'This enquiry has already been enrolled. Check the admissions section for details.'
+                        );
+                        return;
+                      }
+                      toast.info('Taking you to the admissions page to complete the enrollment...');
+                    }}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Take Admission
+                  </Button>
+                </Link>
+              ) : (
+                <Button className="relative z-10 w-full cursor-not-allowed" disabled>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Take Admission
+                  Already Enrolled
                 </Button>
-              </Link>
+              )}
 
               <Dialog open={isCallLogDialogOpen} onOpenChange={setIsCallLogDialogOpen}>
                 <DialogTrigger asChild>

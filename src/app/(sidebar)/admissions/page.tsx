@@ -318,6 +318,11 @@ export default function AdmissionsPage() {
   const handleCreateSuccess = () => {
     refreshAdmissions();
     setCreateDialogOpen(false);
+    if (enquiryData) {
+      toast.success(
+        `Admission created successfully for ${enquiryData.candidateName}! Enquiry status updated to Enrolled.`
+      );
+    }
     setEnquiryData(null);
   };
 

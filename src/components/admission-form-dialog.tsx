@@ -61,6 +61,8 @@ import {
   AmountCollectedType,
 } from '@/types/admission';
 import { createAdmission, updateAdmission } from '@/app/actions/admission-actions';
+import { updateEnquiryStatus } from '@/app/actions/enquiry';
+import { EnquiryStatus } from '@/types/enquiry';
 import { toast } from 'sonner';
 import { Enquiry } from '@/types/enquiry';
 
@@ -246,9 +248,28 @@ export function AdmissionFormDialog({
 
   // Use next-safe-action hooks - separate for create and update due to different schemas
   const { execute: executeCreate, isExecuting: isExecutingCreate } = useAction(createAdmission, {
-    onSuccess: ({ data }) => {
+    onSuccess: async ({ data }) => {
       if (data?.success) {
         toast.success(data.message || 'Admission created successfully!');
+
+        // Update enquiry status to ENROLLED if this admission was created from an enquiry
+        if (enquiryData && enquiryData.id) {
+          try {
+            const enquiryUpdateResult = await updateEnquiryStatus(
+              enquiryData.id,
+              EnquiryStatus.ENROLLED
+            );
+            if (enquiryUpdateResult.success) {
+              toast.success('Enquiry status updated to Enrolled');
+            } else {
+              toast.error('Failed to update enquiry status');
+            }
+          } catch (error) {
+            console.error('Error updating enquiry status:', error);
+            toast.error('Failed to update enquiry status');
+          }
+        }
+
         setIsOpen(false);
         setCurrentStep(0);
         form.reset();
