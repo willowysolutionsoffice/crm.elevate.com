@@ -19,8 +19,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import type { UserProfile } from '@/types/navigation';
 import { getInitials } from '@/lib/utils';
+import type { UserProfile } from '@/types/navigation';
 
 interface NavUserProps {
   user: UserProfile;
@@ -29,6 +29,7 @@ interface NavUserProps {
 export function NavUser({ user }: NavUserProps) {
   const { isMobile } = useSidebar();
   const { execute: executeLogout, isExecuting: isLoggingOut } = useAction(logoutAction);
+
   const initials = getInitials(user.name);
 
   const handleLogout = () => {
