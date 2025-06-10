@@ -43,9 +43,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         {user?.role === 'admin' && <NavAdmin items={SIDEBAR_DATA.admin} />}
         <NavSecondary items={SIDEBAR_DATA.navSecondary} className="mt-auto" />
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={SIDEBAR_DATA.user} />
-      </SidebarFooter>
+      <SidebarFooter>{user && <NavUser user={user} />}</SidebarFooter>
     </Sidebar>
   );
 }
