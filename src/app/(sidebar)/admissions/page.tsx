@@ -345,11 +345,8 @@ export default function AdmissionsPage() {
       {/* Loading indicator for enquiry */}
       {isLoadingEnquiry && (
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-center space-x-2">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              <span>Loading enquiry data...</span>
-            </div>
+          <CardContent className="p-6 flex items-center justify-center space-x-2">
+            <span>Loading enquiry data...</span>
           </CardContent>
         </Card>
       )}
