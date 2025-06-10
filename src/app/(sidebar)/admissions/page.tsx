@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -42,7 +41,6 @@ import {
   AdmissionWithRelations,
   AdmissionStatus,
   PaymentMode,
-  AdmissionStatusLabels,
   PaymentModeLabels,
 } from '@/types/admission';
 import { formatCurrency } from '@/lib/utils';
@@ -278,21 +276,6 @@ export default function AdmissionsPage() {
     }
   };
 
-  const getStatusColor = (status: AdmissionStatus) => {
-    switch (status) {
-      case AdmissionStatus.PENDING:
-        return 'bg-yellow-100 text-yellow-800';
-      case AdmissionStatus.CONFIRMED:
-        return 'bg-blue-100 text-blue-800';
-      case AdmissionStatus.COMPLETED:
-        return 'bg-green-100 text-green-800';
-      case AdmissionStatus.CANCELLED:
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -366,8 +349,7 @@ export default function AdmissionsPage() {
         <CardHeader>
           <CardTitle>Filters</CardTitle>
           <CardDescription>
-            Filter admissions by status, course, payment mode or search by name, mobile, admission
-            number
+            Filter admissions by course, payment mode or search by name, mobile, admission number
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -392,26 +374,6 @@ export default function AdmissionsPage() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => {
-                  setStatusFilter(value as AdmissionStatus | 'ALL');
-                  handleFilterChange();
-                }}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Statuses</SelectItem>
-                  {Object.values(AdmissionStatus).map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {AdmissionStatusLabels[status]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
               <Select
                 value={courseFilter}
                 onValueChange={(value) => {
@@ -478,7 +440,6 @@ export default function AdmissionsPage() {
                     <TableHead>Candidate</TableHead>
                     <TableHead>Mobile</TableHead>
                     <TableHead>Course</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead>Total Fee</TableHead>
                     <TableHead>Remaining Balance</TableHead>
                     <TableHead>Created Date</TableHead>
@@ -512,11 +473,6 @@ export default function AdmissionsPage() {
                               {formatCurrency(admission.course.totalFee || 0)}
                             </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(admission.status)}>
-                            {AdmissionStatusLabels[admission.status]}
-                          </Badge>
                         </TableCell>
                         <TableCell>{formatCurrency(admission.courseTotalFee)}</TableCell>
                         <TableCell>
