@@ -38,6 +38,12 @@ import {
   CalendarPlus,
   ArrowLeft,
   UserPlus,
+  MapPin,
+  ExternalLink,
+  MessageCircle,
+  Star,
+  TrendingUp,
+  Activity,
 } from 'lucide-react';
 import { getEnquiry, updateEnquiryStatus, assignEnquiry } from '@/app/actions/enquiry';
 import { createFollowUp } from '@/app/actions/follow-up';
@@ -52,6 +58,7 @@ import { EnquiryFormDialog } from '@/components/enquiry/enquiry-form-dialog';
 import { EnquiryStatus, Enquiry, FollowUp, CallLog } from '@/types/enquiry';
 import { User } from '@/types/data-management';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 // Form schemas
 const followUpSchema = z.object({
@@ -249,399 +256,645 @@ export default function EnquiryDetailPage() {
   }
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.back()}
-            className="flex items-center"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{enquiry.candidateName}</h1>
-            <p className="text-gray-600">Enquiry Details</p>
+    <div className="@container/main flex flex-1 flex-col gap-4 p-3 sm:gap-6 sm:p-4 md:p-6">
+      {/* Enhanced Header */}
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
+        <div className="relative z-10 p-4 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => router.back()}
+                className="relative z-20 flex shrink-0 items-center shadow-sm"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 sm:text-3xl">
+                    {enquiry.candidateName}
+                  </h1>
+                  <Badge className={cn('w-fit', getStatusColor(enquiry.status))}>
+                    {ENQUIRY_STATUS_OPTIONS.find((opt) => opt.value === enquiry.status)?.label ||
+                      enquiry.status}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 sm:text-base">
+                  Enquiry Details • Created {formatDate(enquiry.createdAt)}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Action Buttons */}
+            <div className="relative z-20 flex flex-wrap gap-2">
+              <Link href={`tel:${enquiry.phone}`} className="relative z-30">
+                <Button size="sm" variant="outline" className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  <span className="hidden sm:inline">Call</span>
+                </Button>
+              </Link>
+              <Link
+                href={`https://wa.me/91${enquiry.phone.replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative z-30"
+              >
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex items-center gap-2 text-green-600 hover:text-green-700"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span className="hidden sm:inline">WhatsApp</span>
+                </Button>
+              </Link>
+              {enquiry.email && (
+                <Link href={`mailto:${enquiry.email}`} className="relative z-30">
+                  <Button size="sm" variant="outline" className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    <span className="hidden sm:inline">Email</span>
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Badge className={getStatusColor(enquiry.status)}>
-            {ENQUIRY_STATUS_OPTIONS.find((opt) => opt.value === enquiry.status)?.label ||
-              enquiry.status}
-          </Badge>
+
+        {/* Decorative Background - Lower z-index */}
+        <div className="absolute inset-0 z-0 bg-grid-white/[0.02] bg-[size:60px_60px]" />
+        <div className="absolute right-0 top-0 z-0 -translate-y-12 translate-x-12 transform">
+          <div className="h-32 w-32 rounded-full bg-gradient-to-br from-blue-200 to-indigo-200 opacity-20 dark:from-blue-800 dark:to-indigo-800" />
         </div>
       </div>
 
-      {/* Key Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
+      {/* Enhanced Key Stats */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-blue-50 to-blue-100 shadow-md dark:from-blue-950 dark:to-blue-900">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold">{calculateDaysInPipeline(enquiry.createdAt)}</p>
-                <p className="text-xs text-muted-foreground">Days in Pipeline</p>
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300 sm:text-3xl">
+                  {calculateDaysInPipeline(enquiry.createdAt)}
+                </p>
+                <p className="text-xs font-medium text-blue-600 dark:text-blue-400 sm:text-sm">
+                  Days in Pipeline
+                </p>
+              </div>
+              <div className="rounded-full bg-blue-200 p-2 dark:bg-blue-800">
+                <Clock className="h-4 w-4 text-blue-700 dark:text-blue-300 sm:h-5 sm:w-5" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-green-50 to-green-100 shadow-md dark:from-green-950 dark:to-green-900">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold">{enquiry.followUps?.length || 0}</p>
-                <p className="text-xs text-muted-foreground">Follow-ups</p>
+                <p className="text-2xl font-bold text-green-700 dark:text-green-300 sm:text-3xl">
+                  {enquiry.followUps?.length || 0}
+                </p>
+                <p className="text-xs font-medium text-green-600 dark:text-green-400 sm:text-sm">
+                  Follow-ups
+                </p>
+              </div>
+              <div className="rounded-full bg-green-200 p-2 dark:bg-green-800">
+                <Calendar className="h-4 w-4 text-green-700 dark:text-green-300 sm:h-5 sm:w-5" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <PhoneCall className="h-4 w-4 text-muted-foreground" />
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-purple-50 to-purple-100 shadow-md dark:from-purple-950 dark:to-purple-900">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold">{enquiry.callLogs?.length || 0}</p>
-                <p className="text-xs text-muted-foreground">Call Logs</p>
+                <p className="text-2xl font-bold text-purple-700 dark:text-purple-300 sm:text-3xl">
+                  {enquiry.callLogs?.length || 0}
+                </p>
+                <p className="text-xs font-medium text-purple-600 dark:text-purple-400 sm:text-sm">
+                  Call Logs
+                </p>
+              </div>
+              <div className="rounded-full bg-purple-200 p-2 dark:bg-purple-800">
+                <PhoneCall className="h-4 w-4 text-purple-700 dark:text-purple-300 sm:h-5 sm:w-5" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-orange-50 to-orange-100 shadow-md dark:from-orange-950 dark:to-orange-900">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold">
+                <p className="text-lg font-bold text-orange-700 dark:text-orange-300 sm:text-xl">
                   {enquiry.lastContactDate
                     ? formatDate(enquiry.lastContactDate).split(',')[0]
                     : 'Never'}
                 </p>
-                <p className="text-xs text-muted-foreground">Last Contact</p>
+                <p className="text-xs font-medium text-orange-600 dark:text-orange-400 sm:text-sm">
+                  Last Contact
+                </p>
+              </div>
+              <div className="rounded-full bg-orange-200 p-2 dark:bg-orange-800">
+                <MessageSquare className="h-4 w-4 text-orange-700 dark:text-orange-300 sm:h-5 sm:w-5" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex items-center space-x-4">
-        <Link href={`/admissions?enquiryId=${enquiry.id}`}>
-          <Button>
-            <UserPlus className="mr-2 size-4" />
-            Take Admission
-          </Button>
-        </Link>
-        <Dialog open={isCallLogDialogOpen} onOpenChange={setIsCallLogDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <PhoneCall className="mr-2 h-4 w-4" />
-              Log Call
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Log Call</DialogTitle>
-              <DialogDescription>
-                Record details about your call with {enquiry.candidateName}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={callLogForm.handleSubmit(handleCreateCallLog)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duration (minutes)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  placeholder="e.g., 15"
-                  {...callLogForm.register('duration', { valueAsNumber: true })}
-                />
-                {callLogForm.formState.errors.duration && (
-                  <p className="text-sm text-red-500">
-                    {callLogForm.formState.errors.duration.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="outcome">Call Outcome *</Label>
-                <Input
-                  id="outcome"
-                  placeholder="e.g., Interested in course, will call back"
-                  {...callLogForm.register('outcome')}
-                />
-                {callLogForm.formState.errors.outcome && (
-                  <p className="text-sm text-red-500">
-                    {callLogForm.formState.errors.outcome.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="callNotes">Notes</Label>
-                <Textarea
-                  id="callNotes"
-                  placeholder="Additional notes about the call..."
-                  {...callLogForm.register('notes')}
-                />
-                {callLogForm.formState.errors.notes && (
-                  <p className="text-sm text-red-500">
-                    {callLogForm.formState.errors.notes.message}
-                  </p>
-                )}
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={isCreatingCallLog}>
-                  {isCreatingCallLog ? 'Saving...' : 'Save Call Log'}
+      {/* Enhanced Action Buttons */}
+      <Card className="border-0 bg-gray-50 dark:bg-gray-900/50">
+        <CardContent className="relative p-4 sm:p-6">
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Quick Actions
+            </h3>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Link href={`/admissions?enquiryId=${enquiry.id}`} className="relative z-10 w-full">
+                <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Take Admission
                 </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+              </Link>
 
-        <Dialog open={isFollowUpDialogOpen} onOpenChange={setIsFollowUpDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <CalendarPlus className="mr-2 h-4 w-4" />
-              Schedule Follow-up
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Schedule Follow-up</DialogTitle>
-              <DialogDescription>
-                Schedule a follow-up with {enquiry.candidateName}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={followUpForm.handleSubmit(handleCreateFollowUp)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="scheduledAt">Date & Time *</Label>
-                <Input
-                  id="scheduledAt"
-                  type="datetime-local"
-                  {...followUpForm.register('scheduledAt')}
-                />
-                {followUpForm.formState.errors.scheduledAt && (
-                  <p className="text-sm text-red-500">
-                    {followUpForm.formState.errors.scheduledAt.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="followUpNotes">Notes</Label>
-                <Textarea
-                  id="followUpNotes"
-                  placeholder="Notes for the follow-up..."
-                  {...followUpForm.register('notes')}
-                />
-                {followUpForm.formState.errors.notes && (
-                  <p className="text-sm text-red-500">
-                    {followUpForm.formState.errors.notes.message}
-                  </p>
-                )}
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={isCreatingFollowUp}>
-                  {isCreatingFollowUp ? 'Scheduling...' : 'Schedule Follow-up'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+              <Dialog open={isCallLogDialogOpen} onOpenChange={setIsCallLogDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="relative z-10 w-full">
+                    <PhoneCall className="mr-2 h-4 w-4" />
+                    Log Call
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
 
-        <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <UserPlus className="mr-2 h-4 w-4" />
-              {enquiry.assignedTo ? 'Reassign' : 'Assign'}
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {enquiry.assignedTo ? 'Reassign Enquiry' : 'Assign Enquiry'}
-              </DialogTitle>
-              <DialogDescription>
-                {enquiry.assignedTo
-                  ? `Currently assigned to ${enquiry.assignedTo.name}. Select a new user to reassign.`
-                  : 'Select a user to assign this enquiry to.'}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              {users.length > 0 && (
-                <div className="space-y-2">
-                  {users.map((user: User) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                      onClick={() => handleAssignUser(user.id)}
-                    >
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
-                        {user.role && (
-                          <Badge variant="secondary" className="text-xs">
-                            {user.role.name}
-                          </Badge>
-                        )}
-                      </div>
-                      {enquiry.assignedTo?.id === user.id && (
-                        <Badge variant="default">Current</Badge>
-                      )}
-                    </div>
+              <Dialog open={isFollowUpDialogOpen} onOpenChange={setIsFollowUpDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="relative z-10 w-full">
+                    <CalendarPlus className="mr-2 h-4 w-4" />
+                    Schedule Follow-up
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
+
+              <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="relative z-10 w-full">
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    {enquiry.assignedTo ? 'Reassign' : 'Assign'}
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
+
+              <EnquiryFormDialog mode="edit" enquiry={enquiry} onSuccess={fetchEnquiry} />
+
+              <Select
+                onValueChange={handleStatusUpdate}
+                disabled={isUpdatingStatus}
+                value={enquiry.status}
+              >
+                <SelectTrigger className="relative z-10 w-full">
+                  <SelectValue>
+                    {ENQUIRY_STATUS_OPTIONS.find((opt) => opt.value === enquiry.status)?.label ||
+                      enquiry.status}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {ENQUIRY_STATUS_OPTIONS.map((status) => (
+                    <SelectItem key={status.value} value={status.value}>
+                      {status.label}
+                    </SelectItem>
                   ))}
-                </div>
-              )}
-              {isAssigning && (
-                <div className="flex items-center justify-center p-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                </div>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Call Log Dialog Content */}
+      <Dialog open={isCallLogDialogOpen} onOpenChange={setIsCallLogDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log Call</DialogTitle>
+            <DialogDescription>
+              Record details about your call with {enquiry.candidateName}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={callLogForm.handleSubmit(handleCreateCallLog)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="duration">Duration (minutes)</Label>
+              <Input
+                id="duration"
+                type="number"
+                placeholder="e.g., 15"
+                {...callLogForm.register('duration', { valueAsNumber: true })}
+              />
+              {callLogForm.formState.errors.duration && (
+                <p className="text-sm text-red-500">
+                  {callLogForm.formState.errors.duration.message}
+                </p>
               )}
             </div>
-          </DialogContent>
-        </Dialog>
+            <div className="space-y-2">
+              <Label htmlFor="outcome">Call Outcome *</Label>
+              <Input
+                id="outcome"
+                placeholder="e.g., Interested in course, will call back"
+                {...callLogForm.register('outcome')}
+              />
+              {callLogForm.formState.errors.outcome && (
+                <p className="text-sm text-red-500">
+                  {callLogForm.formState.errors.outcome.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="callNotes">Notes</Label>
+              <Textarea
+                id="callNotes"
+                placeholder="Additional notes about the call..."
+                {...callLogForm.register('notes')}
+              />
+              {callLogForm.formState.errors.notes && (
+                <p className="text-sm text-red-500">{callLogForm.formState.errors.notes.message}</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={isCreatingCallLog}>
+                {isCreatingCallLog ? 'Saving...' : 'Save Call Log'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-        <EnquiryFormDialog mode="edit" enquiry={enquiry} onSuccess={fetchEnquiry} />
+      {/* Follow-up Dialog Content */}
+      <Dialog open={isFollowUpDialogOpen} onOpenChange={setIsFollowUpDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Follow-up</DialogTitle>
+            <DialogDescription>Schedule a follow-up with {enquiry.candidateName}</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={followUpForm.handleSubmit(handleCreateFollowUp)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="scheduledAt">Date & Time *</Label>
+              <Input
+                id="scheduledAt"
+                type="datetime-local"
+                {...followUpForm.register('scheduledAt')}
+              />
+              {followUpForm.formState.errors.scheduledAt && (
+                <p className="text-sm text-red-500">
+                  {followUpForm.formState.errors.scheduledAt.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="followUpNotes">Notes</Label>
+              <Textarea
+                id="followUpNotes"
+                placeholder="Notes for the follow-up..."
+                {...followUpForm.register('notes')}
+              />
+              {followUpForm.formState.errors.notes && (
+                <p className="text-sm text-red-500">
+                  {followUpForm.formState.errors.notes.message}
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={isCreatingFollowUp}>
+                {isCreatingFollowUp ? 'Scheduling...' : 'Schedule Follow-up'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-        <Select
-          onValueChange={handleStatusUpdate}
-          disabled={isUpdatingStatus}
-          value={enquiry.status}
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue>
-              {ENQUIRY_STATUS_OPTIONS.find((opt) => opt.value === enquiry.status)?.label ||
-                enquiry.status}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {ENQUIRY_STATUS_OPTIONS.map((status) => (
-              <SelectItem key={status.value} value={status.value}>
-                {status.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Assign Dialog Content */}
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{enquiry.assignedTo ? 'Reassign Enquiry' : 'Assign Enquiry'}</DialogTitle>
+            <DialogDescription>
+              {enquiry.assignedTo
+                ? `Currently assigned to ${enquiry.assignedTo.name}. Select a new user to reassign.`
+                : 'Select a user to assign this enquiry to.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {users.length > 0 && (
+              <div className="space-y-2">
+                {users.map((user: User) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                    onClick={() => handleAssignUser(user.id)}
+                  >
+                    <div>
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      {user.role && (
+                        <Badge variant="secondary" className="text-xs">
+                          {user.role.name}
+                        </Badge>
+                      )}
+                    </div>
+                    {enquiry.assignedTo?.id === user.id && <Badge variant="default">Current</Badge>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {isAssigning && (
+              <div className="flex items-center justify-center p-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      {/* Tabs */}
+      {/* Enhanced Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="notes">Notes</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 bg-gray-100 dark:bg-gray-800">
+          <TabsTrigger
+            value="overview"
+            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
+          >
+            <Activity className="h-4 w-4" />
+            <span className="hidden sm:inline">Overview</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="activity"
+            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
+          >
+            <Clock className="h-4 w-4" />
+            <span className="hidden sm:inline">Activity</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="notes"
+            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Notes</span>
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Contact Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Contact Information</CardTitle>
+        <TabsContent value="overview" className="space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+            {/* Enhanced Contact Information */}
+            <Card className="overflow-hidden p-0">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 pt-6 pb-4">
+                <CardTitle className="flex items-center gap-2">
+                  <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900">
+                    <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  Contact Information
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span>{enquiry.phone}</span>
+              <CardContent className="space-y-4 p-4 sm:p-6">
+                <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span className="font-medium">{enquiry.phone}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link href={`tel:${enquiry.phone}`} className="relative z-10">
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                        <Phone className="h-3 w-3" />
+                      </Button>
+                    </Link>
+                    <Link
+                      href={`https://wa.me/91${enquiry.phone.replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative z-10"
+                    >
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
+
                 {enquiry.contact2 && (
-                  <div className="flex items-center space-x-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{enquiry.contact2}</span>
+                  <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <span className="font-medium">{enquiry.contact2}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link href={`tel:${enquiry.contact2}`} className="relative z-10">
+                        <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                          <Phone className="h-3 w-3" />
+                        </Button>
+                      </Link>
+                      <Link
+                        href={`https://wa.me/91${enquiry.contact2.replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="relative z-10"
+                      >
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                        >
+                          <MessageCircle className="h-3 w-3" />
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 )}
+
                 {enquiry.email && (
-                  <div className="flex items-center space-x-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span>{enquiry.email}</span>
+                  <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      <span className="font-medium">{enquiry.email}</span>
+                    </div>
+                    <Link href={`mailto:${enquiry.email}`} className="relative z-10">
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    </Link>
                   </div>
                 )}
+
                 {enquiry.address && (
-                  <div className="flex items-start space-x-2">
-                    <Building className="h-4 w-4 text-muted-foreground mt-1" />
-                    <span>{enquiry.address}</span>
+                  <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-1" />
+                      <span className="text-sm leading-relaxed">{enquiry.address}</span>
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Enquiry Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Enquiry Details</CardTitle>
+            {/* Enhanced Enquiry Details */}
+            <Card className="overflow-hidden p-0">
+              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 pt-6 pb-4">
+                <CardTitle className="flex items-center gap-2">
+                  <div className="rounded-full bg-green-100 p-2 dark:bg-green-900">
+                    <GraduationCap className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  Enquiry Details
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  <span>
-                    <strong>Source:</strong> {enquiry.enquirySource?.name}
-                  </span>
+              <CardContent className="space-y-4 p-4 sm:p-6">
+                <div className="grid gap-4">
+                  <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-full bg-blue-100 p-1 dark:bg-blue-900">
+                        <TrendingUp className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          Source
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {enquiry.enquirySource?.name}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-full bg-purple-100 p-1 dark:bg-purple-900">
+                        <Building className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          Branch
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {enquiry.branch?.name}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {enquiry.preferredCourse && (
+                    <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-full bg-green-100 p-1 dark:bg-green-900">
+                          <GraduationCap className="h-3 w-3 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Preferred Course
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {enquiry.preferredCourse.name}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {enquiry.requiredService && (
+                    <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-full bg-orange-100 p-1 dark:bg-orange-900">
+                          <MessageSquare className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Required Service
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {enquiry.requiredService.name}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {enquiry.assignedTo && (
+                    <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-full bg-indigo-100 p-1 dark:bg-indigo-900">
+                          <UserIcon className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Assigned To
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {enquiry.assignedTo.name}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  <span>
-                    <strong>Branch:</strong> {enquiry.branch?.name}
-                  </span>
-                </div>
-                {enquiry.preferredCourse && (
-                  <div className="flex items-center space-x-2">
-                    <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      <strong>Course:</strong> {enquiry.preferredCourse.name}
-                    </span>
-                  </div>
-                )}
-                {enquiry.requiredService && (
-                  <div className="flex items-center space-x-2">
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      <strong>Service:</strong> {enquiry.requiredService.name}
-                    </span>
-                  </div>
-                )}
-                {enquiry.assignedTo && (
-                  <div className="flex items-center space-x-2">
-                    <UserIcon className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      <strong>Assigned To:</strong> {enquiry.assignedTo.name}
-                    </span>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="activity" className="space-y-4">
-          <div className="space-y-4">
-            {/* Follow-ups */}
+        <TabsContent value="activity" className="space-y-4 sm:space-y-6">
+          <div className="space-y-4 sm:space-y-6">
+            {/* Enhanced Follow-ups */}
             {enquiry.followUps && enquiry.followUps.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Follow-ups</CardTitle>
+              <Card className="overflow-hidden p-0">
+                <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 pt-6 pb-4">
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="rounded-full bg-green-100 p-2 dark:bg-green-900">
+                      <Calendar className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    </div>
+                    Follow-ups ({enquiry.followUps.length})
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="space-y-4">
                     {enquiry.followUps.map((followUp: FollowUp) => (
-                      <div key={followUp.id} className="border-l-2 border-blue-500 pl-4">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{formatDate(followUp.scheduledAt)}</p>
-                          <Badge variant="secondary">{followUp.status}</Badge>
+                      <div
+                        key={followUp.id}
+                        className="relative rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950"
+                      >
+                        <div className="absolute left-0 top-0 h-full w-1 bg-green-500"></div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="rounded-full bg-green-100 p-2 dark:bg-green-900">
+                              <Calendar className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-gray-100">
+                                {formatDate(followUp.scheduledAt)}
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                by {followUp.createdBy.name} • {formatDate(followUp.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant="secondary" className="w-fit">
+                            {followUp.status}
+                          </Badge>
                         </div>
                         {followUp.notes && (
-                          <p className="text-sm text-muted-foreground mt-1">{followUp.notes}</p>
-                        )}
-                        {followUp.outcome && (
-                          <p className="text-sm mt-1">
-                            <strong>Outcome:</strong> {followUp.outcome}
+                          <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">
+                            {followUp.notes}
                           </p>
                         )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          by {followUp.createdBy.name} • {formatDate(followUp.createdAt)}
-                        </p>
+                        {followUp.outcome && (
+                          <div className="mt-2 rounded-lg bg-white p-2 dark:bg-gray-800">
+                            <p className="text-sm">
+                              <span className="font-medium text-gray-900 dark:text-gray-100">
+                                Outcome:
+                              </span>{' '}
+                              {followUp.outcome}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -649,35 +902,60 @@ export default function EnquiryDetailPage() {
               </Card>
             )}
 
-            {/* Call Logs */}
+            {/* Enhanced Call Logs */}
             {enquiry.callLogs && enquiry.callLogs.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Call Logs</CardTitle>
+              <Card className="overflow-hidden p-0">
+                <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950 dark:to-violet-950 pt-6 pb-4">
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
+                      <PhoneCall className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    Call Logs ({enquiry.callLogs.length})
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="space-y-4">
                     {enquiry.callLogs.map((callLog: CallLog) => (
-                      <div key={callLog.id} className="border-l-2 border-green-500 pl-4">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{formatDate(callLog.callDate)}</p>
+                      <div
+                        key={callLog.id}
+                        className="relative rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950"
+                      >
+                        <div className="absolute left-0 top-0 h-full w-1 bg-purple-500"></div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
+                              <PhoneCall className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-gray-100">
+                                {formatDate(callLog.callDate)}
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                by {callLog.createdBy.name} • {formatDate(callLog.createdAt)}
+                              </p>
+                            </div>
+                          </div>
                           {callLog.duration && (
-                            <span className="text-sm text-muted-foreground">
+                            <Badge variant="outline" className="w-fit">
                               {callLog.duration} min
-                            </span>
+                            </Badge>
                           )}
                         </div>
                         {callLog.outcome && (
-                          <p className="text-sm mt-1">
-                            <strong>Outcome:</strong> {callLog.outcome}
-                          </p>
+                          <div className="mt-2 rounded-lg bg-white p-2 dark:bg-gray-800">
+                            <p className="text-sm">
+                              <span className="font-medium text-gray-900 dark:text-gray-100">
+                                Outcome:
+                              </span>{' '}
+                              {callLog.outcome}
+                            </p>
+                          </div>
                         )}
                         {callLog.notes && (
-                          <p className="text-sm text-muted-foreground mt-1">{callLog.notes}</p>
+                          <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">
+                            {callLog.notes}
+                          </p>
                         )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          by {callLog.createdBy.name} • {formatDate(callLog.createdAt)}
-                        </p>
                       </div>
                     ))}
                   </div>
@@ -696,23 +974,53 @@ export default function EnquiryDetailPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="notes" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {enquiry.notes ? (
-                <p className="text-sm">{enquiry.notes}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">No notes available.</p>
-              )}
-              {enquiry.feedback && (
-                <div className="mt-4">
-                  <h4 className="font-medium">Feedback:</h4>
-                  <p className="text-sm text-muted-foreground mt-1">{enquiry.feedback}</p>
+        <TabsContent value="notes" className="space-y-4 sm:space-y-6">
+          <Card className="overflow-hidden p-0">
+            <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950 dark:to-amber-950 pt-6 pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <div className="rounded-full bg-orange-100 p-2 dark:bg-orange-900">
+                  <MessageSquare className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                 </div>
-              )}
+                Notes & Feedback
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <MessageSquare className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                    Enquiry Notes
+                  </h4>
+                  {enquiry.notes ? (
+                    <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+                      <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                        {enquiry.notes}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border-2 border-dashed border-gray-200 p-6 text-center dark:border-gray-700">
+                      <MessageSquare className="mx-auto h-8 w-8 text-gray-400 dark:text-gray-600" />
+                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                        No notes available
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {enquiry.feedback && (
+                  <div>
+                    <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <Star className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                      Feedback
+                    </h4>
+                    <div className="rounded-lg bg-yellow-50 p-4 dark:bg-yellow-950">
+                      <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                        {enquiry.feedback}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
