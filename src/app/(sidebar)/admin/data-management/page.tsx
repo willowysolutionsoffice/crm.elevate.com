@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -377,7 +376,6 @@ export default function DataManagementPage() {
                 {columns.map((column) => (
                   <TableHead key={column}>{column}</TableHead>
                 ))}
-                {type !== 'role' && <TableHead>Status</TableHead>}
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -436,13 +434,6 @@ export default function DataManagementPage() {
                           })()}
                         </TableCell>
                       ))}
-                      {type !== 'role' && (
-                        <TableCell>
-                          <Badge variant={typedItem.isActive ? 'default' : 'secondary'}>
-                            {typedItem.isActive ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                      )}
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
