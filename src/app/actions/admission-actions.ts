@@ -11,9 +11,6 @@ import {
   AdmissionStatus,
   AmountCollectedType,
   PaymentMode,
-  CreateAdmissionInput,
-  UpdateAdmissionInput,
-  AdmissionFilters,
   FeeCalculation,
 } from '@/types/admission';
 import { Prisma } from '@prisma/client';
@@ -401,14 +398,6 @@ export const deleteAdmission = action
       if (!existingAdmission) {
         throw new Error('Admission not found');
       }
-
-      // Soft delete by updating status
-      const admission = await prisma.admission.update({
-        where: { id },
-        data: {
-          status: AdmissionStatus.CANCELLED,
-        },
-      });
 
       revalidatePath('/admissions');
       return { success: true, message: 'Admission deleted successfully' };

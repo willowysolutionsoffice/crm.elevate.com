@@ -95,15 +95,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Admission ID is required' }, { status: 400 });
     }
 
-    // Parse request body for any additional options
-    let options = {};
-    try {
-      const body = await request.json();
-      options = body.options || {};
-    } catch {
-      // Body is optional, continue without options
-    }
-
     // Fetch admission data
     const result = await getAdmissionById({ id: admissionId });
 

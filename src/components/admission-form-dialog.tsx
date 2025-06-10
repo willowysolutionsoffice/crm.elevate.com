@@ -24,7 +24,6 @@ import {
   GraduationCap,
   CreditCard,
   Eye,
-  Loader2,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import {
@@ -46,15 +45,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Progress } from './ui/progress';
+import { EnquirySource } from '@prisma/client';
 import {
-  Course,
-  EnquirySource,
-  AmountCollectedType as PrismaAmountCollectedType,
-  PaymentMode as PrismaPaymentMode,
-  AdmissionGender as PrismaAdmissionGender,
-} from '@prisma/client';
-import {
-  AdmissionFormData,
   AdmissionWithRelations,
   AdmissionGender,
   PaymentMode,
@@ -332,8 +324,6 @@ export function AdmissionFormDialog({
     },
   });
 
-  // Determine which execute function and loading state to use
-  const execute = mode === 'create' ? executeCreate : executeUpdate;
   const isExecuting = mode === 'create' ? isExecutingCreate : isExecutingUpdate;
 
   // Reset form with enquiry data when enquiry data changes
@@ -365,10 +355,6 @@ export function AdmissionFormDialog({
   // Watch form values for dynamic behavior
   const watchedCourseId = form.watch('courseId');
   const watchedPaymentMode = form.watch('paymentMode');
-  const watchedAmountTowards = form.watch('amountCollectedTowards') as
-    | 'ADMISSION_FEE'
-    | 'SEMESTER_FEE'
-    | 'TOTAL_FEE';
   const watchedAmountPaid = form.watch('amountPaid');
 
   // Get selected course details
@@ -587,7 +573,7 @@ export function AdmissionFormDialog({
                       Basic Details
                     </CardTitle>
                     <CardDescription>
-                      Please provide the candidate's basic information
+                      Please provide the candidate&apos;s basic information
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">

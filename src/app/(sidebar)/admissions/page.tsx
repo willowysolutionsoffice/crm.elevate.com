@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Filter, Eye, Edit, Trash2, MoreVertical, FileText, Download } from 'lucide-react';
+import { Search, Eye, Edit, Trash2, MoreVertical, FileText, Download } from 'lucide-react';
 import {
   getAdmissions,
   getCoursesForAdmission,
@@ -44,11 +44,9 @@ import {
   PaymentMode,
   AdmissionStatusLabels,
   PaymentModeLabels,
-  AmountCollectedTypeLabels,
 } from '@/types/admission';
 import { formatCurrency } from '@/lib/utils';
-import { Course, EnquirySource } from '@prisma/client';
-import prisma from '@/lib/prisma';
+import { EnquirySource } from '@prisma/client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -175,7 +173,14 @@ export default function AdmissionsPage() {
   const fetchAdmissionsData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const filters: any = {
+      const filters: {
+        page: number;
+        limit: number;
+        search?: string;
+        status?: AdmissionStatus;
+        courseId?: string;
+        paymentMode?: PaymentMode;
+      } = {
         page: currentPage,
         limit: 10,
       };

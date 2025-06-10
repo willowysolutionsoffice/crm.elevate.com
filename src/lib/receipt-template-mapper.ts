@@ -1,8 +1,4 @@
-import {
-  AdmissionWithRelations,
-  AmountCollectedTypeLabels,
-  PaymentModeLabels,
-} from '@/types/admission';
+import { AdmissionWithRelations, AmountCollectedTypeLabels } from '@/types/admission';
 import { formatCurrency } from '@/lib/utils';
 
 // Define specific types for receipt template inputs

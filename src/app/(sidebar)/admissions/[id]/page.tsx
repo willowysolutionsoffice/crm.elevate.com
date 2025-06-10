@@ -143,7 +143,7 @@ export default function AdmissionDetailPage() {
           <div className="text-center">
             <h3 className="text-lg font-semibold mb-2">Admission Not Found</h3>
             <p className="text-muted-foreground mb-4">
-              The admission you're looking for doesn't exist or has been removed.
+              The admission you&apos;re looking for doesn&apos;t exist or has been removed.
             </p>
             <Button onClick={handleBack} variant="outline">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -187,7 +187,7 @@ export default function AdmissionDetailPage() {
                 <User className="h-5 w-5" />
                 Personal Information
               </CardTitle>
-              <CardDescription>Candidate's personal and contact details</CardDescription>
+              <CardDescription>Candidate&apos;s personal and contact details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
