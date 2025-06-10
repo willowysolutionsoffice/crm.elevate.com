@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { adminActionClient } from '@/lib/safe-action';
 import {
   AdmissionGender,
   AdmissionStatus,
@@ -268,8 +269,8 @@ export const createAdmission = action
     }
   });
 
-// Safe action for updating admission
-export const updateAdmission = action
+// Safe action for updating admission (admin only)
+export const updateAdmission = adminActionClient
   .schema(updateAdmissionSchema)
   .action(async ({ parsedInput }) => {
     try {
@@ -383,8 +384,8 @@ export const updateAdmission = action
     }
   });
 
-// Safe action for deleting admission (soft delete)
-export const deleteAdmission = action
+// Safe action for deleting admission (soft delete, admin only)
+export const deleteAdmission = adminActionClient
   .schema(deleteAdmissionSchema)
   .action(async ({ parsedInput }) => {
     try {

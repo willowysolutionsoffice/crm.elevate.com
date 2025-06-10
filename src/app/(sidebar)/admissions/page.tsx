@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { authClient } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -78,6 +79,12 @@ export default function AdmissionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const enquiryId = searchParams.get('enquiryId');
+
+  // Get current user session for role-based access control
+  const { data: session } = authClient.useSession();
+
+  // Check if current user is admin
+  const isAdmin = session?.user?.role === 'admin';
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<AdmissionStatus | 'ALL'>('ALL');
@@ -229,6 +236,10 @@ export default function AdmissionsPage() {
   };
 
   const handleEditAdmission = (admission: AdmissionWithRelations) => {
+    if (!isAdmin) {
+      toast.error('Access denied. Only administrators can edit admissions.');
+      return;
+    }
     setSelectedAdmission(admission);
     setEditDialogOpen(true);
   };
@@ -249,6 +260,10 @@ export default function AdmissionsPage() {
   };
 
   const handleDeleteAdmission = (admission: AdmissionWithRelations) => {
+    if (!isAdmin) {
+      toast.error('Access denied. Only administrators can delete admissions.');
+      return;
+    }
     setAdmissionToDelete(admission);
     setDeleteDialogOpen(true);
   };
@@ -500,22 +515,28 @@ export default function AdmissionsPage() {
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditAdmission(admission)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit Admission
-                              </DropdownMenuItem>
+                              {isAdmin && (
+                                <DropdownMenuItem onClick={() => handleEditAdmission(admission)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit Admission
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => handleGenerateReceipt(admission.id)}>
                                 <FileText className="mr-2 h-4 w-4" />
                                 Generate Receipt
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteAdmission(admission)}
-                                className="text-red-600 focus:text-red-600"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Admission
-                              </DropdownMenuItem>
+                              {isAdmin && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteAdmission(admission)}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete Admission
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
