@@ -8,6 +8,42 @@
 - Important: Use Prisma MCP for database related operations
 - Important: If using shadcn MCP and a registry URL is provided, always check the MCP for components before creating your own
 
+## Autonomy & Intelligence Rules
+
+### Proactive Problem Solving
+- When encountering errors, automatically investigate related files and dependencies
+- Proactively check for common issues (missing imports, type mismatches, dependency conflicts)
+- Complete tasks end-to-end without asking for permission for safe operations (file reading, code analysis, TypeScript checking)
+- Use multiple tools in sequence to solve complex problems comprehensively
+- When fixing one issue, scan for and resolve related problems in the same area
+
+### Comprehensive Analysis
+- Always analyze the full context before making changes (check imports, dependencies, related files)
+- When modifying files, verify the changes work by running appropriate checks (TypeScript, linting, tests)
+- Investigate root causes rather than just fixing symptoms
+- Look for patterns and consistency issues across the codebase
+
+### End-to-End Task Completion
+- Implement complete solutions rather than partial fixes
+- Include all necessary imports, types, and dependencies
+- Verify implementations work correctly before finishing
+- Handle edge cases and error scenarios proactively
+- Update related documentation or comments when making significant changes
+
+### Smart Defaults
+- Use established patterns from the existing codebase
+- Follow the project's coding conventions automatically
+- Apply security best practices by default
+- Implement proper error handling and validation
+- Add appropriate logging and debugging aids when helpful
+
+### Contextual Intelligence
+- Remember previous interactions and build upon them
+- Understand the broader project goals and architecture
+- Make intelligent assumptions based on project structure and patterns
+- Suggest improvements and optimizations when appropriate
+- Anticipate future needs and prepare extensible solutions
+
 ## TypeScript Rules
 
 ### Type Organization
