@@ -35,9 +35,9 @@ import {
 } from './ui/form';
 import { Input } from './ui/input';
 import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from './ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { format } from 'date-fns';
-import { Calendar } from './ui/calendar';
+import { Calendar } from './ui/calendar'; // This import might be unused now if only DateOfBirthPicker is used for date picking
+import { DateOfBirthPicker } from './dob-picker';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -594,39 +594,20 @@ export function AdmissionFormDialog({
                         render={({ field }) => (
                           <FormItem className="flex flex-col">
                             <FormLabel>Date of Birth *</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      'w-full pl-3 text-left font-normal',
-                                      !field.value && 'text-muted-foreground'
-                                    )}
-                                  >
-                                    {field.value ? (
-                                      format(field.value, 'PPP')
-                                    ) : (
-                                      <span>Pick a date</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  disabled={(date) =>
-                                    date > new Date() || date < new Date('1900-01-01')
-                                  }
-                                  captionLayout="dropdown"
-                                  startMonth={new Date(1940, 0, 1)}
-                                  endMonth={new Date()}
-                                />
-                              </PopoverContent>
-                            </Popover>
+                            <FormControl>
+                              <DateOfBirthPicker
+                                value={field.value}
+                                onChange={field.onChange}
+                                disabled={(date) =>
+                                  date > new Date() || date < new Date('1900-01-01')
+                                }
+                                captionLayout="dropdown"
+                                startMonth={new Date(1940, 0, 1)}
+                                endMonth={new Date()}
+                                className={cn('w-full', !field.value && 'text-muted-foreground')}
+                                autoFocus
+                              />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -730,15 +711,11 @@ export function AdmissionFormDialog({
                             <FormControl>
                               <Input
                                 type="number"
-                                placeholder="2024"
                                 min="1950"
                                 max={new Date().getFullYear()}
-                                value={field.value || ''}
-                                onChange={(e) => {
-                                  const value =
-                                    parseInt(e.target.value) || new Date().getFullYear();
-                                  field.onChange(value);
-                                }}
+                                placeholder={`Year of Passing (1950 - ${new Date().getFullYear()})`}
+                                {...field}
+                                onChange={({ target }) => field.onChange(parseInt(target.value, 0))}
                               />
                             </FormControl>
                             <FormMessage />
