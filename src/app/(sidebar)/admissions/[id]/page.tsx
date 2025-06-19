@@ -1,11 +1,8 @@
-'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft,
   User,
@@ -24,96 +21,86 @@ import {
   AdmissionGenderLabels,
 } from '@/types/admission';
 import { formatDate } from '@/lib/utils';
+import Link from 'next/link';
 
-export default function AdmissionDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const admissionId = params.id as string;
 
-  const [admission, setAdmission] = useState<AdmissionWithRelations | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  // Receipt generation functionality removed - fee management no longer supported
 
-  // Fetch admission data
-  const fetchAdmission = useCallback(async () => {
-    if (!admissionId) return;
+export default async function AdmissionDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params;
 
-    setIsLoading(true);
-    try {
-      const result = await getAdmissionById({ id: admissionId });
+  console.log(id);
 
-      if (result.data?.success) {
-        setAdmission(result.data.data as AdmissionWithRelations);
-      } else {
-        toast.error(result.serverError || 'Failed to fetch admission');
-        router.push('/admissions');
-      }
-    } catch (error) {
-      console.error('Error fetching admission:', error);
-      toast.error('Failed to fetch admission');
-      router.push('/admissions');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [admissionId, router]);
 
-  useEffect(() => {
-    fetchAdmission();
-  }, [fetchAdmission]);
+  const result = await getAdmissionById({ id: id }).catch((error) => {
+    toast.error(error.message);
+    redirect('/admissions');
+  });
+
+  if (!result || !result.data) {
+    toast.error('Admission not found');
+    redirect('/admissions');
+  }
+
+
+  const admission = result.data.data as AdmissionWithRelations;
 
   const handleBack = () => {
-    router.push('/admissions');
+    redirect('/admissions');
   };
 
   // Receipt generation functionality removed - fee management no longer supported
 
   // Loading skeleton
-  if (isLoading) {
-    return (
-      <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
-        {/* Header Skeleton */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-10 w-10" />
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-64" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Skeleton className="h-9 w-20" />
-            <Skeleton className="h-9 w-32" />
-          </div>
-        </div>
+  // if (isLoading) {
+  //   return (
+  //     <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
+  //       {/* Header Skeleton */}
+  //       <div className="flex items-center justify-between">
+  //         <div className="flex items-center gap-4">
+  //           <Skeleton className="h-10 w-10" />
+  //           <div className="space-y-2">
+  //             <Skeleton className="h-8 w-64" />
+  //             <Skeleton className="h-4 w-32" />
+  //           </div>
+  //         </div>
+  //         <div className="flex gap-2">
+  //           <Skeleton className="h-9 w-20" />
+  //           <Skeleton className="h-9 w-32" />
+  //         </div>
+  //       </div>
 
-        {/* Content Skeleton */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-4 w-48" />
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-16 w-full" />
-              </CardContent>
-            </Card>
-          </div>
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-24" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-32 w-full" />
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  //       {/* Content Skeleton */}
+  //       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  //         <div className="lg:col-span-2 space-y-6">
+  //           <Card>
+  //             <CardHeader>
+  //               <Skeleton className="h-6 w-32" />
+  //               <Skeleton className="h-4 w-48" />
+  //             </CardHeader>
+  //             <CardContent className="space-y-4">
+  //               <Skeleton className="h-24 w-full" />
+  //               <Skeleton className="h-16 w-full" />
+  //             </CardContent>
+  //           </Card>
+  //         </div>
+  //         <div className="space-y-6">
+  //           <Card>
+  //             <CardHeader>
+  //               <Skeleton className="h-6 w-24" />
+  //             </CardHeader>
+  //             <CardContent>
+  //               <Skeleton className="h-32 w-full" />
+  //             </CardContent>
+  //           </Card>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   if (!admission) {
     return (
@@ -124,13 +111,15 @@ export default function AdmissionDetailPage() {
             <p className="text-muted-foreground mb-4">
               The admission you&apos;re looking for doesn&apos;t exist or has been removed.
             </p>
-            <Button onClick={handleBack} variant="outline">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Admissions
-            </Button>
+            <Link href='/admissions'>
+              <Button variant="outline">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Admissions
+              </Button>
+            </Link>
           </div>
         </div>
-      </div>
+      </div >
     );
   }
 
@@ -139,9 +128,11 @@ export default function AdmissionDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={handleBack}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <Link href='/admissions'>
+            <Button variant="outline" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               Admission Details: {admission.admissionNumber}
@@ -306,6 +297,8 @@ export default function AdmissionDetailPage() {
         {/* Right Column */}
         <div className="space-y-6">
           {/* Additional information can be added here */}
+
+
 
 
 
