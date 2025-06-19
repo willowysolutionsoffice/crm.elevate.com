@@ -82,50 +82,32 @@ async function main() {
       description:
         'Full-stack web development course covering HTML, CSS, JavaScript, React, and Node.js',
       duration: '6 months',
-      totalFee: 50000,
-      semesterFee: 25000,
-      admissionFee: 2000,
     },
     {
       name: 'Digital Marketing',
       description:
         'Comprehensive digital marketing course including SEO, SEM, Social Media Marketing',
       duration: '4 months',
-      totalFee: 35000,
-      semesterFee: 17500,
-      admissionFee: 1500,
     },
     {
       name: 'Data Science',
       description: 'Data science and machine learning course with Python, R, and ML algorithms',
       duration: '8 months',
-      totalFee: 75000,
-      semesterFee: 37500,
-      admissionFee: 3000,
     },
     {
       name: 'Graphic Design',
       description: 'Creative graphic design course with Adobe Creative Suite',
       duration: '3 months',
-      totalFee: 25000,
-      semesterFee: 12500,
-      admissionFee: 1000,
     },
     {
       name: 'Mobile App Development',
       description: 'Native and cross-platform mobile app development with React Native and Flutter',
       duration: '5 months',
-      totalFee: 45000,
-      semesterFee: 22500,
-      admissionFee: 1800,
     },
     {
       name: 'UI/UX Design',
       description: 'User interface and user experience design course with Figma and Adobe XD',
       duration: '4 months',
-      totalFee: 30000,
-      semesterFee: 15000,
-      admissionFee: 1200,
     },
   ];
 

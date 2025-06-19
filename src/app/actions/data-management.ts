@@ -166,9 +166,6 @@ export async function createCourse(input: CreateCourseInput): Promise<ActionResp
         name: input.name,
         description: input.description,
         duration: input.duration,
-        totalFee: input.totalFee,
-        semesterFee: input.semesterFee,
-        admissionFee: input.admissionFee,
       },
     });
 
@@ -196,9 +193,6 @@ export async function updateCourse(input: UpdateCourseInput): Promise<ActionResp
         name: input.name,
         description: input.description,
         duration: input.duration,
-        totalFee: input.totalFee,
-        semesterFee: input.semesterFee,
-        admissionFee: input.admissionFee,
       },
     });
 
@@ -526,9 +520,8 @@ export async function toggleEnquirySourceStatus(input: DeleteInput): Promise<Act
 
     return {
       success: true,
-      message: `Enquiry source ${
-        updatedSource.isActive ? 'activated' : 'deactivated'
-      } successfully`,
+      message: `Enquiry source ${updatedSource.isActive ? 'activated' : 'deactivated'
+        } successfully`,
       data: updatedSource,
     };
   } catch (error) {

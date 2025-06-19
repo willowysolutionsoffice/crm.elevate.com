@@ -9,26 +9,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft,
   User,
-  Receipt,
-  IndianRupee,
   FileText,
   Phone,
   Mail,
   MapPin,
   GraduationCap,
   Building,
-  CreditCard,
   Calendar as CalendarIcon,
 } from 'lucide-react';
 import { getAdmissionById } from '@/app/actions/admission-actions';
 import { toast } from 'sonner';
 import {
   AdmissionWithRelations,
-  PaymentModeLabels,
-  AmountCollectedTypeLabels,
   AdmissionGenderLabels,
 } from '@/types/admission';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 
 export default function AdmissionDetailPage() {
   const params = useParams();
@@ -37,7 +32,7 @@ export default function AdmissionDetailPage() {
 
   const [admission, setAdmission] = useState<AdmissionWithRelations | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
+  // Receipt generation functionality removed - fee management no longer supported
 
   // Fetch admission data
   const fetchAdmission = useCallback(async () => {
@@ -70,23 +65,7 @@ export default function AdmissionDetailPage() {
     router.push('/admissions');
   };
 
-  const handleGenerateReceipt = async () => {
-    try {
-      setIsGeneratingReceipt(true);
-      toast.info('Generating receipt...');
-
-      // Open receipt PDF in new tab
-      const receiptUrl = `/api/admissions/${admissionId}/receipt`;
-      window.open(receiptUrl, '_blank');
-
-      toast.success('Receipt opened in new tab!');
-    } catch (error) {
-      console.error('Error generating receipt:', error);
-      toast.error('Failed to generate receipt');
-    } finally {
-      setIsGeneratingReceipt(false);
-    }
-  };
+  // Receipt generation functionality removed - fee management no longer supported
 
   // Loading skeleton
   if (isLoading) {
@@ -170,10 +149,7 @@ export default function AdmissionDetailPage() {
             <p className="text-muted-foreground">View and manage admission information</p>
           </div>
         </div>
-        <Button onClick={handleGenerateReceipt} disabled={isGeneratingReceipt} className="gap-2">
-          <FileText className="h-4 w-4" />
-          {isGeneratingReceipt ? 'Generating...' : 'Generate Receipt'}
-        </Button>
+        {/* Receipt generation removed - fee management no longer supported */}
       </div>
 
       {/* Main Content */}
@@ -300,7 +276,7 @@ export default function AdmissionDetailPage() {
                 <GraduationCap className="h-5 w-5" />
                 Course Information
               </CardTitle>
-              <CardDescription>Enrolled course details and fee structure</CardDescription>
+              <CardDescription>Enrolled course details and information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -327,115 +303,17 @@ export default function AdmissionDetailPage() {
           </Card>
         </div>
 
-        {/* Right Column - Fee and Payment Details */}
+        {/* Right Column */}
         <div className="space-y-6">
-          {/* Fee Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <IndianRupee className="h-5 w-5" />
-                Fee Breakdown
-              </CardTitle>
-              <CardDescription>Course fees and payment details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Total Course Fee</span>
-                  <span className="font-medium">{formatCurrency(admission.courseTotalFee)}</span>
-                </div>
-                {admission.course.admissionFee && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Admission Fee</span>
-                    <span className="font-medium">
-                      {formatCurrency(admission.course.admissionFee)}
-                    </span>
-                  </div>
-                )}
-                {admission.course.semesterFee && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Semester Fee</span>
-                    <span className="font-medium">
-                      {formatCurrency(admission.course.semesterFee)}
-                    </span>
-                  </div>
-                )}
-                <Separator />
-                <div className="flex justify-between items-center text-lg font-semibold">
-                  <span
-                    className={`${
-                      admission.remainingBalance > 0 ? 'text-orange-600' : 'text-green-600'
-                    }`}
-                  >
-                    Remaining Balance
-                  </span>
-                  <span
-                    className={`${
-                      admission.remainingBalance > 0 ? 'text-orange-600' : 'text-green-600'
-                    }`}
-                  >
-                    {formatCurrency(admission.remainingBalance)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Additional information can be added here */}
 
-          {/* Payment Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Payment Information
-              </CardTitle>
-              <CardDescription>Current payment details and receipt</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Amount Collected Towards
-                  </label>
-                  <p className="font-medium">
-                    {AmountCollectedTypeLabels[admission.amountCollectedTowards]}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Payment Mode</label>
-                  <p className="font-medium">{PaymentModeLabels[admission.paymentMode]}</p>
-                </div>
-                {admission.transactionIdReferenceNumber && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Transaction Reference
-                    </label>
-                    <p className="font-medium font-mono text-sm">
-                      {admission.transactionIdReferenceNumber}
-                    </p>
-                  </div>
-                )}
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Receipt Number
-                  </label>
-                  <p className="font-medium font-mono text-sm">{admission.receiptNumber}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Next Due Date</label>
-                  <div className="flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{formatDate(admission.nextDueDate)}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+
 
           {/* Admission Information */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Receipt className="h-5 w-5" />
+                <FileText className="h-5 w-5" />
                 Admission Information
               </CardTitle>
               <CardDescription>Admission record details</CardDescription>

@@ -86,9 +86,6 @@ const courseSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
   duration: z.string().optional(),
-  totalFee: z.coerce.number().min(0, 'Total fee must be a positive number'),
-  semesterFee: z.coerce.number().optional(),
-  admissionFee: z.coerce.number().min(0, 'Admission fee must be a positive number'),
 });
 
 const branchSchema = z.object({
@@ -313,9 +310,6 @@ export default function DataManagementPage() {
           name: item.name,
           description: (item as Course).description || '',
           duration: (item as Course).duration || '',
-          totalFee: (item as Course).totalFee || 0,
-          semesterFee: (item as Course).semesterFee || undefined,
-          admissionFee: (item as Course).admissionFee || 0,
         });
         break;
       case 'branch':
@@ -412,12 +406,7 @@ export default function DataManagementPage() {
                                 );
                               case 'Duration':
                                 return (typedItem.duration as string) || '-';
-                              case 'Total Fee':
-                                return typedItem.totalFee ? `₹${typedItem.totalFee}` : '-';
-                              case 'Semester Fee':
-                                return typedItem.semesterFee ? `₹${typedItem.semesterFee}` : '-';
-                              case 'Admission Fee':
-                                return typedItem.admissionFee ? `₹${typedItem.admissionFee}` : '-';
+
                               case 'Address':
                                 return (
                                   <div className="max-w-xs truncate">
@@ -575,55 +564,7 @@ export default function DataManagementPage() {
                 placeholder="e.g., 6 months"
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="course-total-fee">
-                  Total Fee (₹) <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="course-total-fee"
-                  type="text"
-                  {...courseForm.register('totalFee', {
-                    setValueAs: (value) => parseInt(value) || 0,
-                  })}
-                  placeholder="Enter total course fee"
-                />
-                {courseForm.formState.errors.totalFee && (
-                  <p className="text-sm text-destructive">
-                    {courseForm.formState.errors.totalFee.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="course-semester-fee">Semester Fee (₹)</Label>
-                <Input
-                  id="course-semester-fee"
-                  type="text"
-                  {...courseForm.register('semesterFee', {
-                    setValueAs: (value) => (value ? parseInt(value) || 0 : undefined),
-                  })}
-                  placeholder="Enter semester fee"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="course-admission-fee">
-                  Admission Fee (₹) <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="course-admission-fee"
-                  type="text"
-                  {...courseForm.register('admissionFee', {
-                    setValueAs: (value) => parseInt(value) || 0,
-                  })}
-                  placeholder="Enter admission fee"
-                />
-                {courseForm.formState.errors.admissionFee && (
-                  <p className="text-sm text-destructive">
-                    {courseForm.formState.errors.admissionFee.message}
-                  </p>
-                )}
-              </div>
-            </div>
+
             <div className="flex justify-end space-x-2">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(null)}>
                 Cancel
@@ -774,9 +715,6 @@ export default function DataManagementPage() {
                 'Name',
                 'Description',
                 'Duration',
-                'Total Fee',
-                'Semester Fee',
-                'Admission Fee',
               ])}
             </CardContent>
           </Card>
@@ -897,55 +835,7 @@ export default function DataManagementPage() {
                     placeholder="e.g., 6 months"
                   />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-course-total-fee">
-                      Total Fee (₹) <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="edit-course-total-fee"
-                      type="text"
-                      {...courseForm.register('totalFee', {
-                        setValueAs: (value) => parseInt(value) || 0,
-                      })}
-                      placeholder="Enter total course fee"
-                    />
-                    {courseForm.formState.errors.totalFee && (
-                      <p className="text-sm text-destructive">
-                        {courseForm.formState.errors.totalFee.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-course-semester-fee">Semester Fee (₹)</Label>
-                    <Input
-                      id="edit-course-semester-fee"
-                      type="text"
-                      {...courseForm.register('semesterFee', {
-                        setValueAs: (value) => (value ? parseInt(value) || 0 : undefined),
-                      })}
-                      placeholder="Enter semester fee"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-course-admission-fee">
-                      Admission Fee (₹) <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="edit-course-admission-fee"
-                      type="text"
-                      {...courseForm.register('admissionFee', {
-                        setValueAs: (value) => parseInt(value) || 0,
-                      })}
-                      placeholder="Enter admission fee"
-                    />
-                    {courseForm.formState.errors.admissionFee && (
-                      <p className="text-sm text-destructive">
-                        {courseForm.formState.errors.admissionFee.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
+
                 <div className="flex justify-end space-x-2">
                   <Button
                     type="button"

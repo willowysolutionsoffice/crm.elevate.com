@@ -2,15 +2,13 @@ import {
   Admission,
   AdmissionGender,
   AdmissionStatus,
-  AmountCollectedType,
-  PaymentMode,
   Course,
   User,
   Enquiry,
 } from '@prisma/client';
 
 // Re-export Prisma enums for easier use
-export { AdmissionGender, AdmissionStatus, AmountCollectedType, PaymentMode };
+export { AdmissionGender, AdmissionStatus };
 
 // Main Admission interface with relations
 export interface AdmissionWithRelations extends Admission {
@@ -34,10 +32,27 @@ export interface CreateAdmissionInput {
   instituteName: string;
   additionalNotes?: string;
   courseId: string;
-  nextDueDate: Date;
-  amountCollectedTowards: AmountCollectedType;
-  paymentMode: PaymentMode;
-  transactionIdReferenceNumber?: string;
+  enquiryId?: string;
+}
+
+// Database creation data type (for Prisma operations)
+export interface AdmissionCreateData {
+  admissionNumber: string;
+  candidateName: string;
+  mobileNumber: string;
+  email: string | null;
+  gender: AdmissionGender;
+  dateOfBirth: Date;
+  address: string;
+  leadSource: string | null;
+  lastQualification: string;
+  yearOfPassing: number;
+  percentageCGPA: string;
+  instituteName: string;
+  additionalNotes: string | null;
+  status: AdmissionStatus;
+  courseId: string;
+  createdByUserId: string;
   enquiryId?: string;
 }
 
@@ -56,33 +71,17 @@ export interface UpdateAdmissionInput {
   instituteName?: string;
   additionalNotes?: string;
   courseId?: string;
-  nextDueDate?: Date;
-  amountCollectedTowards?: AmountCollectedType;
-  paymentMode?: PaymentMode;
-  transactionIdReferenceNumber?: string;
+
   status?: AdmissionStatus;
   enquiryId?: string;
 }
 
 // Multi-step form data (used in components)
 export interface AdmissionFormData {
-  candidateName: string;
-  mobileNumber: string;
-  email?: string;
-  gender: AdmissionGender;
-  dateOfBirth: Date;
-  address: string;
-  leadSource: string;
-  lastQualification: string;
-  yearOfPassing: number;
-  percentageCGPA: string;
-  instituteName: string;
-  additionalNotes?: string;
+  id?: string;
+  enquiryId: string;
   courseId: string;
-  nextDueDate: Date;
-  amountCollectedTowards: AmountCollectedType;
-  paymentMode: PaymentMode;
-  transactionIdReferenceNumber?: string;
+  createdById: string;
 }
 
 // Filter and search types
@@ -90,28 +89,17 @@ export interface AdmissionFilters {
   search?: string;
   status?: AdmissionStatus;
   courseId?: string;
-  paymentMode?: PaymentMode;
-  amountCollectedTowards?: AmountCollectedType;
-  dateFrom?: Date;
-  dateTo?: Date;
+  gender?: AdmissionGender;
+  leadSource?: string;
+  dateRange?: {
+    from: Date;
+    to: Date;
+  };
   page?: number;
   limit?: number;
 }
 
-// Receipt generation types
-export interface ReceiptData {
-  admissionNumber: string;
-  receiptNumber: string;
-  candidateName: string;
-  courseName: string;
-  amountPaid: number;
-  totalFee: number;
-  remainingBalance: number;
-  paymentMode: PaymentMode;
-  transactionReference?: string;
-  nextDueDate: Date;
-  receiptDate: Date;
-}
+
 
 // API response types
 export interface AdmissionListResponse {
@@ -133,13 +121,6 @@ export interface UpdateAdmissionResponse {
   error?: string;
 }
 
-// Calculation helpers
-export interface FeeCalculation {
-  totalFee: number;
-  amountPaid: number;
-  remainingBalance: number;
-  nextDueAmount: number;
-}
 
 // Dashboard summary types
 export interface AdmissionStats {
@@ -147,8 +128,6 @@ export interface AdmissionStats {
   pendingAdmissions: number;
   confirmedAdmissions: number;
   completedAdmissions: number;
-  totalRevenue: number;
-  pendingPayments: number;
 }
 
 // Table column types for data tables
@@ -159,8 +138,6 @@ export interface AdmissionTableRow {
   mobileNumber: string;
   courseName: string;
   status: AdmissionStatus;
-  totalFee: number;
-  remainingBalance: number;
   createdAt: Date;
 }
 
@@ -178,10 +155,6 @@ export interface AdmissionValidationErrors {
   percentageCGPA?: string;
   instituteName?: string;
   courseId?: string;
-  nextDueDate?: string;
-  amountCollectedTowards?: string;
-  paymentMode?: string;
-  transactionIdReferenceNumber?: string;
 }
 
 // Status display helpers
@@ -192,18 +165,7 @@ export const AdmissionStatusLabels: Record<AdmissionStatus, string> = {
   [AdmissionStatus.CANCELLED]: 'Cancelled',
 };
 
-export const PaymentModeLabels: Record<PaymentMode, string> = {
-  [PaymentMode.CASH]: 'Cash',
-  [PaymentMode.UPI]: 'UPI',
-  [PaymentMode.CARD]: 'Card',
-  [PaymentMode.BANK_TRANSFER]: 'Bank Transfer',
-};
 
-export const AmountCollectedTypeLabels: Record<AmountCollectedType, string> = {
-  [AmountCollectedType.ADMISSION_FEE]: 'Admission Fee',
-  [AmountCollectedType.SEMESTER_FEE]: 'Semester Fee',
-  [AmountCollectedType.TOTAL_FEE]: 'Total Fee',
-};
 
 export const AdmissionGenderLabels: Record<AdmissionGender, string> = {
   [AdmissionGender.MALE]: 'Male',

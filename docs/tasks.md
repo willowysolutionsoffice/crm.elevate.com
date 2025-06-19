@@ -306,15 +306,8 @@ This document section outlines the comprehensive tasks required to implement an 
     - `instituteName` (String) ✅
     - `additionalNotes` (String?, optional) ✅
     - `courseId` (String, @db.ObjectId, foreign key to Course) ✅
-    - `courseTotalFee` (Float) ✅
-    - `semesterFee` (Float?, optional) ✅
-    - `admissionFee` (Float) ✅
     - `nextDueDate` (DateTime) ✅
-    - `amountCollectedTowards` (AmountCollectedType enum: ADMISSION_FEE, SEMESTER_FEE, TOTAL_FEE) ✅
-    - `paymentMode` (PaymentMode enum: CASH, UPI, CARD, BANK_TRANSFER) ✅
-    - `transactionIdReferenceNumber` (String?, optional) ✅
-    - `receiptNumber` (String, auto-generated) ✅
-    - `remainingBalance` (Float) ✅
+    - Fee-related fields removed - no longer supported ✅
     - `status` (AdmissionStatus enum: PENDING, CONFIRMED, COMPLETED, CANCELLED) ✅
     - `createdByUserId` (String, foreign key to User) ✅
     - `createdAt` (DateTime, @default(now())) ✅
@@ -323,26 +316,25 @@ This document section outlines the comprehensive tasks required to implement an 
 - [x] **Define New Enums in Prisma Schema** ✅
 
   - [x] Add `AdmissionGender` enum: MALE, FEMALE, OTHER ✅
-  - [x] Add `AmountCollectedType` enum: ADMISSION_FEE, SEMESTER_FEE, TOTAL_FEE ✅
-  - [x] Add `PaymentMode` enum: CASH, UPI, CARD, BANK_TRANSFER ✅
+  - [x] Fee-related enums removed - no longer supported ✅
   - [x] Add `AdmissionStatus` enum: PENDING, CONFIRMED, COMPLETED, CANCELLED ✅
 
 - [x] **Update Course Model in Prisma Schema** ✅
 
   - [x] Add relation to admissions: `admissions Admission[]` ✅
-  - [x] Verify existing fields: `totalFee`, `semesterFee`, `admissionFee` are present ✅
+  - [x] Verify course relationship and basic admission fields are present ✅
 
 - [x] **Create TypeScript Types** ✅
 
   - [x] Create `@/types/admission.ts` with interfaces:
     - `Admission` interface matching Prisma model
     - `AdmissionWithRelations` interface (with course, enquiry, createdBy)
-    - `AdmissionGender`, `AmountCollectedType`, `PaymentMode`, `AdmissionStatus` enums
+    - `AdmissionGender`, `AdmissionStatus` enums
     - `CreateAdmissionInput` type for form submission
     - `UpdateAdmissionInput` type for updates
     - `AdmissionFormData` type for multi-step form
     - `AdmissionFilters` type for filtering/search
-    - `ReceiptData` type for receipt generation
+    - Receipt functionality removed - no longer supported
 
 - [x] **Run Prisma Migration** ✅
   - [x] Generate Prisma client for MongoDB (migrations not applicable for MongoDB) ✅
@@ -353,15 +345,15 @@ This document section outlines the comprehensive tasks required to implement an 
 - [x] **Create Admission Server Actions** ✅
   - [x] Create `src/app/actions/admission-actions.ts` following existing patterns from `invoice-actions.ts` ✅
   - [x] Implement server actions: ✅
-    - `createAdmission()` - Create new admission with auto-generated admission number and receipt ✅
+    - `createAdmission()` - Create new admission with auto-generated admission number ✅
     - `updateAdmission()` - Update existing admission ✅
     - `deleteAdmission()` - Soft delete admission ✅
     - `getAdmissions()` - Fetch all admissions with pagination and filters ✅
     - `getAdmissionById()` - Fetch single admission with relations ✅
     - `getAdmissionsByEnquiry()` - Get admissions linked to an enquiry ✅
-    - `generateReceiptNumber()` - Generate unique receipt number ✅
+    - Receipt generation functionality removed ✅
     - `calculateAdmissionTotals()` - Calculate remaining balance and totals ✅
-    - `getCoursesForAdmission()` - Get active courses with fee details ✅
+    - `getCoursesForAdmission()` - Get active courses ✅
 
 ### **Task 3: Admission Data Table View (Shadcn UI)** ✅
 
@@ -370,7 +362,7 @@ This document section outlines the comprehensive tasks required to implement an 
   - [x] Create `src/app/(sidebar)/admissions/page.tsx` ✅
   - [x] Follow existing pattern from `src/app/(sidebar)/invoices/page.tsx` ✅
   - [x] Implement data table using native table components: ✅
-    - Display columns: Admission Number, Candidate Name, Mobile, Course, Status, Total Fee, Remaining Balance, Created Date ✅
+    - Display columns: Admission Number, Candidate Name, Mobile, Course, Status, Created Date ✅
     - Add search/filter functionality by candidate name, mobile, course ✅
     - Include pagination ✅
     - Add status filter dropdown ✅
@@ -380,7 +372,7 @@ This document section outlines the comprehensive tasks required to implement an 
 
   - [x] Integrate table directly in page component (following existing pattern) ✅
   - [x] Follow pattern from existing table components ✅
-  - [x] Include action buttons for View, Edit, Delete, Generate Receipt PDF ✅
+  - [x] Include action buttons for View, Edit, Delete ✅
   - [x] Add status badges with proper styling (follow invoice status styling) ✅
   - [x] Add course and fee display formatting ✅
   - [x] Include responsive design for mobile view ✅
@@ -412,24 +404,22 @@ This document section outlines the comprehensive tasks required to implement an 
   - [x] Institute Name (Text input, required) ✅
   - [x] Additional Notes (Textarea, optional) ✅
 
-- [x] **Step 3: Course & Fee Details Form** ✅
+- [x] **Step 3: Course Details Form** ✅
 
   - [x] Course Selection (Dropdown populated from Course model, required) ✅
   - [x] Display dynamic course information on selection: ✅
-    - Course Total Fee (Display only, auto-populated) ✅
-    - Semester Fee (Display only if course has semester fee) ✅
-    - Admission Fee (Display only, auto-populated) ✅
+    - Course Information (Display only, auto-populated) ✅
+    - Status Selection (Dropdown for admission status) ✅
+    - Basic admission details ✅
   - [x] Next Due Date (Date picker, required) ✅
-  - [x] Amount Collected Towards (Dropdown: Admission Fee/Semester Fee/Total Fee) ✅
-  - [x] Payment Mode (Dropdown: Cash/UPI/Card/Bank Transfer, required) ✅
-  - [x] Transaction ID/Reference Number (Text input, conditional based on payment mode) ✅
+  - [x] Fee-related fields removed - no longer supported ✅
 
 - [x] **Step 4: Preview & Confirmation** ✅
 
   - [x] Display all entered values for review ✅
-  - [x] Show calculated remaining balance ✅
+  - [x] Show admission status and course information ✅
   - [x] Clearly indicate optional fields that are empty ✅
-  - [x] Show fee breakdown and payment details ✅
+  - [x] Show course and admission details ✅
   - [x] Submit button to create admission ✅
 
 ### **Task 5: Individual Admission Detail Page** ✅
@@ -441,67 +431,25 @@ This document section outlines the comprehensive tasks required to implement an 
   - [x] Display comprehensive admission information in cards: ✅
     - Personal details card ✅
     - Education details card ✅
-    - Course and fee details card ✅
-    - Payment information card ✅
-    - Receipt information card ✅
+    - Course details card ✅
+    - Course and admission information card ✅
 
 - [x] **Create Admission Detail Components** ✅
 
   - [x] Implemented admission details sections within main page component ✅
-  - [x] Fee breakdown section with remaining balance highlighting ✅
-  - [x] Payment history and receipt information ✅
+  - [x] Course information section with status highlighting ✅
+  - [x] Admission status and course information ✅
   - [x] Status display with proper styling and icons ✅
   - [x] Follow existing component patterns for consistency ✅
 
-### **Task 6: Receipt PDF Generation Setup** ✅
+### **Task 6: Receipt PDF Generation Setup** ❌ REMOVED
 
-- [x] **Create Receipt PDF Template** ✅
-
-  - [x] Create `public/pdf/receipt_template.json` ✅
-  - [x] Design receipt template following the provided receipt format: ✅
-    - Receipt header with number and date ✅
-    - Student information ✅
-    - Course information ✅
-    - Fee breakdown (admission fee paid, total course fee, remaining balance) ✅
-    - Payment details (mode, transaction reference) ✅
-    - Next due date ✅
-    - Thank you message ✅
-    - Company footer ✅
-
-- [x] **Create Receipt PDF Service** ✅
-
-  - [x] Create `src/lib/receipt-pdf-service.ts` following `src/lib/pdf-service.ts` pattern ✅
-  - [x] Implement receipt PDF generation functions: ✅
-    - `generateReceiptPDF(admission)` - Generate receipt PDF from admission data ✅
-    - `loadReceiptTemplate()` - Load template from public directory ✅
-    - `validateAdmissionData()` - Validate admission data for receipt generation ✅
-    - `generateReceiptFileName()` - Generate appropriate filename ✅
-
-- [x] **Create Receipt Template Mapper** ✅
-
-  - [x] Create `src/lib/receipt-template-mapper.ts` following `src/lib/invoice-template-mapper.ts` pattern ✅
-  - [x] Map admission data to receipt template format: ✅
-    - Map receipt number, date, student info ✅
-    - Map course details and fee breakdown ✅
-    - Map payment information ✅
-    - Format currency values appropriately ✅
-
-### **Task 7: Receipt PDF API and Generation** ✅
-
-- [x] **Create Receipt PDF API Route** ✅
-
-  - [x] Create `src/app/api/admissions/[id]/receipt/route.ts` ✅
-  - [x] Follow pattern from `src/app/api/invoices/[id]/pdf/route.ts` ✅
-  - [x] Implement GET method for receipt generation ✅
-  - [x] Return PDF as downloadable file with proper headers ✅
-  - [x] Include authentication and error handling ✅
-
-- [x] **Add Receipt Generation UI** ✅
-
-  - [x] Add "Generate Receipt" button to admission detail page ✅
-  - [x] Add "Download Receipt" action to admissions table ✅
-  - [x] Implement proper loading states and error handling ✅
-  - [x] Automatic receipt generation functionality ✅
+- [x] **Receipt functionality has been completely removed** ✅
+  - Receipt PDF templates deleted ✅
+  - Receipt PDF services deleted ✅
+  - Receipt API routes deleted ✅
+  - Receipt UI components removed ✅
+  - Fee management no longer supported ✅
 
 ### **Task 8: Enhanced Features and Integrations**
 
@@ -524,7 +472,7 @@ This document section outlines the comprehensive tasks required to implement an 
   - [ ] Implement advanced filters in admissions list:
     - Filter by course, status, date range
     - Search by candidate name, mobile, email
-    - Filter by payment status
+    - Filter by admission status
   - [ ] Add export functionality for admission data
 
 ### **Task 9: Delete Admission Dialog**
@@ -540,16 +488,16 @@ This document section outlines the comprehensive tasks required to implement an 
 - [ ] **Test Database Operations**
 
   - [ ] Verify admission creation with auto-generated numbers
-  - [ ] Test course fee calculations and remaining balance
+  - [ ] Test course information display and validation
   - [ ] Validate form submissions and validations
   - [ ] Test enquiry to admission conversion
 
-- [ ] **Test Receipt Generation**
+- [ ] **Test Admission Management**
 
-  - [ ] Verify receipt PDF output matches template design
-  - [ ] Test with various admission scenarios
-  - [ ] Ensure proper data formatting in generated receipts
-  - [ ] Test automatic receipt generation on admission creation
+  - [ ] Verify admission creation and editing functionality
+  - [ ] Test admission filtering and search capabilities
+  - [ ] Ensure proper data validation and error handling
+  - [ ] Test admission status management
 
 - [ ] **UI/UX Testing**
   - [ ] Test multi-step form navigation and validation
@@ -563,31 +511,30 @@ This document section outlines the comprehensive tasks required to implement an 
 
   - [ ] Add sample admission data to `prisma/seed.ts`
   - [ ] Include test admissions with different statuses
-  - [ ] Add sample receipt data for development
+  - [ ] Add sample admission data for development
   - [ ] Link sample admissions to existing courses
 
 - [ ] **Code Documentation**
   - [ ] Add JSDoc comments to all functions
-  - [ ] Document API endpoints and receipt generation
+  - [ ] Document API endpoints and admission management
   - [ ] Update README with admission feature documentation
 
-## Receipt Format Reference
+## Fee Management Removed
 
-```
------------------------------------------------------
-Receipt #: REC-20241215-001 | Date: 15 December 2024
------------------------------------------------------
-Student: Ravi Kumar
-Course: Diploma in Digital Marketing
-Admission Fee Paid: ₹5,000
-Total Course Fee: ₹20,000
-Remaining Balance: ₹15,000
-Payment Mode: UPI
-Transaction Ref: TXN8759232
-Next Due Date: 15 January 2025
-Thank you for your payment.
------------------------------------------------------
-```
+**Note**: Fee management and receipt generation functionality has been completely removed from the system. The CRM now focuses on:
+
+1. **Enquiry Management**: Track and manage student enquiries
+2. **Admission Management**: Handle student admissions without fee tracking
+3. **Course Management**: Manage course information and enrollment
+4. **User Management**: Handle user accounts and permissions
+5. **Invoice Management**: Separate invoice system for other business needs
+
+**Removed Features:**
+- Receipt PDF generation
+- Fee tracking and payment management
+- Payment mode selection
+- Transaction reference tracking
+- Fee calculation and balance management
 
 ## Implementation Notes (Admission Feature)
 
@@ -606,13 +553,13 @@ Thank you for your payment.
 - Implement proper indexing for search functionality
 - Follow existing enum patterns
 
-### **Receipt Generation Best Practices**
+### **Admission Management Best Practices**
 
-- Use server-side PDF generation for security (same as invoice feature)
-- Implement proper error handling for PDF operations
-- Follow pdfme documentation patterns from Context7
-- Generate receipts automatically on admission creation
-- Store receipt metadata in database for tracking
+- Use proper data validation for all admission fields
+- Implement proper error handling for admission operations
+- Follow existing patterns from invoice and enquiry features
+- Maintain clear admission status workflow
+- Store admission metadata properly for tracking and reporting
 
 ### **File Upload Considerations**
 

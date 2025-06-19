@@ -11,9 +11,6 @@ export interface Course {
   name: string;
   description?: string;
   duration?: string;
-  totalFee?: number;
-  semesterFee?: number;
-  admissionFee?: number;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -69,9 +66,6 @@ export interface CreateCourseInput {
   name: string;
   description?: string;
   duration?: string;
-  totalFee: number;
-  semesterFee?: number;
-  admissionFee: number;
 }
 
 export interface UpdateCourseInput extends CreateCourseInput {

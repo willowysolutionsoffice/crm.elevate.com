@@ -10,9 +10,7 @@ import { adminActionClient } from '@/lib/safe-action';
 import {
   AdmissionGender,
   AdmissionStatus,
-  AmountCollectedType,
-  PaymentMode,
-  FeeCalculation,
+  AdmissionCreateData,
 } from '@/types/admission';
 import { Prisma } from '@prisma/client';
 
@@ -44,34 +42,7 @@ function generateAdmissionNumber(): string {
   return `ADM-${year}${month}${day}-${random}`;
 }
 
-// Helper function to generate receipt number
-function generateReceiptNumber(): string {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const random = Math.floor(Math.random() * 9999)
-    .toString()
-    .padStart(4, '0');
-  return `REC-${year}${month}${day}-${random}`;
-}
 
-// Helper function to calculate admission totals and remaining balance
-function calculateAdmissionTotals(
-  course: { totalFee: number | null; semesterFee: number | null; admissionFee: number | null },
-  amountPaid: number
-): FeeCalculation {
-  const totalFee = course.totalFee || 0;
-  const remainingBalance = Math.max(0, totalFee - amountPaid);
-  const nextDueAmount = remainingBalance;
-
-  return {
-    totalFee,
-    amountPaid: Math.round(amountPaid * 100) / 100,
-    remainingBalance: Math.round(remainingBalance * 100) / 100,
-    nextDueAmount: Math.round(nextDueAmount * 100) / 100,
-  };
-}
 
 // Validation schemas
 const createAdmissionSchema = z.object({
@@ -88,11 +59,6 @@ const createAdmissionSchema = z.object({
   instituteName: z.string().min(1, 'Institute name is required'),
   additionalNotes: z.string().optional(),
   courseId: z.string().min(1, 'Course selection is required'),
-  nextDueDate: z.date(),
-  amountCollectedTowards: z.nativeEnum(AmountCollectedType),
-  paymentMode: z.nativeEnum(PaymentMode),
-  transactionIdReferenceNumber: z.string().optional(),
-  amountPaid: z.number().min(0.01, 'Amount paid must be greater than 0'),
   enquiryId: z.string().optional(),
 });
 
@@ -111,10 +77,7 @@ const updateAdmissionSchema = z.object({
   instituteName: z.string().optional(),
   additionalNotes: z.string().optional(),
   courseId: z.string().optional(),
-  nextDueDate: z.date().optional(),
-  amountCollectedTowards: z.nativeEnum(AmountCollectedType).optional(),
-  paymentMode: z.nativeEnum(PaymentMode).optional(),
-  transactionIdReferenceNumber: z.string().optional(),
+
   status: z.nativeEnum(AdmissionStatus).optional(),
   enquiryId: z.string().optional(),
 });
@@ -129,8 +92,6 @@ const getAdmissionsSchema = z.object({
   search: z.string().optional(),
   status: z.nativeEnum(AdmissionStatus).optional(),
   courseId: z.string().optional(),
-  paymentMode: z.nativeEnum(PaymentMode).optional(),
-  amountCollectedTowards: z.nativeEnum(AmountCollectedType).optional(),
   dateFrom: z.date().optional(),
   dateTo: z.date().optional(),
 });
@@ -150,24 +111,18 @@ export const createAdmission = action
     try {
       const user = await getCurrentUser();
 
-      // Get course details for fee calculation
+      // Get course details
       const course = await prisma.course.findUnique({
         where: { id: parsedInput.courseId },
         select: {
           id: true,
           name: true,
-          totalFee: true,
-          semesterFee: true,
-          admissionFee: true,
         },
       });
 
       if (!course) {
         throw new Error('Course not found');
       }
-
-      // Calculate totals
-      const feeCalculation = calculateAdmissionTotals(course, parsedInput.amountPaid);
 
       // Generate unique admission number
       let admissionNumber: string;
@@ -187,60 +142,40 @@ export const createAdmission = action
         throw new Error('Could not generate unique admission number');
       }
 
-      // Generate unique receipt number
-      let receiptNumber: string;
-      attempts = 0;
 
-      do {
-        receiptNumber = generateReceiptNumber();
-        const existing = await prisma.admission.findUnique({
-          where: { receiptNumber },
-        });
-        if (!existing) break;
-        attempts++;
-      } while (attempts < maxAttempts);
 
-      if (attempts >= maxAttempts) {
-        throw new Error('Could not generate unique receipt number');
+      // Prepare data object with conditional fields
+      const admissionData: AdmissionCreateData = {
+        admissionNumber,
+        candidateName: parsedInput.candidateName,
+        mobileNumber: parsedInput.mobileNumber,
+        email: parsedInput.email || null,
+        gender: parsedInput.gender,
+        dateOfBirth: parsedInput.dateOfBirth,
+        address: parsedInput.address,
+        leadSource: parsedInput.leadSource || null,
+        lastQualification: parsedInput.lastQualification,
+        yearOfPassing: parsedInput.yearOfPassing,
+        percentageCGPA: parsedInput.percentageCGPA,
+        instituteName: parsedInput.instituteName,
+        additionalNotes: parsedInput.additionalNotes || null,
+        status: AdmissionStatus.PENDING,
+        courseId: parsedInput.courseId,
+        createdByUserId: user.id,
+      };
+
+      // Add enquiryId only if it exists
+      if (parsedInput.enquiryId) {
+        admissionData.enquiryId = parsedInput.enquiryId;
       }
 
       const admission = await prisma.admission.create({
-        data: {
-          admissionNumber,
-          receiptNumber,
-          candidateName: parsedInput.candidateName,
-          mobileNumber: parsedInput.mobileNumber,
-          email: parsedInput.email || null,
-          gender: parsedInput.gender,
-          dateOfBirth: parsedInput.dateOfBirth,
-          address: parsedInput.address,
-          leadSource: parsedInput.leadSource || null,
-          lastQualification: parsedInput.lastQualification,
-          yearOfPassing: parsedInput.yearOfPassing,
-          percentageCGPA: parsedInput.percentageCGPA,
-          instituteName: parsedInput.instituteName,
-          additionalNotes: parsedInput.additionalNotes || null,
-          courseTotalFee: feeCalculation.totalFee,
-          semesterFee: course.semesterFee,
-          admissionFee: course.admissionFee || 0,
-          nextDueDate: parsedInput.nextDueDate,
-          amountCollectedTowards: parsedInput.amountCollectedTowards,
-          paymentMode: parsedInput.paymentMode,
-          transactionIdReferenceNumber: parsedInput.transactionIdReferenceNumber || null,
-          remainingBalance: feeCalculation.remainingBalance,
-          status: AdmissionStatus.PENDING,
-          course: { connect: { id: parsedInput.courseId } },
-          enquiry: parsedInput.enquiryId ? { connect: { id: parsedInput.enquiryId } } : undefined,
-          createdBy: { connect: { id: user.id } },
-        },
+        data: admissionData,
         include: {
           course: {
             select: {
               id: true,
               name: true,
-              totalFee: true,
-              semesterFee: true,
-              admissionFee: true,
             },
           },
           enquiry: {
@@ -303,45 +238,12 @@ export const updateAdmission = adminActionClient
       if (updateData.instituteName) data.instituteName = updateData.instituteName;
       if (updateData.additionalNotes !== undefined)
         data.additionalNotes = updateData.additionalNotes || null;
-      if (updateData.nextDueDate) data.nextDueDate = updateData.nextDueDate;
-      if (updateData.paymentMode) data.paymentMode = updateData.paymentMode;
-      if (updateData.transactionIdReferenceNumber !== undefined) {
-        data.transactionIdReferenceNumber = updateData.transactionIdReferenceNumber || null;
-      }
+
       if (updateData.status) data.status = updateData.status;
 
-      // Handle course change or amount collected towards change
-      if (updateData.courseId || updateData.amountCollectedTowards) {
-        const courseId = updateData.courseId || existingAdmission.courseId;
-        const amountCollectedTowards =
-          updateData.amountCollectedTowards || existingAdmission.amountCollectedTowards;
-
-        const course = await prisma.course.findUnique({
-          where: { id: courseId },
-          select: {
-            totalFee: true,
-            semesterFee: true,
-            admissionFee: true,
-          },
-        });
-
-        if (!course) {
-          throw new Error('Course not found');
-        }
-
-        // Calculate amount paid based on existing data
-        const currentAmountPaid =
-          existingAdmission.courseTotalFee - existingAdmission.remainingBalance;
-        const feeCalculation = calculateAdmissionTotals(course, currentAmountPaid);
-
-        if (updateData.courseId) {
-          data.course = { connect: { id: updateData.courseId } };
-        }
-        data.courseTotalFee = feeCalculation.totalFee;
-        data.semesterFee = course.semesterFee;
-        data.admissionFee = course.admissionFee || 0;
-        data.amountCollectedTowards = amountCollectedTowards;
-        data.remainingBalance = feeCalculation.remainingBalance;
+      // Handle course change
+      if (updateData.courseId) {
+        data.course = { connect: { id: updateData.courseId } };
       }
 
       const admission = await prisma.admission.update({
@@ -352,9 +254,6 @@ export const updateAdmission = adminActionClient
             select: {
               id: true,
               name: true,
-              totalFee: true,
-              semesterFee: true,
-              admissionFee: true,
             },
           },
           enquiry: {
@@ -425,8 +324,6 @@ export const getAdmissions = action.schema(getAdmissionsSchema).action(async ({ 
       search,
       status,
       courseId,
-      paymentMode,
-      amountCollectedTowards,
       dateFrom,
       dateTo,
     } = parsedInput;
@@ -456,8 +353,6 @@ export const getAdmissions = action.schema(getAdmissionsSchema).action(async ({ 
 
     // Add other filters
     if (courseId) where.courseId = courseId;
-    if (paymentMode) where.paymentMode = paymentMode;
-    if (amountCollectedTowards) where.amountCollectedTowards = amountCollectedTowards;
 
     // Add date range filter
     if (dateFrom || dateTo) {
@@ -477,7 +372,6 @@ export const getAdmissions = action.schema(getAdmissionsSchema).action(async ({ 
             select: {
               id: true,
               name: true,
-              totalFee: true,
             },
           },
           createdBy: {
@@ -523,9 +417,6 @@ export const getAdmissionById = action
             select: {
               id: true,
               name: true,
-              totalFee: true,
-              semesterFee: true,
-              admissionFee: true,
               description: true,
               duration: true,
             },
@@ -581,7 +472,6 @@ export const getAdmissionsByEnquiry = action
             select: {
               id: true,
               name: true,
-              totalFee: true,
             },
           },
         },
@@ -614,9 +504,6 @@ export const getCoursesForAdmission = action.action(async () => {
       select: {
         id: true,
         name: true,
-        totalFee: true,
-        semesterFee: true,
-        admissionFee: true,
         description: true,
         duration: true,
       },
@@ -629,34 +516,3 @@ export const getCoursesForAdmission = action.action(async () => {
     throw new Error('Failed to fetch courses');
   }
 });
-
-// Helper function to recalculate admission totals (utility)
-export async function recalculateAdmissionTotals(admissionId: string) {
-  try {
-    const admission = await prisma.admission.findUnique({
-      where: { id: admissionId },
-      include: { course: true },
-    });
-
-    if (!admission) {
-      throw new Error('Admission not found');
-    }
-
-    // Calculate amount paid based on existing data
-    const amountPaid = admission.courseTotalFee - admission.remainingBalance;
-    const feeCalculation = calculateAdmissionTotals(admission.course, amountPaid);
-
-    await prisma.admission.update({
-      where: { id: admissionId },
-      data: {
-        courseTotalFee: feeCalculation.totalFee,
-        remainingBalance: feeCalculation.remainingBalance,
-      },
-    });
-
-    return feeCalculation;
-  } catch (error) {
-    console.error('Error recalculating admission totals:', error);
-    throw new Error('Failed to recalculate totals');
-  }
-}

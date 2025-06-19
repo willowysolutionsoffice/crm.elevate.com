@@ -22,18 +22,16 @@ import {
   ArrowRight,
   User,
   GraduationCap,
-  CreditCard,
   Eye,
 } from 'lucide-react';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
-  FormDescription,
+  FormMessage
 } from './ui/form';
 import { Input } from './ui/input';
 import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from './ui/select';
@@ -49,8 +47,6 @@ import { EnquirySource } from '@prisma/client';
 import {
   AdmissionWithRelations,
   AdmissionGender,
-  PaymentMode,
-  AmountCollectedType,
 } from '@/types/admission';
 import { createAdmission, updateAdmission } from '@/app/actions/admission-actions';
 import { updateEnquiryStatus } from '@/app/actions/enquiry';
@@ -63,9 +59,6 @@ interface SimpleCourse {
   name: string;
   description?: string | null;
   duration?: string | null;
-  totalFee?: number | null;
-  semesterFee?: number | null;
-  admissionFee?: number | null;
 }
 
 interface AdmissionFormDialogProps {
@@ -133,52 +126,9 @@ const admissionFormSchema = z
       .max(200, 'Institute name must be less than 200 characters'),
     additionalNotes: z.string().max(1000, 'Notes must be less than 1000 characters').optional(),
 
-    // Course & Fee Details (Step 3)
+    // Course Details (Step 3)
     courseId: z.string().min(1, 'Please select a course'),
-    nextDueDate: z
-      .date({
-        required_error: 'Next due date is required',
-        invalid_type_error: 'Please select a valid date',
-      })
-      .refine((date) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return date >= today;
-      }, 'Next due date cannot be in the past'),
-    amountCollectedTowards: z.nativeEnum(AmountCollectedType, {
-      errorMap: () => ({ message: 'Please select what the amount is collected towards' }),
-    }),
-    paymentMode: z.nativeEnum(PaymentMode, {
-      errorMap: () => ({ message: 'Please select a payment mode' }),
-    }),
-    transactionIdReferenceNumber: z
-      .string()
-      .max(100, 'Transaction reference must be less than 100 characters')
-      .optional(),
-    amountPaid: z
-      .number({
-        required_error: 'Amount paid is required',
-        invalid_type_error: 'Please enter a valid amount',
-      })
-      .min(0.01, 'Amount must be greater than 0')
-      .max(1000000, 'Amount cannot exceed 10,00,000'),
-  })
-  .refine(
-    (data) => {
-      // Conditional validation: require transaction reference for non-cash payments
-      if (
-        data.paymentMode !== PaymentMode.CASH &&
-        (!data.transactionIdReferenceNumber || data.transactionIdReferenceNumber.trim() === '')
-      ) {
-        return false;
-      }
-      return true;
-    },
-    {
-      message: 'Transaction ID/Reference number is required for non-cash payments',
-      path: ['transactionIdReferenceNumber'],
-    }
-  );
+  });
 
 type AdmissionFormValues = z.infer<typeof admissionFormSchema>;
 
@@ -208,8 +158,8 @@ export function AdmissionFormDialog({
   }, [isOpen]);
 
   const totalSteps = 4;
-  const stepTitles = ['Basic Details', 'Education Details', 'Course & Fees', 'Review & Confirm'];
-  const stepIcons = [User, GraduationCap, CreditCard, Eye];
+  const stepTitles = ['Basic Details', 'Education Details', 'Course Selection', 'Review & Confirm'];
+  const stepIcons = [User, GraduationCap, GraduationCap, Eye];
 
   // Form setup with Zod validation
   const form = useForm<AdmissionFormValues>({
@@ -228,12 +178,6 @@ export function AdmissionFormDialog({
       instituteName: admission?.instituteName || '',
       additionalNotes: admission?.additionalNotes || '',
       courseId: admission?.courseId || enquiryData?.preferredCourse?.id || '',
-      nextDueDate: admission?.nextDueDate ? new Date(admission.nextDueDate) : undefined,
-      amountCollectedTowards:
-        admission?.amountCollectedTowards || AmountCollectedType.ADMISSION_FEE,
-      paymentMode: admission?.paymentMode || undefined,
-      transactionIdReferenceNumber: admission?.transactionIdReferenceNumber || '',
-      amountPaid: 0,
     },
     mode: 'onChange',
   });
@@ -343,19 +287,12 @@ export function AdmissionFormDialog({
         instituteName: '',
         additionalNotes: enquiryData.notes ? `Notes from enquiry: ${enquiryData.notes}` : '',
         courseId: enquiryData.preferredCourse?.id || '',
-        nextDueDate: undefined,
-        amountCollectedTowards: AmountCollectedType.ADMISSION_FEE,
-        paymentMode: undefined,
-        transactionIdReferenceNumber: '',
-        amountPaid: 0,
       });
     }
   }, [enquiryData, isOpen, form]);
 
   // Watch form values for dynamic behavior
   const watchedCourseId = form.watch('courseId');
-  const watchedPaymentMode = form.watch('paymentMode');
-  const watchedAmountPaid = form.watch('amountPaid');
 
   // Get selected course details
   const selectedCourse = courses.find((course) => course.id === watchedCourseId);
@@ -376,14 +313,7 @@ export function AdmissionFormDialog({
         'leadSource',
       ],
       1: ['lastQualification', 'yearOfPassing', 'percentageCGPA', 'instituteName'],
-      2: [
-        'courseId',
-        'nextDueDate',
-        'amountCollectedTowards',
-        'paymentMode',
-        'transactionIdReferenceNumber',
-        'amountPaid',
-      ],
+      2: ['courseId'],
     };
 
     const fields = fieldsToValidate[stepIndex];
@@ -460,11 +390,6 @@ export function AdmissionFormDialog({
         instituteName: data.instituteName,
         additionalNotes: data.additionalNotes,
         courseId: data.courseId,
-        nextDueDate: data.nextDueDate,
-        amountCollectedTowards: data.amountCollectedTowards,
-        paymentMode: data.paymentMode,
-        transactionIdReferenceNumber: data.transactionIdReferenceNumber,
-        amountPaid: data.amountPaid,
       };
       executeUpdate(updateData);
     }
@@ -502,9 +427,8 @@ export function AdmissionFormDialog({
           <DialogDescription>
             {enquiryData
               ? `Creating admission for ${enquiryData.candidateName} from enquiry. Some fields have been pre-filled.`
-              : `Fill in the details to ${
-                  mode === 'edit' ? 'update the' : 'create a new'
-                } admission record.`}
+              : `Fill in the details to ${mode === 'edit' ? 'update the' : 'create a new'
+              } admission record.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -872,16 +796,16 @@ export function AdmissionFormDialog({
                 </Card>
               )}
 
-              {/* Step 3: Course & Fee Details */}
+              {/* Step 3: Course Details */}
               {currentStep === 2 && (
                 <div className="space-y-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <CreditCard className="h-5 w-5" />
-                        Course & Fee Details
+                        <GraduationCap className="h-5 w-5" />
+                        Course Details
                       </CardTitle>
-                      <CardDescription>Select course and configure payment details</CardDescription>
+                      <CardDescription>Select the course for admission</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <FormField
@@ -906,7 +830,7 @@ export function AdmissionFormDialog({
                               <SelectContent>
                                 {courses.map((course) => (
                                   <SelectItem key={course.id} value={course.id}>
-                                    {course.name} - {formatCurrency(course.totalFee || 0)}
+                                    {course.name}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -916,180 +840,7 @@ export function AdmissionFormDialog({
                         )}
                       />
 
-                      {/* Course Fee Breakdown */}
-                      {selectedCourse && (
-                        <Card className="bg-muted/50">
-                          <CardContent className="pt-6">
-                            <h4 className="font-semibold mb-3">Course Fee Breakdown</h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                              <div className="text-center p-3 bg-background rounded-lg">
-                                <div className="font-semibold text-lg text-primary">
-                                  {formatCurrency(selectedCourse.totalFee || 0)}
-                                </div>
-                                <div className="text-muted-foreground">Total Fee</div>
-                              </div>
-                              {selectedCourse.semesterFee !== 0 && (
-                                <div className="text-center p-3 bg-background rounded-lg">
-                                  <div className="font-semibold text-lg text-blue-600">
-                                    {formatCurrency(selectedCourse.semesterFee || 0)}
-                                  </div>
-                                  <div className="text-muted-foreground">Semester Fee</div>
-                                </div>
-                              )}
-                              <div className="text-center p-3 bg-background rounded-lg">
-                                <div className="font-semibold text-lg text-green-600">
-                                  {formatCurrency(selectedCourse.admissionFee || 0)}
-                                </div>
-                                <div className="text-muted-foreground">Admission Fee</div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                        <FormField
-                          control={form.control}
-                          name="nextDueDate"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                              <FormLabel>Next Due Date *</FormLabel>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <FormControl>
-                                    <Button
-                                      variant="outline"
-                                      className={cn(
-                                        'w-full pl-3 text-left font-normal',
-                                        !field.value && 'text-muted-foreground'
-                                      )}
-                                    >
-                                      {field.value ? (
-                                        format(field.value, 'PPP')
-                                      ) : (
-                                        <span>Select due date</span>
-                                      )}
-                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                  </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    disabled={(date) => date < new Date()}
-                                    autoFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="amountCollectedTowards"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Amount Collected Towards *</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select fee type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="ADMISSION_FEE">
-                                    Admission Fee
-                                    {selectedCourse &&
-                                      ` - ${formatCurrency(selectedCourse.admissionFee || 0)}`}
-                                  </SelectItem>
-                                  {selectedCourse?.semesterFee !== 0 && (
-                                    <SelectItem value="SEMESTER_FEE">
-                                      Semester Fee -{' '}
-                                      {formatCurrency(selectedCourse?.semesterFee || 0)}
-                                    </SelectItem>
-                                  )}
-
-                                  <SelectItem value="TOTAL_FEE">
-                                    Total Fee - {formatCurrency(selectedCourse?.totalFee || 0)}
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="amountPaid"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Amount Paid *</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  placeholder="Enter amount"
-                                  step="0.01"
-                                  min="0"
-                                  value={field.value || ''}
-                                  onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0;
-                                    field.onChange(value);
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="paymentMode"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Payment Mode *</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select payment mode" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="CASH">Cash</SelectItem>
-                                  <SelectItem value="UPI">UPI</SelectItem>
-                                  <SelectItem value="CARD">Card</SelectItem>
-                                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        {watchedPaymentMode && watchedPaymentMode !== PaymentMode.CASH && (
-                          <FormField
-                            control={form.control}
-                            name="transactionIdReferenceNumber"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Transaction ID/Reference Number</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Enter transaction reference" {...field} />
-                                </FormControl>
-                                <FormDescription>
-                                  Required for {watchedPaymentMode} payments
-                                </FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        )}
-                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -1184,96 +935,18 @@ export function AdmissionFormDialog({
 
                     <Separator />
 
-                    {/* Course & Fee Details Review */}
+                    {/* Course Details Review */}
                     <div>
                       <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                        <CreditCard className="h-4 w-4" />
-                        Course & Fee Details
+                        <GraduationCap className="h-4 w-4" />
+                        Course Details
                       </h4>
                       <div className="space-y-4">
                         {selectedCourse && (
                           <div className="bg-muted p-4 rounded-lg">
                             <div className="font-semibold text-lg mb-2">{selectedCourse.name}</div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                              <div>
-                                <span className="font-medium">Total Fee:</span>{' '}
-                                <Badge variant="outline">
-                                  {formatCurrency(selectedCourse.totalFee || 0)}
-                                </Badge>
-                              </div>
-                              <div>
-                                <span className="font-medium">Admission Fee:</span>{' '}
-                                <Badge variant="secondary">
-                                  {formatCurrency(selectedCourse.admissionFee || 0)}
-                                </Badge>
-                              </div>
-                              {selectedCourse.semesterFee !== 0 && (
-                                <div>
-                                  <span className="font-medium">Semester Fee:</span>{' '}
-                                  <Badge variant="outline">
-                                    {formatCurrency(selectedCourse.semesterFee || 0)}
-                                  </Badge>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium">Next Due Date:</span>{' '}
-                            {form.getValues('nextDueDate')
-                              ? format(form.getValues('nextDueDate'), 'PPP')
-                              : 'N/A'}
-                          </div>
-                          <div>
-                            <span className="font-medium">Amount Collected Towards:</span>{' '}
-                            <Badge>
-                              {form.getValues('amountCollectedTowards')?.replace('_', ' ') || 'N/A'}
-                            </Badge>
-                          </div>
-                          <div>
-                            <span className="font-medium">Amount Paid:</span>{' '}
-                            <Badge variant="default">
-                              {formatCurrency(form.getValues('amountPaid') || 0)}
-                            </Badge>
-                          </div>
-                          <div>
-                            <span className="font-medium">Payment Mode:</span>{' '}
-                            <Badge variant="outline">
-                              {form.getValues('paymentMode') || 'N/A'}
-                            </Badge>
-                          </div>
-                          {form.getValues('transactionIdReferenceNumber') && (
-                            <div>
-                              <span className="font-medium">Transaction Reference:</span>{' '}
-                              {form.getValues('transactionIdReferenceNumber')}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Calculate remaining balance */}
-                        {selectedCourse && (
-                          <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
-                            <div className="font-semibold mb-2">Payment Summary</div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                              <div>
-                                <span className="font-medium">Amount Paid:</span>{' '}
-                                <span className="font-bold text-green-600">
-                                  {formatCurrency(watchedAmountPaid || 0)}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-medium">Remaining Balance:</span>{' '}
-                                <span className="font-bold text-orange-600">
-                                  {formatCurrency(
-                                    Math.max(
-                                      0,
-                                      (selectedCourse.totalFee || 0) - (watchedAmountPaid || 0)
-                                    )
-                                  )}
-                                </span>
-                              </div>
+                            <div className="text-sm text-muted-foreground">
+                              {selectedCourse.description || 'No description available'}
                             </div>
                           </div>
                         )}

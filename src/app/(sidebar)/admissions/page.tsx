@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Eye, Edit, Trash2, MoreVertical, FileText, Download } from 'lucide-react';
+import { Search, Eye, Edit, Trash2, MoreVertical, Download } from 'lucide-react';
 import {
   getAdmissions,
   getCoursesForAdmission,
@@ -41,10 +41,8 @@ import { toast } from 'sonner';
 import {
   AdmissionWithRelations,
   AdmissionStatus,
-  PaymentMode,
-  PaymentModeLabels,
 } from '@/types/admission';
-import { formatCurrency } from '@/lib/utils';
+
 import { EnquirySource } from '@prisma/client';
 import {
   AlertDialog,
@@ -61,11 +59,8 @@ import { Enquiry } from '@/types/enquiry';
 interface SimpleCourse {
   id: string;
   name: string;
-  description: string | null;
-  duration: string | null;
-  totalFee: number | null;
-  semesterFee: number | null;
-  admissionFee: number | null;
+  description?: string | null;
+  duration?: string | null;
 }
 
 interface AdmissionListResponse {
@@ -89,7 +84,6 @@ export default function AdmissionsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<AdmissionStatus | 'ALL'>('ALL');
   const [courseFilter, setCourseFilter] = useState<string>('ALL');
-  const [paymentModeFilter, setPaymentModeFilter] = useState<PaymentMode | 'ALL'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
 
   const [admissions, setAdmissions] = useState<AdmissionWithRelations[]>([]);
@@ -184,7 +178,6 @@ export default function AdmissionsPage() {
         search?: string;
         status?: AdmissionStatus;
         courseId?: string;
-        paymentMode?: PaymentMode;
       } = {
         page: currentPage,
         limit: 10,
@@ -193,7 +186,6 @@ export default function AdmissionsPage() {
       if (search) filters.search = search;
       if (statusFilter !== 'ALL') filters.status = statusFilter;
       if (courseFilter !== 'ALL') filters.courseId = courseFilter;
-      if (paymentModeFilter !== 'ALL') filters.paymentMode = paymentModeFilter;
 
       const result = await getAdmissions(filters);
 
@@ -215,7 +207,7 @@ export default function AdmissionsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, search, statusFilter, courseFilter, paymentModeFilter]);
+  }, [currentPage, search, statusFilter, courseFilter]);
 
   // Fetch admissions on component mount and when filters change
   useEffect(() => {
@@ -244,20 +236,7 @@ export default function AdmissionsPage() {
     setEditDialogOpen(true);
   };
 
-  const handleGenerateReceipt = async (admissionId: string) => {
-    try {
-      toast.info('Generating receipt...');
-
-      // Open receipt PDF in new tab
-      const receiptUrl = `/api/admissions/${admissionId}/receipt`;
-      window.open(receiptUrl, '_blank');
-
-      toast.success('Receipt opened in new tab!');
-    } catch (error) {
-      console.error('Error generating receipt:', error);
-      toast.error('Failed to generate receipt');
-    }
-  };
+  // Receipt generation functionality removed - fee management no longer supported
 
   const handleDeleteAdmission = (admission: AdmissionWithRelations) => {
     if (!isAdmin) {
@@ -313,7 +292,6 @@ export default function AdmissionsPage() {
     setSearch('');
     setStatusFilter('ALL');
     setCourseFilter('ALL');
-    setPaymentModeFilter('ALL');
     setCurrentPage(1);
   };
 
@@ -364,7 +342,7 @@ export default function AdmissionsPage() {
         <CardHeader>
           <CardTitle>Filters</CardTitle>
           <CardDescription>
-            Filter admissions by course, payment mode or search by name, mobile, admission number
+            Filter admissions by course, status or search by name, mobile, admission number
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -409,25 +387,7 @@ export default function AdmissionsPage() {
                 </SelectContent>
               </Select>
 
-              <Select
-                value={paymentModeFilter}
-                onValueChange={(value) => {
-                  setPaymentModeFilter(value as PaymentMode | 'ALL');
-                  handleFilterChange();
-                }}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by payment mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Payment Modes</SelectItem>
-                  {Object.values(PaymentMode).map((mode) => (
-                    <SelectItem key={mode} value={mode}>
-                      {PaymentModeLabels[mode]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
             </div>
           </div>
         </CardContent>
@@ -438,7 +398,7 @@ export default function AdmissionsPage() {
         <CardHeader>
           <CardTitle>All Admissions</CardTitle>
           <CardDescription>
-            A list of all admissions with their current status and payment details
+            A list of all admissions with their current status and course details
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -455,8 +415,6 @@ export default function AdmissionsPage() {
                     <TableHead>Candidate</TableHead>
                     <TableHead>Mobile</TableHead>
                     <TableHead>Course</TableHead>
-                    <TableHead>Total Fee</TableHead>
-                    <TableHead>Remaining Balance</TableHead>
                     <TableHead>Created Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -464,7 +422,7 @@ export default function AdmissionsPage() {
                 <TableBody>
                   {admissions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground h-64">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground h-64">
                         No admissions found. Create your first admission to get started.
                       </TableCell>
                     </TableRow>
@@ -484,22 +442,12 @@ export default function AdmissionsPage() {
                         <TableCell>
                           <div>
                             <div className="font-medium">{admission.course.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {formatCurrency(admission.course.totalFee || 0)}
-                            </div>
+                            {admission.course.description && (
+                              <div className="text-sm text-muted-foreground">
+                                {admission.course.description}
+                              </div>
+                            )}
                           </div>
-                        </TableCell>
-                        <TableCell>{formatCurrency(admission.courseTotalFee)}</TableCell>
-                        <TableCell>
-                          <span
-                            className={
-                              admission.remainingBalance > 0
-                                ? 'text-orange-600 font-medium'
-                                : 'text-green-600'
-                            }
-                          >
-                            {formatCurrency(admission.remainingBalance)}
-                          </span>
                         </TableCell>
                         <TableCell>{formatDate(admission.createdAt)}</TableCell>
                         <TableCell className="text-right">
@@ -521,10 +469,7 @@ export default function AdmissionsPage() {
                                   Edit Admission
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => handleGenerateReceipt(admission.id)}>
-                                <FileText className="mr-2 h-4 w-4" />
-                                Generate Receipt
-                              </DropdownMenuItem>
+                              {/* Receipt generation removed - fee management no longer supported */}
                               {isAdmin && (
                                 <>
                                   <DropdownMenuSeparator />

@@ -101,18 +101,16 @@ model Verification {
 }
 
 model Course {
-  id           String      @id @default(auto()) @map("_id") @db.ObjectId
-  name         String      @unique
-  description  String?
-  duration     String?
-  totalFee     Float?
-  semesterFee  Float?
-  admissionFee Float?
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  enquiries    Enquiry[]
-  admissions   Admission[]
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  name        String  @unique
+  description String?
+  duration    String?
+
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  enquiries  Enquiry[]
+  admissions Admission[]
 
   @@map("course")
 }
@@ -183,19 +181,6 @@ enum AdmissionGender {
   MALE
   FEMALE
   OTHER
-}
-
-enum AmountCollectedType {
-  ADMISSION_FEE
-  SEMESTER_FEE
-  TOTAL_FEE
-}
-
-enum PaymentMode {
-  CASH
-  UPI
-  CARD
-  BANK_TRANSFER
 }
 
 enum AdmissionStatus {
@@ -331,30 +316,22 @@ model InvoiceItem {
 }
 
 model Admission {
-  id                           String              @id @default(auto()) @map("_id") @db.ObjectId
-  admissionNumber              String              @unique
-  candidateName                String
-  mobileNumber                 String
-  email                        String?
-  gender                       AdmissionGender
-  dateOfBirth                  DateTime
-  address                      String
-  leadSource                   String?
-  lastQualification            String
-  yearOfPassing                Int
-  percentageCGPA               String
-  instituteName                String
-  additionalNotes              String?
-  courseTotalFee               Float
-  semesterFee                  Float?
-  admissionFee                 Float
-  nextDueDate                  DateTime
-  amountCollectedTowards       AmountCollectedType
-  paymentMode                  PaymentMode
-  transactionIdReferenceNumber String?
-  receiptNumber                String              @unique
-  remainingBalance             Float
-  status                       AdmissionStatus     @default(PENDING)
+  id                String          @id @default(auto()) @map("_id") @db.ObjectId
+  admissionNumber   String          @unique
+  candidateName     String
+  mobileNumber      String
+  email             String?
+  gender            AdmissionGender
+  dateOfBirth       DateTime
+  address           String
+  leadSource        String?
+  lastQualification String
+  yearOfPassing     Int
+  percentageCGPA    String
+  instituteName     String
+  additionalNotes   String?
+
+  status AdmissionStatus @default(PENDING)
 
   // Relationships
   enquiryId String?  @db.ObjectId
