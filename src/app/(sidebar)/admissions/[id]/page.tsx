@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   User,
@@ -19,6 +20,8 @@ import {
   Building,
   Calendar as CalendarIcon,
   IndianRupee,
+  CreditCard,
+  AlertCircle,
 } from "lucide-react";
 import { getAdmissionById } from "@/app/actions/admission-actions";
 import { toast } from "sonner";
@@ -26,7 +29,7 @@ import {
   AdmissionWithRelations,
   AdmissionGenderLabels,
 } from "@/types/admission";
-import { formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import Link from "next/link";
 
 export default async function AdmissionDetailPage({
@@ -340,6 +343,42 @@ export default async function AdmissionDetailPage({
               <CardDescription>Payment and reciept details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Fee Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-700">
+                      Balance
+                    </span>
+                  </div>
+                  <Badge
+                    variant={
+                      admission.balance > 0 ? "destructive" : "secondary"
+                    }
+                    className="font-semibold"
+                  >
+                    {formatCurrency(admission.balance)}
+                  </Badge>
+                </div>
+
+                {admission.nextDueDate && (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-orange-600" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Next Due
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="font-medium">
+                      {formatDate(admission.nextDueDate)}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
               <Link href={`/admissions/${admission.id}/payments`}>
                 <Button className="w-full">
                   <IndianRupee />

@@ -27,6 +27,7 @@ import {
 } from "@/types/fee-collection";
 import { PaymentFormDialog } from "./payment-form-dialog";
 import { DeletePaymentConfirmationDialog } from "./delete-payment-confirmation-dialog";
+import { Separator } from "../ui/separator";
 
 interface PaymentsTableProps {
   admission: AdmissionWithReceiptsAndCourse;
@@ -42,17 +43,18 @@ export const PaymentsTable = ({
 
   const handleGenerateReceiptPDF = async (receiptId: string) => {
     try {
-      toast.info('Opening receipt PDF preview...');
+      toast.info("Opening receipt PDF preview...");
 
       // Open PDF in new tab for preview
       const previewUrl = `/api/receipts/${receiptId}/pdf?preview=true`;
-      window.open(previewUrl, '_blank');
+      window.open(previewUrl, "_blank");
 
-      toast.success('Receipt PDF preview opened in new tab!');
+      toast.success("Receipt PDF preview opened in new tab!");
     } catch (error) {
-      console.error('Error opening receipt PDF preview:', error);
+      console.error("Error opening receipt PDF preview:", error);
       toast.error(
-        'Failed to open receipt PDF preview: ' + (error instanceof Error ? error.message : 'Unknown error')
+        "Failed to open receipt PDF preview: " +
+          (error instanceof Error ? error.message : "Unknown error")
       );
     }
   };
@@ -70,7 +72,8 @@ export const PaymentsTable = ({
   return (
     <div>
       {/* Desktop view */}
-      <div className="rounded-md border hidden md:block">
+      <div className="hidden md:block">
+        <Separator />
         <Table>
           <TableHeader>
             <TableRow>
@@ -163,7 +166,9 @@ export const PaymentsTable = ({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => handleGenerateReceiptPDF(receipt.id)}>
+                  <DropdownMenuItem
+                    onClick={() => handleGenerateReceiptPDF(receipt.id)}
+                  >
                     <FileText className="mr-2 h-4 w-4" />
                     Preview PDF
                   </DropdownMenuItem>
