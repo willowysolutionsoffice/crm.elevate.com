@@ -53,7 +53,6 @@ export async function createReceipt(data: CreateReceiptInput) {
     if (admission) {
       // Calculate new balance
       const totalPaid = calculateTotalPaid(admission);
-
       const totalFee = calculateTotalFee(admission.course);
 
       const balance = totalFee - totalPaid;
@@ -62,8 +61,8 @@ export async function createReceipt(data: CreateReceiptInput) {
       await prisma.admission.update({
         where: { id: data.admissionId },
         data: {
-          balance,
-          nextDueDate,
+          balance: balance > 0 ? balance : 0,
+          nextDueDate: balance <= 0 ? null : nextDueDate,
         },
       });
     }
@@ -96,25 +95,21 @@ export async function updateReceipt(data: UpdateReceiptInput) {
     });
 
     // Get the admission to update balance
-    const admission = await prisma.admission.findFirst({
+    const admission = (await prisma.admission.findFirst({
       where: { receipts: { some: { id } } },
       include: {
-        receipts: true,
         course: true,
+        receipts: {
+          include: {
+            createdBy: true,
+          },
+        },
       },
-    });
+    })) as AdmissionWithReceiptsAndCourse;
 
     if (admission) {
-      // Calculate new balance
-      const totalPaid = admission.receipts.reduce(
-        (sum, receipt) => sum + receipt.amountCollected,
-        0
-      );
-
-      const totalFee =
-        (admission.course.admissionFee || 0) +
-        (admission.course.courseFee || 0) +
-        (admission.course.semesterFee || 0);
+      const totalPaid = calculateTotalPaid(admission);
+      const totalFee = calculateTotalFee(admission.course);
 
       const balance = totalFee - totalPaid;
 
@@ -122,7 +117,7 @@ export async function updateReceipt(data: UpdateReceiptInput) {
       await prisma.admission.update({
         where: { id: admission.id },
         data: {
-          nextDueDate,
+          nextDueDate: balance <= 0 ? null : nextDueDate,
           balance: balance > 0 ? balance : 0,
         },
       });

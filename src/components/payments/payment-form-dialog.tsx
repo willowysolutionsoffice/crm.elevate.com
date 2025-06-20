@@ -213,7 +213,7 @@ export const PaymentFormDialog = ({
     >
       {!defaultOpen && (
         <DialogTrigger asChild>
-          <Button>
+          <Button disabled={feeDetails.balance === 0}>
             <Plus className="mr-1 size-4" />
             Create Payment
           </Button>
