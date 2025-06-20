@@ -1,5 +1,7 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { type ClassValue, clsx } from "clsx";
+import { format } from "date-fns";
+import { enIN } from "date-fns/locale";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -10,9 +12,9 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function getInitials(name: string): string {
   return name
-    .split(' ')
+    .split(" ")
     .map((word) => word.charAt(0))
-    .join('')
+    .join("")
     .toUpperCase()
     .slice(0, 2);
 }
@@ -22,11 +24,11 @@ export function getInitials(name: string): string {
  */
 export function formatCurrency(
   amount: number,
-  currency: string = 'INR',
-  locale: string = 'en-IN'
+  currency: string = "INR",
+  locale: string = "en-IN"
 ): string {
   return new Intl.NumberFormat(locale, {
-    style: 'currency',
+    style: "currency",
     currency,
   }).format(amount);
 }
@@ -36,13 +38,13 @@ export function formatCurrency(
  */
 export function formatNumber(num: number): string {
   if (num >= 1_000_000_000) {
-    return (num / 1_000_000_000).toFixed(1) + 'B';
+    return (num / 1_000_000_000).toFixed(1) + "B";
   }
   if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(1) + 'M';
+    return (num / 1_000_000).toFixed(1) + "M";
   }
   if (num >= 1_000) {
-    return (num / 1_000).toFixed(1) + 'K';
+    return (num / 1_000).toFixed(1) + "K";
   }
   return num.toString();
 }
@@ -52,17 +54,12 @@ export function formatNumber(num: number): string {
  */
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + '...';
+  return text.slice(0, maxLength) + "...";
 }
 
 /**
  * Format a date to a readable string
  */
-export function formatDate(date: Date | string): string {
-  const d = new Date(date);
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
+export const formatDate = (date: Date | string): string => {
+  return format(date, "PPP", { locale: enIN });
+};

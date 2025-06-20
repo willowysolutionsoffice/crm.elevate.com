@@ -54,6 +54,7 @@ export interface AdmissionCreateData {
   courseId: string;
   createdByUserId: string;
   enquiryId?: string;
+  balance: number;
 }
 
 export interface UpdateAdmissionInput {
