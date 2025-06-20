@@ -17,7 +17,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, FileText } from "lucide-react";
+import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   AdmissionWithReceiptsAndCourse,
@@ -38,6 +39,23 @@ export const PaymentsTable = ({
 }: PaymentsTableProps) => {
   const [receiptToEdit, setReceiptToEdit] = useState<Receipt | null>(null);
   const [receiptToDelete, setReceiptToDelete] = useState<Receipt | null>(null);
+
+  const handleGenerateReceiptPDF = async (receiptId: string) => {
+    try {
+      toast.info('Opening receipt PDF preview...');
+
+      // Open PDF in new tab for preview
+      const previewUrl = `/api/receipts/${receiptId}/pdf?preview=true`;
+      window.open(previewUrl, '_blank');
+
+      toast.success('Receipt PDF preview opened in new tab!');
+    } catch (error) {
+      console.error('Error opening receipt PDF preview:', error);
+      toast.error(
+        'Failed to open receipt PDF preview: ' + (error instanceof Error ? error.message : 'Unknown error')
+      );
+    }
+  };
 
   if (!admission || !admission.receipts || admission.receipts.length === 0) {
     return (
@@ -95,6 +113,12 @@ export const PaymentsTable = ({
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuItem
+                        onClick={() => handleGenerateReceiptPDF(receipt.id)}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        Preview PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         onClick={() => setReceiptToEdit(receipt)}
                       >
                         <Pencil className="mr-2 h-4 w-4" />
@@ -139,6 +163,10 @@ export const PaymentsTable = ({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => handleGenerateReceiptPDF(receipt.id)}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Preview PDF
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setReceiptToEdit(receipt)}>
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit
