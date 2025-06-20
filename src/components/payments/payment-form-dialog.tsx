@@ -12,7 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -78,7 +78,9 @@ export const PaymentFormDialog = ({
   const isEditing = !!receipt;
 
   const form = useForm<ReceiptFormData>({
-    resolver: zodResolver(receiptFormSchema),
+    resolver: zodResolver(
+      receiptFormSchema(feeDetails.balance, feeDetails.admissionFee)
+    ),
     defaultValues: {
       receiptNumber: "",
       amountCollected: 0,
@@ -90,6 +92,15 @@ export const PaymentFormDialog = ({
       notes: "",
     },
   });
+
+  // Calculate if admission fee is fully collected
+  const isAdmissionFeeFullyCollected = useCallback(() => {
+    if (!course?.admissionFee || !feeDetails) return false;
+    // If balance is 0 and course has admission fee, it means admission fee is fully paid
+    // Or we can check if total paid equals or exceeds admission fee
+    const totalPaid = feeDetails.totalPaid;
+    return totalPaid >= course.admissionFee;
+  }, [course?.admissionFee, feeDetails]);
 
   // Set form values when editing
   useEffect(() => {
@@ -106,11 +117,27 @@ export const PaymentFormDialog = ({
       });
     } else if (feeDetails) {
       form.setValue("receiptNumber", generateReceiptNumber());
+      // If admission fee is fully collected, default to course fee
+      if (isAdmissionFeeFullyCollected() && course?.courseFee) {
+        form.setValue("collectedTowards", CollectedTowards.COURSE_FEE);
+      }
     }
-  }, [receipt, feeDetails, form]);
+  }, [receipt, feeDetails, form, course, isAdmissionFeeFullyCollected]);
 
   const handleClose = () => {
     setOpen(false);
+    form.reset({
+      receiptNumber: generateReceiptNumber(),
+      amountCollected: 0,
+      collectedTowards: isAdmissionFeeFullyCollected()
+        ? CollectedTowards.COURSE_FEE
+        : CollectedTowards.ADMISSION_FEE,
+      paymentDate: new Date(),
+      nextDueDate: new Date(),
+      paymentMode: "CASH",
+      transactionId: "",
+      notes: "",
+    });
     if (onClose) {
       onClose();
     }
@@ -177,9 +204,10 @@ export const PaymentFormDialog = ({
     <Dialog
       open={open}
       onOpenChange={(newOpen) => {
-        setOpen(newOpen);
-        if (!newOpen && onClose) {
-          onClose();
+        if (!newOpen) {
+          handleClose();
+        } else {
+          setOpen(newOpen);
         }
       }}
     >
@@ -203,7 +231,7 @@ export const PaymentFormDialog = ({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 items-start">
               <FormField
                 control={form.control}
                 name="receiptNumber"
@@ -239,7 +267,7 @@ export const PaymentFormDialog = ({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 items-start">
               <FormField
                 control={form.control}
                 name="collectedTowards"
@@ -257,11 +285,12 @@ export const PaymentFormDialog = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {course?.admissionFee && (
-                          <SelectItem value={CollectedTowards.ADMISSION_FEE}>
-                            Admission Fee
-                          </SelectItem>
-                        )}
+                        {course?.admissionFee &&
+                          (receipt || !isAdmissionFeeFullyCollected()) && (
+                            <SelectItem value={CollectedTowards.ADMISSION_FEE}>
+                              Admission Fee
+                            </SelectItem>
+                          )}
                         {course?.courseFee && (
                           <SelectItem value={CollectedTowards.COURSE_FEE}>
                             Course Fee
@@ -319,7 +348,7 @@ export const PaymentFormDialog = ({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 items-start">
               <FormField
                 control={form.control}
                 name="nextDueDate"
@@ -398,9 +427,21 @@ export const PaymentFormDialog = ({
                 name="transactionId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Transaction ID</FormLabel>
+                    <FormLabel>
+                      Transaction ID
+                      {form.watch("paymentMode") !== "CASH" && (
+                        <span className="text-red-500 ml-1">*</span>
+                      )}
+                    </FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input
+                        {...field}
+                        placeholder={
+                          form.watch("paymentMode") !== "CASH"
+                            ? "Required for non-cash payments"
+                            : "Optional"
+                        }
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -85,31 +85,81 @@ export interface UpdateReceiptInput {
 }
 
 /**
- * Zod schema for receipt form data validation
+ * Function to create receipt form schema with dynamic validation
  */
-export const receiptFormSchema = z.object({
-  receiptNumber: z.string().min(1, { message: "Receipt number is required" }),
-  amountCollected: z.coerce
-    .number()
-    .min(1, { message: "Amount must be greater than 0" }),
-  collectedTowards: z.nativeEnum(CollectedTowards, {
-    required_error: "Please select a fee type",
-  }),
-  paymentDate: z.date({
-    required_error: "Payment date is required",
-  }),
-  nextDueDate: z.date({
-    required_error: "Next due date is required",
-  }),
-  paymentMode: z.string().min(1, { message: "Payment mode is required" }),
-  transactionId: z.string().optional(),
-  notes: z.string().optional(),
-});
+export const receiptFormSchema = (balance?: number, admissionFee?: number) => {
+  return z
+    .object({
+      receiptNumber: z
+        .string()
+        .min(1, { message: "Receipt number is required" }),
+      amountCollected: z.coerce
+        .number()
+        .min(1, { message: "Amount must be greater than 0" })
+        .refine(
+          (amount) => {
+            // Validate amount against maximum allowed
+            if (balance && amount > balance) {
+              return false;
+            }
+            return true;
+          },
+          {
+            message: `Amount cannot exceed the remaining balance: ${balance}`,
+          }
+        ),
+      collectedTowards: z.nativeEnum(CollectedTowards, {
+        required_error: "Please select a fee type",
+      }),
+      paymentDate: z.date({
+        required_error: "Payment date is required",
+      }),
+      nextDueDate: z.date({
+        required_error: "Next due date is required",
+      }),
+      paymentMode: z.string().min(1, { message: "Payment mode is required" }),
+      transactionId: z.string().optional(),
+      notes: z.string().optional(),
+    })
+    .refine(
+      (data) => {
+        // If payment mode is not CASH, transaction ID is required
+        if (
+          data.paymentMode !== "CASH" &&
+          (!data.transactionId || data.transactionId.trim() === "")
+        ) {
+          return false;
+        }
+        return true;
+      },
+      {
+        message: "Transaction ID is required for non-cash payments",
+        path: ["transactionId"],
+      }
+    )
+    .refine(
+      (data) => {
+        // If collecting towards admission fee, amount cannot exceed admission fee
+        if (
+          data.collectedTowards === CollectedTowards.ADMISSION_FEE &&
+          admissionFee &&
+          data.amountCollected > admissionFee
+        ) {
+          return false;
+        }
+        return true;
+      },
+      {
+        message: `Amount cannot exceed the admission fee: ${admissionFee}`,
+        path: ["amountCollected"],
+      }
+    );
+};
 
 /**
  * Type for receipt form data
  */
-export type ReceiptFormData = z.infer<typeof receiptFormSchema>;
+export type ReceiptFormData = z.infer<ReturnType<typeof receiptFormSchema>>;
 
 /**
  * Type for fee calculation results
