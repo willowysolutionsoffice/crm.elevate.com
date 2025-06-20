@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useAction } from 'next-safe-action/hooks';
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useAction } from "next-safe-action/hooks";
 import {
   Dialog,
   DialogContent,
@@ -12,10 +12,9 @@ import {
   DialogHeader,
   DialogTrigger,
   DialogDescription,
-} from './ui/dialog';
-import { Button } from './ui/button';
+} from "./ui/dialog";
+import { Button } from "./ui/button";
 import {
-  CalendarIcon,
   Plus,
   CheckCircle,
   ArrowLeft,
@@ -23,36 +22,47 @@ import {
   User,
   GraduationCap,
   Eye,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage
-} from './ui/form';
-import { Input } from './ui/input';
-import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from './ui/select';
-import { format } from 'date-fns';
-import { Calendar } from './ui/calendar'; // This import might be unused now if only DateOfBirthPicker is used for date picking
-import { DateOfBirthPicker } from './dob-picker';
-import { Textarea } from './ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
-import { Progress } from './ui/progress';
-import { EnquirySource } from '@prisma/client';
+  FormMessage,
+} from "./ui/form";
+import { Input } from "./ui/input";
 import {
-  AdmissionWithRelations,
-  AdmissionGender,
-} from '@/types/admission';
-import { createAdmission, updateAdmission } from '@/app/actions/admission-actions';
-import { updateEnquiryStatus } from '@/app/actions/enquiry';
-import { EnquiryStatus } from '@/types/enquiry';
-import { toast } from 'sonner';
-import { Enquiry } from '@/types/enquiry';
+  Select,
+  SelectItem,
+  SelectContent,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { format } from "date-fns";
+import { DateOfBirthPicker } from "./dob-picker";
+import { Textarea } from "./ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Separator } from "./ui/separator";
+import { Progress } from "./ui/progress";
+import { EnquirySource } from "@prisma/client";
+import { AdmissionWithRelations, AdmissionGender } from "@/types/admission";
+import {
+  createAdmission,
+  updateAdmission,
+} from "@/app/actions/admission-actions";
+import { updateEnquiryStatus } from "@/app/actions/enquiry";
+import { EnquiryStatus } from "@/types/enquiry";
+import { toast } from "sonner";
+import { Enquiry } from "@/types/enquiry";
 
 interface SimpleCourse {
   id: string;
@@ -64,7 +74,7 @@ interface SimpleCourse {
 interface AdmissionFormDialogProps {
   courses: SimpleCourse[];
   enquirySources: EnquirySource[];
-  mode?: 'create' | 'edit';
+  mode?: "create" | "edit";
   admission?: AdmissionWithRelations;
   enquiryData?: Enquiry;
   onSuccess?: () => void;
@@ -74,68 +84,85 @@ interface AdmissionFormDialogProps {
 }
 
 // Comprehensive validation schema using Zod
-const admissionFormSchema = z
-  .object({
-    // Basic Details (Step 1)
-    candidateName: z
-      .string()
-      .min(1, 'Candidate name is required')
-      .max(100, 'Name must be less than 100 characters'),
-    mobileNumber: z
-      .string()
-      .min(10, 'Mobile number must be at least 10 digits')
-      .max(15, 'Mobile number must be less than 15 digits')
-      .regex(/^[+]?[\d\s-()]+$/, 'Please enter a valid mobile number'),
-    email: z.string().email('Please enter a valid email address').optional().or(z.literal('')),
-    gender: z.nativeEnum(AdmissionGender, {
-      errorMap: () => ({ message: 'Please select a gender' }),
-    }),
-    dateOfBirth: z
-      .date({
-        required_error: 'Date of birth is required',
-        invalid_type_error: 'Please select a valid date',
-      })
-      .refine((date) => {
-        const today = new Date();
-        const minAge = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
-        const maxAge = new Date(today.getFullYear() - 15, today.getMonth(), today.getDate());
-        return date >= minAge && date <= maxAge;
-      }, 'Candidate must be between 15 and 100 years old'),
-    address: z
-      .string()
-      .min(10, 'Address must be at least 10 characters')
-      .max(500, 'Address must be less than 500 characters'),
-    leadSource: z.string().min(1, 'Lead source is required'),
+const admissionFormSchema = z.object({
+  // Basic Details (Step 1)
+  candidateName: z
+    .string()
+    .min(1, "Candidate name is required")
+    .max(100, "Name must be less than 100 characters"),
+  mobileNumber: z
+    .string()
+    .min(10, "Mobile number must be at least 10 digits")
+    .max(15, "Mobile number must be less than 15 digits")
+    .regex(/^[+]?[\d\s-()]+$/, "Please enter a valid mobile number"),
+  email: z
+    .string()
+    .email("Please enter a valid email address")
+    .optional()
+    .or(z.literal("")),
+  gender: z.nativeEnum(AdmissionGender, {
+    errorMap: () => ({ message: "Please select a gender" }),
+  }),
+  dateOfBirth: z
+    .date({
+      required_error: "Date of birth is required",
+      invalid_type_error: "Please select a valid date",
+    })
+    .refine((date) => {
+      const today = new Date();
+      const minAge = new Date(
+        today.getFullYear() - 100,
+        today.getMonth(),
+        today.getDate()
+      );
+      const maxAge = new Date(
+        today.getFullYear() - 15,
+        today.getMonth(),
+        today.getDate()
+      );
+      return date >= minAge && date <= maxAge;
+    }, "Candidate must be between 15 and 100 years old"),
+  address: z
+    .string()
+    .min(10, "Address must be at least 10 characters")
+    .max(500, "Address must be less than 500 characters"),
+  leadSource: z.string().min(1, "Lead source is required"),
 
-    // Education Details (Step 2)
-    lastQualification: z
-      .string()
-      .min(1, 'Last qualification is required')
-      .max(100, 'Qualification must be less than 100 characters'),
-    yearOfPassing: z
-      .number()
-      .min(1950, 'Year must be after 1950')
-      .max(new Date().getFullYear(), `Year cannot be more than ${new Date().getFullYear()}`),
-    percentageCGPA: z
-      .string()
-      .min(1, 'Percentage/CGPA is required')
-      .max(20, 'Value must be less than 20 characters'),
-    instituteName: z
-      .string()
-      .min(1, 'Institute name is required')
-      .max(200, 'Institute name must be less than 200 characters'),
-    additionalNotes: z.string().max(1000, 'Notes must be less than 1000 characters').optional(),
+  // Education Details (Step 2)
+  lastQualification: z
+    .string()
+    .min(1, "Last qualification is required")
+    .max(100, "Qualification must be less than 100 characters"),
+  yearOfPassing: z
+    .number()
+    .min(1950, "Year must be after 1950")
+    .max(
+      new Date().getFullYear(),
+      `Year cannot be more than ${new Date().getFullYear()}`
+    ),
+  percentageCGPA: z
+    .string()
+    .min(1, "Percentage/CGPA is required")
+    .max(20, "Value must be less than 20 characters"),
+  instituteName: z
+    .string()
+    .min(1, "Institute name is required")
+    .max(200, "Institute name must be less than 200 characters"),
+  additionalNotes: z
+    .string()
+    .max(1000, "Notes must be less than 1000 characters")
+    .optional(),
 
-    // Course Details (Step 3)
-    courseId: z.string().min(1, 'Please select a course'),
-  });
+  // Course Details (Step 3)
+  courseId: z.string().min(1, "Please select a course"),
+});
 
 type AdmissionFormValues = z.infer<typeof admissionFormSchema>;
 
 export function AdmissionFormDialog({
   courses,
   enquirySources,
-  mode = 'create',
+  mode = "create",
   admission,
   enquiryData,
   onSuccess,
@@ -158,144 +185,167 @@ export function AdmissionFormDialog({
   }, [isOpen]);
 
   const totalSteps = 4;
-  const stepTitles = ['Basic Details', 'Education Details', 'Course Selection', 'Review & Confirm'];
+  const stepTitles = [
+    "Basic Details",
+    "Education Details",
+    "Course Selection",
+    "Review & Confirm",
+  ];
   const stepIcons = [User, GraduationCap, GraduationCap, Eye];
 
   // Form setup with Zod validation
   const form = useForm<AdmissionFormValues>({
     resolver: zodResolver(admissionFormSchema),
     defaultValues: {
-      candidateName: admission?.candidateName || enquiryData?.candidateName || '',
-      mobileNumber: admission?.mobileNumber || enquiryData?.phone || '',
-      email: admission?.email || enquiryData?.email || '',
+      candidateName:
+        admission?.candidateName || enquiryData?.candidateName || "",
+      mobileNumber: admission?.mobileNumber || enquiryData?.phone || "",
+      email: admission?.email || enquiryData?.email || "",
       gender: admission?.gender || undefined,
-      dateOfBirth: admission?.dateOfBirth ? new Date(admission.dateOfBirth) : undefined,
-      address: admission?.address || enquiryData?.address || '',
-      leadSource: admission?.leadSource || enquiryData?.enquirySource?.name || '',
-      lastQualification: admission?.lastQualification || '',
+      dateOfBirth: admission?.dateOfBirth
+        ? new Date(admission.dateOfBirth)
+        : undefined,
+      address: admission?.address || enquiryData?.address || "",
+      leadSource:
+        admission?.leadSource || enquiryData?.enquirySource?.name || "",
+      lastQualification: admission?.lastQualification || "",
       yearOfPassing: admission?.yearOfPassing || new Date().getFullYear(),
-      percentageCGPA: admission?.percentageCGPA || '',
-      instituteName: admission?.instituteName || '',
-      additionalNotes: admission?.additionalNotes || '',
-      courseId: admission?.courseId || enquiryData?.preferredCourse?.id || '',
+      percentageCGPA: admission?.percentageCGPA || "",
+      instituteName: admission?.instituteName || "",
+      additionalNotes: admission?.additionalNotes || "",
+      courseId: admission?.courseId || enquiryData?.preferredCourse?.id || "",
     },
-    mode: 'onChange',
+    mode: "onChange",
   });
 
   // Use next-safe-action hooks - separate for create and update due to different schemas
-  const { execute: executeCreate, isExecuting: isExecutingCreate } = useAction(createAdmission, {
-    onSuccess: async ({ data }) => {
-      if (data?.success) {
-        toast.success(data.message || 'Admission created successfully!');
+  const { execute: executeCreate, isExecuting: isExecutingCreate } = useAction(
+    createAdmission,
+    {
+      onSuccess: async ({ data }) => {
+        if (data?.success) {
+          toast.success(data.message || "Admission created successfully!");
 
-        // Update enquiry status to ENROLLED if this admission was created from an enquiry
-        if (enquiryData && enquiryData.id) {
-          try {
-            const enquiryUpdateResult = await updateEnquiryStatus(
-              enquiryData.id,
-              EnquiryStatus.ENROLLED
-            );
-            if (enquiryUpdateResult.success) {
-              toast.success('Enquiry status updated to Enrolled');
-            } else {
-              toast.error('Failed to update enquiry status');
+          // Update enquiry status to ENROLLED if this admission was created from an enquiry
+          if (enquiryData && enquiryData.id) {
+            try {
+              const enquiryUpdateResult = await updateEnquiryStatus(
+                enquiryData.id,
+                EnquiryStatus.ENROLLED
+              );
+              if (enquiryUpdateResult.success) {
+                toast.success("Enquiry status updated to Enrolled");
+              } else {
+                toast.error("Failed to update enquiry status");
+              }
+            } catch (error) {
+              console.error("Error updating enquiry status:", error);
+              toast.error("Failed to update enquiry status");
             }
-          } catch (error) {
-            console.error('Error updating enquiry status:', error);
-            toast.error('Failed to update enquiry status');
           }
+
+          setIsOpen(false);
+          setCurrentStep(0);
+          form.reset();
+          onSuccess?.();
         }
+      },
+      onError: ({ error }) => {
+        toast.error(
+          error.serverError || "Failed to create admission. Please try again."
+        );
+      },
+      onSettled: ({ result }) => {
+        if (result?.validationErrors) {
+          // Handle validation errors from server action
+          Object.entries(result.validationErrors).forEach(([field, errors]) => {
+            if (
+              errors &&
+              typeof errors === "object" &&
+              "_errors" in errors &&
+              Array.isArray(errors._errors) &&
+              errors._errors[0]
+            ) {
+              form.setError(field as keyof AdmissionFormValues, {
+                message: errors._errors[0],
+              });
+            }
+          });
+        }
+      },
+    }
+  );
 
-        setIsOpen(false);
-        setCurrentStep(0);
-        form.reset();
-        onSuccess?.();
-      }
-    },
-    onError: ({ error }) => {
-      toast.error(error.serverError || 'Failed to create admission. Please try again.');
-    },
-    onSettled: ({ result }) => {
-      if (result?.validationErrors) {
-        // Handle validation errors from server action
-        Object.entries(result.validationErrors).forEach(([field, errors]) => {
-          if (
-            errors &&
-            typeof errors === 'object' &&
-            '_errors' in errors &&
-            Array.isArray(errors._errors) &&
-            errors._errors[0]
-          ) {
-            form.setError(field as keyof AdmissionFormValues, {
-              message: errors._errors[0],
-            });
-          }
-        });
-      }
-    },
-  });
+  const { execute: executeUpdate, isExecuting: isExecutingUpdate } = useAction(
+    updateAdmission,
+    {
+      onSuccess: ({ data }) => {
+        if (data?.success) {
+          toast.success(data.message || "Admission updated successfully!");
+          setIsOpen(false);
+          setCurrentStep(0);
+          form.reset();
+          onSuccess?.();
+        }
+      },
+      onError: ({ error }) => {
+        toast.error(
+          error.serverError || "Failed to update admission. Please try again."
+        );
+      },
+      onSettled: ({ result }) => {
+        if (result?.validationErrors) {
+          // Handle validation errors from server action
+          Object.entries(result.validationErrors).forEach(([field, errors]) => {
+            if (
+              errors &&
+              typeof errors === "object" &&
+              "_errors" in errors &&
+              Array.isArray(errors._errors) &&
+              errors._errors[0]
+            ) {
+              form.setError(field as keyof AdmissionFormValues, {
+                message: errors._errors[0],
+              });
+            }
+          });
+        }
+      },
+    }
+  );
 
-  const { execute: executeUpdate, isExecuting: isExecutingUpdate } = useAction(updateAdmission, {
-    onSuccess: ({ data }) => {
-      if (data?.success) {
-        toast.success(data.message || 'Admission updated successfully!');
-        setIsOpen(false);
-        setCurrentStep(0);
-        form.reset();
-        onSuccess?.();
-      }
-    },
-    onError: ({ error }) => {
-      toast.error(error.serverError || 'Failed to update admission. Please try again.');
-    },
-    onSettled: ({ result }) => {
-      if (result?.validationErrors) {
-        // Handle validation errors from server action
-        Object.entries(result.validationErrors).forEach(([field, errors]) => {
-          if (
-            errors &&
-            typeof errors === 'object' &&
-            '_errors' in errors &&
-            Array.isArray(errors._errors) &&
-            errors._errors[0]
-          ) {
-            form.setError(field as keyof AdmissionFormValues, {
-              message: errors._errors[0],
-            });
-          }
-        });
-      }
-    },
-  });
-
-  const isExecuting = mode === 'create' ? isExecutingCreate : isExecutingUpdate;
+  const isExecuting = mode === "create" ? isExecutingCreate : isExecutingUpdate;
 
   // Reset form with enquiry data when enquiry data changes
   useEffect(() => {
     if (enquiryData && isOpen) {
       form.reset({
-        candidateName: enquiryData.candidateName || '',
-        mobileNumber: enquiryData.phone || '',
-        email: enquiryData.email || '',
+        candidateName: enquiryData.candidateName || "",
+        mobileNumber: enquiryData.phone || "",
+        email: enquiryData.email || "",
         gender: undefined,
         dateOfBirth: undefined,
-        address: enquiryData.address || '',
-        leadSource: enquiryData.enquirySource?.name || '',
-        lastQualification: '',
+        address: enquiryData.address || "",
+        leadSource: enquiryData.enquirySource?.name || "",
+        lastQualification: "",
         yearOfPassing: new Date().getFullYear(),
-        percentageCGPA: '',
-        instituteName: '',
-        additionalNotes: enquiryData.notes ? `Notes from enquiry: ${enquiryData.notes}` : '',
-        courseId: enquiryData.preferredCourse?.id || '',
+        percentageCGPA: "",
+        instituteName: "",
+        additionalNotes: enquiryData.notes
+          ? `Notes from enquiry: ${enquiryData.notes}`
+          : "",
+        courseId: enquiryData.preferredCourse?.id || "",
       });
     }
   }, [enquiryData, isOpen, form]);
 
   // Watch form values for dynamic behavior
-  const watchedCourseId = form.watch('courseId');
+  const watchedCourseId = form.watch("courseId");
 
   // Get selected course details
-  const selectedCourse = courses.find((course) => course.id === watchedCourseId);
+  const selectedCourse = courses.find(
+    (course) => course.id === watchedCourseId
+  );
 
   // Calculate progress
   const progress = ((currentStep + 1) / totalSteps) * 100;
@@ -304,16 +354,21 @@ export function AdmissionFormDialog({
   const validateStep = async (stepIndex: number): Promise<boolean> => {
     const fieldsToValidate: { [key: number]: (keyof AdmissionFormValues)[] } = {
       0: [
-        'candidateName',
-        'mobileNumber',
-        'email',
-        'gender',
-        'dateOfBirth',
-        'address',
-        'leadSource',
+        "candidateName",
+        "mobileNumber",
+        "email",
+        "gender",
+        "dateOfBirth",
+        "address",
+        "leadSource",
       ],
-      1: ['lastQualification', 'yearOfPassing', 'percentageCGPA', 'instituteName'],
-      2: ['courseId'],
+      1: [
+        "lastQualification",
+        "yearOfPassing",
+        "percentageCGPA",
+        "instituteName",
+      ],
+      2: ["courseId"],
     };
 
     const fields = fieldsToValidate[stepIndex];
@@ -361,7 +416,7 @@ export function AdmissionFormDialog({
 
   // Form submission
   const onSubmit = async (data: AdmissionFormValues) => {
-    if (mode === 'create') {
+    if (mode === "create") {
       // Convert form data to match the create admission schema
       const createData = {
         ...data,
@@ -371,7 +426,7 @@ export function AdmissionFormDialog({
     } else {
       // Convert form data to match the update admission schema
       if (!admission?.id) {
-        toast.error('No admission ID found for update');
+        toast.error("No admission ID found for update");
         return;
       }
 
@@ -411,7 +466,7 @@ export function AdmissionFormDialog({
           {trigger || (
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              {mode === 'edit' ? 'Edit Admission' : 'Create Admission'}
+              {mode === "edit" ? "Edit Admission" : "Create Admission"}
             </Button>
           )}
         </DialogTrigger>
@@ -419,16 +474,19 @@ export function AdmissionFormDialog({
       <DialogContent className="sm:max-w-screen-sm max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader className="pb-4">
           <DialogTitle className="text-2xl font-bold">
-            {mode === 'edit' ? 'Edit Admission' : 'Create New Admission'}
+            {mode === "edit" ? "Edit Admission" : "Create New Admission"}
             {enquiryData && (
-              <span className="text-lg font-normal text-blue-600 ml-2">(from enquiry)</span>
+              <span className="text-lg font-normal text-blue-600 ml-2">
+                (from enquiry)
+              </span>
             )}
           </DialogTitle>
           <DialogDescription>
             {enquiryData
               ? `Creating admission for ${enquiryData.candidateName} from enquiry. Some fields have been pre-filled.`
-              : `Fill in the details to ${mode === 'edit' ? 'update the' : 'create a new'
-              } admission record.`}
+              : `Fill in the details to ${
+                  mode === "edit" ? "update the" : "create a new"
+                } admission record.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -438,7 +496,9 @@ export function AdmissionFormDialog({
             <span className="text-sm font-medium text-muted-foreground">
               Step {currentStep + 1} of {totalSteps}
             </span>
-            <span className="text-sm font-medium">{Math.round(progress)}% Complete</span>
+            <span className="text-sm font-medium">
+              {Math.round(progress)}% Complete
+            </span>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
@@ -458,10 +518,14 @@ export function AdmissionFormDialog({
               >
                 <div
                   className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200',
-                    isCompleted && 'bg-green-500 text-white',
-                    isCurrent && !isCompleted && 'bg-primary text-primary-foreground',
-                    !isCurrent && !isCompleted && 'bg-muted text-muted-foreground'
+                    "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200",
+                    isCompleted && "bg-green-500 text-white",
+                    isCurrent &&
+                      !isCompleted &&
+                      "bg-primary text-primary-foreground",
+                    !isCurrent &&
+                      !isCompleted &&
+                      "bg-muted text-muted-foreground"
                   )}
                 >
                   {isCompleted ? (
@@ -472,9 +536,9 @@ export function AdmissionFormDialog({
                 </div>
                 <span
                   className={cn(
-                    'text-xs font-medium transition-colors duration-200 hidden sm:block',
-                    isCurrent && 'text-primary',
-                    isCompleted && 'text-green-600'
+                    "text-xs font-medium transition-colors duration-200 hidden sm:block",
+                    isCurrent && "text-primary",
+                    isCompleted && "text-green-600"
                   )}
                 >
                   {title}
@@ -510,7 +574,10 @@ export function AdmissionFormDialog({
                             <FormLabel>
                               Candidate Name *
                               {enquiryData?.candidateName && (
-                                <Badge variant="secondary" className="ml-2 text-xs">
+                                <Badge
+                                  variant="secondary"
+                                  className="ml-2 text-xs"
+                                >
                                   From enquiry
                                 </Badge>
                               )}
@@ -531,7 +598,10 @@ export function AdmissionFormDialog({
                             <FormLabel>
                               Mobile Number *
                               {enquiryData?.phone && (
-                                <Badge variant="secondary" className="ml-2 text-xs">
+                                <Badge
+                                  variant="secondary"
+                                  className="ml-2 text-xs"
+                                >
                                   From enquiry
                                 </Badge>
                               )}
@@ -552,13 +622,20 @@ export function AdmissionFormDialog({
                             <FormLabel>
                               Email Address
                               {enquiryData?.email && (
-                                <Badge variant="secondary" className="ml-2 text-xs">
+                                <Badge
+                                  variant="secondary"
+                                  className="ml-2 text-xs"
+                                >
                                   From enquiry
                                 </Badge>
                               )}
                             </FormLabel>
                             <FormControl>
-                              <Input type="email" placeholder="example@email.com" {...field} />
+                              <Input
+                                type="email"
+                                placeholder="example@email.com"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -571,16 +648,25 @@ export function AdmissionFormDialog({
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Gender *</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
                               <FormControl>
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Select gender" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value={AdmissionGender.MALE}>Male</SelectItem>
-                                <SelectItem value={AdmissionGender.FEMALE}>Female</SelectItem>
-                                <SelectItem value={AdmissionGender.OTHER}>Other</SelectItem>
+                                <SelectItem value={AdmissionGender.MALE}>
+                                  Male
+                                </SelectItem>
+                                <SelectItem value={AdmissionGender.FEMALE}>
+                                  Female
+                                </SelectItem>
+                                <SelectItem value={AdmissionGender.OTHER}>
+                                  Other
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -599,12 +685,16 @@ export function AdmissionFormDialog({
                                 value={field.value}
                                 onChange={field.onChange}
                                 disabled={(date) =>
-                                  date > new Date() || date < new Date('1900-01-01')
+                                  date > new Date() ||
+                                  date < new Date("1900-01-01")
                                 }
                                 captionLayout="dropdown"
                                 startMonth={new Date(1940, 0, 1)}
                                 endMonth={new Date()}
-                                className={cn('w-full', !field.value && 'text-muted-foreground')}
+                                className={cn(
+                                  "w-full",
+                                  !field.value && "text-muted-foreground"
+                                )}
                                 autoFocus
                               />
                             </FormControl>
@@ -621,12 +711,18 @@ export function AdmissionFormDialog({
                             <FormLabel>
                               Lead Source *
                               {enquiryData?.enquirySource?.name && (
-                                <Badge variant="secondary" className="ml-2 text-xs">
+                                <Badge
+                                  variant="secondary"
+                                  className="ml-2 text-xs"
+                                >
                                   From enquiry
                                 </Badge>
                               )}
                             </FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
                               <FormControl>
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Select lead source" />
@@ -634,7 +730,10 @@ export function AdmissionFormDialog({
                               </FormControl>
                               <SelectContent>
                                 {enquirySources.map((source) => (
-                                  <SelectItem key={source.id} value={source.name}>
+                                  <SelectItem
+                                    key={source.id}
+                                    value={source.name}
+                                  >
                                     {source.name}
                                   </SelectItem>
                                 ))}
@@ -654,7 +753,10 @@ export function AdmissionFormDialog({
                           <FormLabel>
                             Address *
                             {enquiryData?.address && (
-                              <Badge variant="secondary" className="ml-2 text-xs">
+                              <Badge
+                                variant="secondary"
+                                className="ml-2 text-xs"
+                              >
                                 From enquiry
                               </Badge>
                             )}
@@ -695,7 +797,10 @@ export function AdmissionFormDialog({
                           <FormItem>
                             <FormLabel>Last Qualification *</FormLabel>
                             <FormControl>
-                              <Input placeholder="e.g., B.Tech, BCA, 12th Grade" {...field} />
+                              <Input
+                                placeholder="e.g., B.Tech, BCA, 12th Grade"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -715,7 +820,9 @@ export function AdmissionFormDialog({
                                 max={new Date().getFullYear()}
                                 placeholder={`Year of Passing (1950 - ${new Date().getFullYear()})`}
                                 {...field}
-                                onChange={({ target }) => field.onChange(parseInt(target.value, 0))}
+                                onChange={({ target }) =>
+                                  field.onChange(parseInt(target.value, 0))
+                                }
                               />
                             </FormControl>
                             <FormMessage />
@@ -730,7 +837,10 @@ export function AdmissionFormDialog({
                           <FormItem>
                             <FormLabel>Percentage/CGPA *</FormLabel>
                             <FormControl>
-                              <Input placeholder="e.g., 85%, 8.5 CGPA" {...field} />
+                              <Input
+                                placeholder="e.g., 85%, 8.5 CGPA"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -744,7 +854,10 @@ export function AdmissionFormDialog({
                           <FormItem>
                             <FormLabel>Institute/College Name *</FormLabel>
                             <FormControl>
-                              <Input placeholder="Enter institute name" {...field} />
+                              <Input
+                                placeholder="Enter institute name"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -782,7 +895,9 @@ export function AdmissionFormDialog({
                         <GraduationCap className="h-5 w-5" />
                         Course Details
                       </CardTitle>
-                      <CardDescription>Select the course for admission</CardDescription>
+                      <CardDescription>
+                        Select the course for admission
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <FormField
@@ -793,12 +908,18 @@ export function AdmissionFormDialog({
                             <FormLabel>
                               Select Course *
                               {enquiryData?.preferredCourse && (
-                                <Badge variant="secondary" className="ml-2 text-xs">
+                                <Badge
+                                  variant="secondary"
+                                  className="ml-2 text-xs"
+                                >
                                   From enquiry
                                 </Badge>
                               )}
                             </FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
                               <FormControl>
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Choose a course" />
@@ -816,8 +937,6 @@ export function AdmissionFormDialog({
                           </FormItem>
                         )}
                       />
-
-
                     </CardContent>
                   </Card>
                 </div>
@@ -844,34 +963,34 @@ export function AdmissionFormDialog({
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="font-medium">Name:</span>{' '}
-                          {form.getValues('candidateName') || 'N/A'}
+                          <span className="font-medium">Name:</span>{" "}
+                          {form.getValues("candidateName") || "N/A"}
                         </div>
                         <div>
-                          <span className="font-medium">Mobile:</span>{' '}
-                          {form.getValues('mobileNumber') || 'N/A'}
+                          <span className="font-medium">Mobile:</span>{" "}
+                          {form.getValues("mobileNumber") || "N/A"}
                         </div>
                         <div>
-                          <span className="font-medium">Email:</span>{' '}
-                          {form.getValues('email') || 'N/A'}
+                          <span className="font-medium">Email:</span>{" "}
+                          {form.getValues("email") || "N/A"}
                         </div>
                         <div>
-                          <span className="font-medium">Gender:</span>{' '}
-                          {form.getValues('gender') || 'N/A'}
+                          <span className="font-medium">Gender:</span>{" "}
+                          {form.getValues("gender") || "N/A"}
                         </div>
                         <div>
-                          <span className="font-medium">Date of Birth:</span>{' '}
-                          {form.getValues('dateOfBirth')
-                            ? format(form.getValues('dateOfBirth'), 'PPP')
-                            : 'N/A'}
+                          <span className="font-medium">Date of Birth:</span>{" "}
+                          {form.getValues("dateOfBirth")
+                            ? format(form.getValues("dateOfBirth"), "PPP")
+                            : "N/A"}
                         </div>
                         <div>
-                          <span className="font-medium">Lead Source:</span>{' '}
-                          {form.getValues('leadSource') || 'N/A'}
+                          <span className="font-medium">Lead Source:</span>{" "}
+                          {form.getValues("leadSource") || "N/A"}
                         </div>
                         <div className="md:col-span-2">
-                          <span className="font-medium">Address:</span>{' '}
-                          {form.getValues('address') || 'N/A'}
+                          <span className="font-medium">Address:</span>{" "}
+                          {form.getValues("address") || "N/A"}
                         </div>
                       </div>
                     </div>
@@ -886,25 +1005,29 @@ export function AdmissionFormDialog({
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="font-medium">Last Qualification:</span>{' '}
-                          {form.getValues('lastQualification') || 'N/A'}
+                          <span className="font-medium">
+                            Last Qualification:
+                          </span>{" "}
+                          {form.getValues("lastQualification") || "N/A"}
                         </div>
                         <div>
-                          <span className="font-medium">Year of Passing:</span>{' '}
-                          {form.getValues('yearOfPassing') || 'N/A'}
+                          <span className="font-medium">Year of Passing:</span>{" "}
+                          {form.getValues("yearOfPassing") || "N/A"}
                         </div>
                         <div>
-                          <span className="font-medium">Percentage/CGPA:</span>{' '}
-                          {form.getValues('percentageCGPA') || 'N/A'}
+                          <span className="font-medium">Percentage/CGPA:</span>{" "}
+                          {form.getValues("percentageCGPA") || "N/A"}
                         </div>
                         <div>
-                          <span className="font-medium">Institute:</span>{' '}
-                          {form.getValues('instituteName') || 'N/A'}
+                          <span className="font-medium">Institute:</span>{" "}
+                          {form.getValues("instituteName") || "N/A"}
                         </div>
-                        {form.getValues('additionalNotes') && (
+                        {form.getValues("additionalNotes") && (
                           <div className="md:col-span-2">
-                            <span className="font-medium">Additional Notes:</span>{' '}
-                            {form.getValues('additionalNotes')}
+                            <span className="font-medium">
+                              Additional Notes:
+                            </span>{" "}
+                            {form.getValues("additionalNotes")}
                           </div>
                         )}
                       </div>
@@ -921,9 +1044,12 @@ export function AdmissionFormDialog({
                       <div className="space-y-4">
                         {selectedCourse && (
                           <div className="bg-muted p-4 rounded-lg">
-                            <div className="font-semibold text-lg mb-2">{selectedCourse.name}</div>
+                            <div className="font-semibold text-lg mb-2">
+                              {selectedCourse.name}
+                            </div>
                             <div className="text-sm text-muted-foreground">
-                              {selectedCourse.description || 'No description available'}
+                              {selectedCourse.description ||
+                                "No description available"}
                             </div>
                           </div>
                         )}
@@ -974,12 +1100,12 @@ export function AdmissionFormDialog({
                 {isExecuting ? (
                   <>
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    {mode === 'edit' ? 'Updating...' : 'Creating...'}
+                    {mode === "edit" ? "Updating..." : "Creating..."}
                   </>
                 ) : (
                   <>
                     <CheckCircle className="h-4 w-4" />
-                    {mode === 'edit' ? 'Update Admission' : 'Create Admission'}
+                    {mode === "edit" ? "Update Admission" : "Create Admission"}
                   </>
                 )}
               </Button>

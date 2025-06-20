@@ -1,18 +1,18 @@
-'use server';
+"use server";
 
-import { z } from 'zod';
-import { revalidatePath } from 'next/cache';
-import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
-import { actionClient, adminActionClient } from '@/lib/safe-action';
+import { z } from "zod";
+import { revalidatePath } from "next/cache";
+import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { actionClient, adminActionClient } from "@/lib/safe-action";
 import {
   AdmissionGender,
   AdmissionStatus,
   AdmissionCreateData,
-} from '@/types/admission';
-import { Course, Prisma } from '@prisma/client';
-import { calculateTotalFee } from '@/lib/fee-utils';
+} from "@/types/admission";
+import { Prisma } from "@prisma/client";
+import { calculateTotalFee } from "@/lib/fee-utils";
 
 // Helper function to get current user
 async function getCurrentUser() {
@@ -21,50 +21,47 @@ async function getCurrentUser() {
   });
 
   if (!session) {
-    throw new Error('Unauthorized');
+    throw new Error("Unauthorized");
   }
 
   return session.user;
 }
 
-
 // Helper function to generate admission number
 function generateAdmissionNumber(): string {
   const date = new Date();
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   const random = Math.floor(Math.random() * 9999)
     .toString()
-    .padStart(4, '0');
+    .padStart(4, "0");
   return `ADM-${year}${month}${day}-${random}`;
 }
 
-
-
 // Validation schemas
 const createAdmissionSchema = z.object({
-  candidateName: z.string().min(1, 'Candidate name is required'),
-  mobileNumber: z.string().min(10, 'Valid mobile number is required'),
-  email: z.string().email().optional().or(z.literal('')),
+  candidateName: z.string().min(1, "Candidate name is required"),
+  mobileNumber: z.string().min(10, "Valid mobile number is required"),
+  email: z.string().email().optional().or(z.literal("")),
   gender: z.nativeEnum(AdmissionGender),
   dateOfBirth: z.date(),
-  address: z.string().min(1, 'Address is required'),
+  address: z.string().min(1, "Address is required"),
   leadSource: z.string().optional(),
-  lastQualification: z.string().min(1, 'Last qualification is required'),
+  lastQualification: z.string().min(1, "Last qualification is required"),
   yearOfPassing: z.number().min(1950).max(new Date().getFullYear()),
-  percentageCGPA: z.string().min(1, 'Percentage/CGPA is required'),
-  instituteName: z.string().min(1, 'Institute name is required'),
+  percentageCGPA: z.string().min(1, "Percentage/CGPA is required"),
+  instituteName: z.string().min(1, "Institute name is required"),
   additionalNotes: z.string().optional(),
-  courseId: z.string().min(1, 'Course selection is required'),
+  courseId: z.string().min(1, "Course selection is required"),
   enquiryId: z.string().optional(),
 });
 
 const updateAdmissionSchema = z.object({
-  id: z.string().min(1, 'Admission ID is required'),
+  id: z.string().min(1, "Admission ID is required"),
   candidateName: z.string().optional(),
   mobileNumber: z.string().optional(),
-  email: z.string().email().optional().or(z.literal('')),
+  email: z.string().email().optional().or(z.literal("")),
   gender: z.nativeEnum(AdmissionGender).optional(),
   dateOfBirth: z.date().optional(),
   address: z.string().optional(),
@@ -81,7 +78,7 @@ const updateAdmissionSchema = z.object({
 });
 
 const deleteAdmissionSchema = z.object({
-  id: z.string().min(1, 'Admission ID is required'),
+  id: z.string().min(1, "Admission ID is required"),
 });
 
 const getAdmissionsSchema = z.object({
@@ -95,11 +92,11 @@ const getAdmissionsSchema = z.object({
 });
 
 const getAdmissionByIdSchema = z.object({
-  id: z.string().min(1, 'Admission ID is required'),
+  id: z.string().min(1, "Admission ID is required"),
 });
 
 const getAdmissionsByEnquirySchema = z.object({
-  enquiryId: z.string().min(1, 'Enquiry ID is required'),
+  enquiryId: z.string().min(1, "Enquiry ID is required"),
 });
 
 // Safe action for creating admission
@@ -111,16 +108,18 @@ export const createAdmission = actionClient
 
       // Get course details
       const course = await prisma.course.findUnique({
-        where: { id: parsedInput.courseId }, select:{
+        where: { id: parsedInput.courseId },
+        select: {
           id: true,
           name: true,
           admissionFee: true,
           courseFee: true,
-          semesterFee: true
-        }});
+          semesterFee: true,
+        },
+      });
 
       if (!course) {
-        throw new Error('Course not found');
+        throw new Error("Course not found");
       }
 
       // Generate unique admission number
@@ -138,10 +137,8 @@ export const createAdmission = actionClient
       } while (attempts < maxAttempts);
 
       if (attempts >= maxAttempts) {
-        throw new Error('Could not generate unique admission number');
+        throw new Error("Could not generate unique admission number");
       }
-
-
 
       // Prepare data object with conditional fields
       const admissionData: AdmissionCreateData = {
@@ -161,7 +158,7 @@ export const createAdmission = actionClient
         status: AdmissionStatus.PENDING,
         courseId: parsedInput.courseId,
         createdByUserId: user.id,
-        balance: calculateTotalFee(course)
+        balance: calculateTotalFee(course),
       };
 
       // Add enquiryId only if it exists
@@ -196,11 +193,15 @@ export const createAdmission = actionClient
         },
       });
 
-      revalidatePath('/admissions');
-      return { success: true, data: admission, message: 'Admission created successfully' };
+      revalidatePath("/admissions");
+      return {
+        success: true,
+        data: admission,
+        message: "Admission created successfully",
+      };
     } catch (error) {
-      console.error('Error creating admission:', error);
-      throw new Error('Failed to create admission');
+      console.error("Error creating admission:", error);
+      throw new Error("Failed to create admission");
     }
   });
 
@@ -218,24 +219,30 @@ export const updateAdmission = adminActionClient
       });
 
       if (!existingAdmission) {
-        throw new Error('Admission not found');
+        throw new Error("Admission not found");
       }
 
       // Build update data
       const data: Record<string, unknown> = {};
 
       // Basic fields
-      if (updateData.candidateName) data.candidateName = updateData.candidateName;
+      if (updateData.candidateName)
+        data.candidateName = updateData.candidateName;
       if (updateData.mobileNumber) data.mobileNumber = updateData.mobileNumber;
       if (updateData.email !== undefined) data.email = updateData.email || null;
       if (updateData.gender) data.gender = updateData.gender;
       if (updateData.dateOfBirth) data.dateOfBirth = updateData.dateOfBirth;
       if (updateData.address) data.address = updateData.address;
-      if (updateData.leadSource !== undefined) data.leadSource = updateData.leadSource || null;
-      if (updateData.lastQualification) data.lastQualification = updateData.lastQualification;
-      if (updateData.yearOfPassing) data.yearOfPassing = updateData.yearOfPassing;
-      if (updateData.percentageCGPA) data.percentageCGPA = updateData.percentageCGPA;
-      if (updateData.instituteName) data.instituteName = updateData.instituteName;
+      if (updateData.leadSource !== undefined)
+        data.leadSource = updateData.leadSource || null;
+      if (updateData.lastQualification)
+        data.lastQualification = updateData.lastQualification;
+      if (updateData.yearOfPassing)
+        data.yearOfPassing = updateData.yearOfPassing;
+      if (updateData.percentageCGPA)
+        data.percentageCGPA = updateData.percentageCGPA;
+      if (updateData.instituteName)
+        data.instituteName = updateData.instituteName;
       if (updateData.additionalNotes !== undefined)
         data.additionalNotes = updateData.additionalNotes || null;
 
@@ -274,12 +281,16 @@ export const updateAdmission = adminActionClient
         },
       });
 
-      revalidatePath('/admissions');
+      revalidatePath("/admissions");
       revalidatePath(`/admissions/${id}`);
-      return { success: true, data: admission, message: 'Admission updated successfully' };
+      return {
+        success: true,
+        data: admission,
+        message: "Admission updated successfully",
+      };
     } catch (error) {
-      console.error('Error updating admission:', error);
-      throw new Error('Failed to update admission');
+      console.error("Error updating admission:", error);
+      throw new Error("Failed to update admission");
     }
   });
 
@@ -296,7 +307,7 @@ export const deleteAdmission = adminActionClient
       });
 
       if (!existingAdmission) {
-        throw new Error('Admission not found');
+        throw new Error("Admission not found");
       }
 
       // Perform soft delete by updating status to CANCELLED
@@ -307,101 +318,103 @@ export const deleteAdmission = adminActionClient
         },
       });
 
-      revalidatePath('/admissions');
-      return { success: true, message: 'Admission deleted successfully' };
+      revalidatePath("/admissions");
+      return { success: true, message: "Admission deleted successfully" };
     } catch (error) {
-      console.error('Error deleting admission:', error);
-      throw new Error('Failed to delete admission');
+      console.error("Error deleting admission:", error);
+      throw new Error("Failed to delete admission");
     }
   });
 
 // Safe action for getting admissions with filters and pagination
-export const getAdmissions = actionClient.schema(getAdmissionsSchema).action(async ({ parsedInput }) => {
-  try {
-    const {
-      page = 1,
-      limit = 10,
-      search,
-      status,
-      courseId,
-      dateFrom,
-      dateTo,
-    } = parsedInput;
+export const getAdmissions = actionClient
+  .schema(getAdmissionsSchema)
+  .action(async ({ parsedInput }) => {
+    try {
+      const {
+        page = 1,
+        limit = 10,
+        search,
+        status,
+        courseId,
+        dateFrom,
+        dateTo,
+      } = parsedInput;
 
-    const skip = (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
-    // Build where clause
-    const where: Prisma.AdmissionWhereInput = {};
+      // Build where clause
+      const where: Prisma.AdmissionWhereInput = {};
 
-    // Add status filter (exclude cancelled by default)
-    if (status) {
-      where.status = status;
-    } else {
-      where.status = { not: AdmissionStatus.CANCELLED };
-    }
+      // Add status filter (exclude cancelled by default)
+      if (status) {
+        where.status = status;
+      } else {
+        where.status = { not: AdmissionStatus.CANCELLED };
+      }
 
-    // Add search filter
-    if (search) {
-      where.OR = [
-        { candidateName: { contains: search, mode: 'insensitive' } },
-        { mobileNumber: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { admissionNumber: { contains: search, mode: 'insensitive' } },
-        { course: { name: { contains: search, mode: 'insensitive' } } },
-      ];
-    }
+      // Add search filter
+      if (search) {
+        where.OR = [
+          { candidateName: { contains: search, mode: "insensitive" } },
+          { mobileNumber: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+          { admissionNumber: { contains: search, mode: "insensitive" } },
+          { course: { name: { contains: search, mode: "insensitive" } } },
+        ];
+      }
 
-    // Add other filters
-    if (courseId) where.courseId = courseId;
+      // Add other filters
+      if (courseId) where.courseId = courseId;
 
-    // Add date range filter
-    if (dateFrom || dateTo) {
-      where.createdAt = {};
-      if (dateFrom) where.createdAt.gte = dateFrom;
-      if (dateTo) where.createdAt.lte = dateTo;
-    }
+      // Add date range filter
+      if (dateFrom || dateTo) {
+        where.createdAt = {};
+        if (dateFrom) where.createdAt.gte = dateFrom;
+        if (dateTo) where.createdAt.lte = dateTo;
+      }
 
-    const [admissions, totalCount] = await Promise.all([
-      prisma.admission.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          course: {
-            select: {
-              id: true,
-              name: true,
+      const [admissions, totalCount] = await Promise.all([
+        prisma.admission.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: "desc" },
+          include: {
+            course: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
+        }),
+        prisma.admission.count({ where }),
+      ]);
+
+      const totalPages = Math.ceil(totalCount / limit);
+
+      return {
+        success: true,
+        data: {
+          admissions,
+          totalCount,
+          currentPage: page,
+          totalPages,
         },
-      }),
-      prisma.admission.count({ where }),
-    ]);
-
-    const totalPages = Math.ceil(totalCount / limit);
-
-    return {
-      success: true,
-      data: {
-        admissions,
-        totalCount,
-        currentPage: page,
-        totalPages,
-      },
-    };
-  } catch (error) {
-    console.error('Error fetching admissions:', error);
-    throw new Error('Failed to fetch admissions');
-  }
-});
+      };
+    } catch (error) {
+      console.error("Error fetching admissions:", error);
+      throw new Error("Failed to fetch admissions");
+    }
+  });
 
 // Safe action for getting single admission by ID
 export const getAdmissionById = actionClient
@@ -445,13 +458,13 @@ export const getAdmissionById = actionClient
       });
 
       if (!admission) {
-        throw new Error('Admission not found');
+        throw new Error("Admission not found");
       }
 
       return { success: true, data: admission };
     } catch (error) {
-      console.error('Error fetching admission:', error);
-      throw new Error('Failed to fetch admission');
+      console.error("Error fetching admission:", error);
+      throw new Error("Failed to fetch admission");
     }
   });
 
@@ -475,13 +488,13 @@ export const getAdmissionsByEnquiry = actionClient
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       return { success: true, data: admissions };
     } catch (error) {
-      console.error('Error fetching admissions by enquiry:', error);
-      throw new Error('Failed to fetch admissions');
+      console.error("Error fetching admissions by enquiry:", error);
+      throw new Error("Failed to fetch admissions");
     }
   });
 
@@ -491,8 +504,8 @@ export const getEnquirySourcesForAdmission = actionClient.action(async () => {
     const enquirySources = await prisma.enquirySource.findMany();
     return { success: true, data: enquirySources };
   } catch (error) {
-    console.error('Error fetching enquiry sources:', error);
-    throw new Error('Failed to fetch enquiry sources');
+    console.error("Error fetching enquiry sources:", error);
+    throw new Error("Failed to fetch enquiry sources");
   }
 });
 
@@ -507,12 +520,12 @@ export const getCoursesForAdmission = actionClient.action(async () => {
         description: true,
         duration: true,
       },
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
     });
 
     return { success: true, data: courses };
   } catch (error) {
-    console.error('Error fetching courses:', error);
-    throw new Error('Failed to fetch courses');
+    console.error("Error fetching courses:", error);
+    throw new Error("Failed to fetch courses");
   }
 });
