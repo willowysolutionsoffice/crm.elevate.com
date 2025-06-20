@@ -1,18 +1,18 @@
 'use server';
 
-import { createSafeActionClient } from 'next-safe-action';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { adminActionClient } from '@/lib/safe-action';
+import { actionClient, adminActionClient } from '@/lib/safe-action';
 import {
   AdmissionGender,
   AdmissionStatus,
   AdmissionCreateData,
 } from '@/types/admission';
-import { Prisma } from '@prisma/client';
+import { Course, Prisma } from '@prisma/client';
+import { calculateTotalFee } from '@/lib/fee-utils';
 
 // Helper function to get current user
 async function getCurrentUser() {
@@ -27,8 +27,6 @@ async function getCurrentUser() {
   return session.user;
 }
 
-// Create safe action client
-const action = createSafeActionClient();
 
 // Helper function to generate admission number
 function generateAdmissionNumber(): string {
@@ -105,7 +103,7 @@ const getAdmissionsByEnquirySchema = z.object({
 });
 
 // Safe action for creating admission
-export const createAdmission = action
+export const createAdmission = actionClient
   .schema(createAdmissionSchema)
   .action(async ({ parsedInput }) => {
     try {
@@ -113,12 +111,13 @@ export const createAdmission = action
 
       // Get course details
       const course = await prisma.course.findUnique({
-        where: { id: parsedInput.courseId },
-        select: {
+        where: { id: parsedInput.courseId }, select:{
           id: true,
           name: true,
-        },
-      });
+          admissionFee: true,
+          courseFee: true,
+          semesterFee: true
+        }});
 
       if (!course) {
         throw new Error('Course not found');
@@ -162,6 +161,7 @@ export const createAdmission = action
         status: AdmissionStatus.PENDING,
         courseId: parsedInput.courseId,
         createdByUserId: user.id,
+        balance: calculateTotalFee(course)
       };
 
       // Add enquiryId only if it exists
@@ -316,7 +316,7 @@ export const deleteAdmission = adminActionClient
   });
 
 // Safe action for getting admissions with filters and pagination
-export const getAdmissions = action.schema(getAdmissionsSchema).action(async ({ parsedInput }) => {
+export const getAdmissions = actionClient.schema(getAdmissionsSchema).action(async ({ parsedInput }) => {
   try {
     const {
       page = 1,
@@ -404,7 +404,7 @@ export const getAdmissions = action.schema(getAdmissionsSchema).action(async ({ 
 });
 
 // Safe action for getting single admission by ID
-export const getAdmissionById = action
+export const getAdmissionById = actionClient
   .schema(getAdmissionByIdSchema)
   .action(async ({ parsedInput }) => {
     try {
@@ -456,7 +456,7 @@ export const getAdmissionById = action
   });
 
 // Safe action for getting admissions by enquiry
-export const getAdmissionsByEnquiry = action
+export const getAdmissionsByEnquiry = actionClient
   .schema(getAdmissionsByEnquirySchema)
   .action(async ({ parsedInput }) => {
     try {
@@ -486,7 +486,7 @@ export const getAdmissionsByEnquiry = action
   });
 
 // Safe action for getting enquiry sources for admission form
-export const getEnquirySourcesForAdmission = action.action(async () => {
+export const getEnquirySourcesForAdmission = actionClient.action(async () => {
   try {
     const enquirySources = await prisma.enquirySource.findMany();
     return { success: true, data: enquirySources };
@@ -497,7 +497,7 @@ export const getEnquirySourcesForAdmission = action.action(async () => {
 });
 
 // Helper action to get active courses for admission form
-export const getCoursesForAdmission = action.action(async () => {
+export const getCoursesForAdmission = actionClient.action(async () => {
   try {
     const courses = await prisma.course.findMany({
       where: { isActive: true },
