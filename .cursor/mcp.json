@@ -7,6 +7,10 @@
         "REGISTRY_URL": "https://alpine-registry.vercel.app//r/registry.json"
       }
     },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
     "Prisma": {
       "command": "npx",
       "args": ["-y", "prisma", "mcp"]
