@@ -119,7 +119,7 @@ export interface FeeCalculationResult {
   admissionFee: number;
   semesterFee?: number | null;
   balance: number;
-  nextDueDate: Date;
+  nextDueDate?: Date;
   totalFee: number;
   totalPaid: number;
 }

@@ -14,8 +14,9 @@ export function calculateFeeDetails(
 ): FeeCalculationResult {
   const admissionFee = admission.course.admissionFee || 0;
   const courseFee = admission.course.courseFee || 0;
-  const semesterFee = admission.course.semesterFee || 0;
   const balance = admission.balance || 0;
+  const semesterFee = admission.course.semesterFee;
+
   const totalFee = calculateTotalFee(admission.course);
 
   return {
@@ -25,7 +26,7 @@ export function calculateFeeDetails(
     admissionFee,
     courseFee,
     semesterFee,
-    nextDueDate: admission.nextDueDate || new Date(),
+    nextDueDate: admission.nextDueDate,
   };
 }
 
