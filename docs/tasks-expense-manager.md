@@ -28,6 +28,22 @@ Comprehensive task list for implementing expense management functionality in the
   - [ ] Define interfaces: Expense, ExpenseWithRelations, CreateExpenseInput, UpdateExpenseInput, ExpenseFormData
   - [ ] Add types for filtering, pagination, and table display
 
+```prisma
+model Expense {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  amount      Float
+  category    ExpenseCategory
+  expenseDate DateTime
+  notes       String?
+  createdBy   User            @relation(fields: [createdById], references: [id])
+  createdById String          @db.ObjectId
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+```
+
 ### **Task 2: Validation Schemas**
 
 - [ ] **Zod Schemas**
@@ -45,7 +61,6 @@ Comprehensive task list for implementing expense management functionality in the
   - [ ] Add filtering actions: getExpensesByUser, getExpensesByDateRange, getExpensesByCategory
   - [ ] Use authActionClient patterns with userId in context for authentication
   - [ ] Include proper authorization checks (creator or admin can modify)
-  - [ ] Add expense number generation utility and proper error handling
   - [ ] Include `revalidatePath()` calls for cache management
 
   Code Sample:
@@ -112,7 +127,6 @@ Comprehensive task list for implementing expense management functionality in the
 
   - [ ] Create `src/lib/expense-utils.ts` with calculation functions
   - [ ] Implement: calculateTotalExpenses, calculateExpensesByCategory, calculateExpensesByMonth
-  - [ ] Add generateExpenseNumber utility and getExpenseCategoryColor mapping
   - [ ] Reuse existing formatCurrency and formatDate utilities
 
 - [ ] **Dashboard Integration**
