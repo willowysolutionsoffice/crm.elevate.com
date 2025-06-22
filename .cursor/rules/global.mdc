@@ -1,0 +1,9 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+- Always use context7 MCP for fetching latest documentation
+- Always use PNPM as package manager
+- Always use `pnpm dlx` instead of `npx`
+- use Prisma MCP for databse related operation

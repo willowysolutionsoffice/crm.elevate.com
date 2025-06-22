@@ -1,0 +1,74 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Next.js Rules
+
+## Project Structure
+- Follow Next.js 13+ App Router conventions
+- Use the `src/` directory for organized code structure
+- Place pages in `src/app/` directory
+- Use route groups for organization: `(sidebar)`, `(auth)`, etc.
+
+## Routing & Navigation
+- Use Next.js built-in routing with App Router
+- Implement dynamic routes with proper folder structure: `[id]`, `[...slug]`
+- Use `useRouter` from `next/navigation` for programmatic navigation
+- Implement proper loading states with `loading.tsx` files
+- Create error boundaries with `error.tsx` files
+
+## Server & Client Components
+- Default to Server Components when possible
+- Use `"use client"` directive only when necessary (for interactivity, hooks, etc.)
+- Keep server components for data fetching and static content
+- Move client-side logic to separate client components
+
+## Font Management
+- Always use Next.js font optimization
+- Implement DM Sans as the primary font:
+
+```tsx
+import { DM_Sans } from "next/font/google"
+
+const fontSans = DM_Sans({
+  variable: "--font-sans",
+  subsets: ["latin"],
+})
+
+// In layout.tsx
+<body className={`${fontSans.variable} font-sans antialiased`}>
+```
+
+## Image Optimization
+- Always use Next.js Image component for images
+- Configure domains in `next.config.ts` for external images:
+
+```tsx
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  images: {
+    domains: ["images.unsplash.com"],
+  },
+};
+
+export default nextConfig;
+```
+
+## Data Fetching
+- Use Server Actions for mutations and form handling
+- Implement proper error handling in Server Actions
+- Use `revalidatePath` or `revalidateTag` for cache invalidation
+- Prefer Server Components for initial data loading
+
+## Metadata & SEO
+- Implement proper metadata in layout and page files
+- Use `generateMetadata` for dynamic metadata
+- Include proper Open Graph and Twitter card metadata
+
+## Performance
+- Use dynamic imports for code splitting
+- Implement proper loading states
+- Use Suspense boundaries for data fetching
+- Optimize bundle size with proper imports

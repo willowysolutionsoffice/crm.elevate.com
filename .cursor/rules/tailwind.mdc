@@ -1,0 +1,176 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# TailwindCSS Rules
+
+## Core Principles
+- Always use Tailwind classes for styling HTML elements
+- Avoid using CSS files or inline styles
+- Use utility-first approach for consistent design
+- Prefer Tailwind classes over custom CSS solutions
+
+## Class Organization
+
+### Class Order Convention
+Follow this order for better readability:
+1. Layout (display, position, top, right, bottom, left)
+2. Flexbox/Grid (flex, grid, justify, align, etc.)
+3. Spacing (margin, padding)
+4. Sizing (width, height)
+5. Typography (font, text, leading, tracking)
+6. Visual (background, border, shadow, opacity)
+7. Misc (cursor, overflow, z-index, etc.)
+
+```tsx
+// Good: Organized class order
+<div className="flex items-center justify-between p-4 w-full bg-white border border-gray-200 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50">
+```
+
+### Conditional Classes
+- Use template literals for dynamic classes
+- Consider using `clsx` or `cn` utility for complex conditions
+- Avoid ternary operators in className when possible
+
+```tsx
+// Good: Using template literals
+<div className={`px-4 py-2 rounded ${isActive ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'}`}>
+
+// Better: Using cn utility (if available)
+<div className={cn(
+  'px-4 py-2 rounded',
+  isActive ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'
+)}>
+
+// Good: Simple conditions
+<button className={`btn ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}>
+```
+
+## Responsive Design
+- Use mobile-first approach
+- Apply breakpoint prefixes: `sm:`, `md:`, `lg:`, `xl:`, `2xl:`
+- Stack responsive classes logically
+
+```tsx
+// Good: Mobile-first responsive design
+<div className="w-full md:w-1/2 lg:w-1/3 p-4 md:p-6 lg:p-8">
+```
+
+## Color Usage
+- Use semantic color names when possible
+- Leverage design system tokens
+- Use opacity modifiers for variants: `bg-blue-500/20`
+
+```tsx
+// Good: Semantic colors
+<div className="bg-primary text-primary-foreground">
+<div className="text-destructive bg-destructive/10">
+
+// Good: Opacity modifiers
+<div className="bg-black/50 text-white/90">
+```
+
+## Spacing and Sizing
+- Use consistent spacing scale (4, 8, 12, 16, 20, 24, 32, etc.)
+- Prefer spacing utilities over arbitrary values
+- Use logical spacing (px, py, mx, my) for efficiency
+
+```tsx
+// Good: Consistent spacing
+<div className="p-4 m-2 gap-4">
+<div className="px-6 py-4 mx-auto">
+
+// Avoid: Arbitrary values when utilities exist
+<div className="p-[17px]"> // Use p-4 instead
+```
+
+## Typography
+- Use type scale consistently
+- Apply proper line heights with text sizes
+- Use font weight modifiers appropriately
+
+```tsx
+// Good: Typography scale
+<h1 className="text-3xl font-bold leading-tight">
+<p className="text-base leading-relaxed text-gray-600">
+<span className="text-sm font-medium text-muted-foreground">
+```
+
+## Layout Patterns
+
+### Flexbox
+- Use flex utilities for common layouts
+- Combine with gap for spacing
+
+```tsx
+// Good: Flex layouts
+<div className="flex items-center justify-between gap-4">
+<div className="flex flex-col space-y-4">
+<div className="flex flex-wrap gap-2">
+```
+
+### Grid
+- Use CSS Grid for complex layouts
+- Leverage auto-fit and auto-fill
+
+```tsx
+// Good: Grid layouts
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div className="grid grid-cols-[auto_1fr_auto] gap-4 items-center">
+```
+
+## Interactive States
+- Always include hover states for interactive elements
+- Use focus states for accessibility
+- Implement active states for buttons
+
+```tsx
+// Good: Interactive states
+<button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 active:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+```
+
+## Common Patterns
+
+### Card Components
+```tsx
+<div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+  <div className="flex items-center justify-between mb-4">
+    <h3 className="text-lg font-semibold">Card Title</h3>
+  </div>
+  <p className="text-gray-600">Card content</p>
+</div>
+```
+
+### Form Elements
+```tsx
+<div className="space-y-4">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Label
+    </label>
+    <input
+      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      type="text"
+    />
+  </div>
+</div>
+```
+
+### Loading States
+```tsx
+<div className="flex items-center justify-center p-8">
+  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+</div>
+```
+
+## Performance Tips
+- Use `@apply` directive sparingly in CSS files
+- Prefer utility classes over custom CSS
+- Leverage JIT mode for optimal bundle size
+- Remove unused classes with purging
+
+## Customization
+- Extend theme in `tailwind.config.js` when needed
+- Use CSS custom properties for dynamic values
+- Create component variants through configuration

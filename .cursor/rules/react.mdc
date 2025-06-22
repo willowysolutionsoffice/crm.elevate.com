@@ -1,0 +1,140 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# React Rules
+
+## Component Development
+
+### Function Components
+- Always use function components over class components
+- Use arrow functions with const declarations:
+
+```tsx
+const MyComponent = () => {
+  return <div>Component content</div>;
+};
+```
+
+### Props & Types
+- Define TypeScript interfaces for all component props
+- Place interfaces in `@/types/` directory and import them
+- Use destructuring for props when appropriate
+
+```tsx
+import { ComponentProps } from '@/types/components';
+
+const MyComponent = ({ title, isActive, onToggle }: ComponentProps) => {
+  // Component logic
+};
+```
+
+### State Management
+- Use `useState` for local component state
+- Use `useReducer` for complex state logic
+- Implement proper state updates (immutable patterns)
+- Use `useCallback` for event handlers that are passed as props
+
+### Event Handling
+- Prefix all event handler functions with "handle":
+  - `handleClick` for onClick
+  - `handleSubmit` for form submissions
+  - `handleChange` for input changes
+  - `handleKeyDown` for keyboard events
+
+```tsx
+const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  event.preventDefault();
+  // Handle form submission
+};
+
+const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  setValue(event.target.value);
+};
+```
+
+### Hooks Best Practices
+- Follow the Rules of Hooks (only call hooks at the top level)
+- Use `useEffect` sparingly and with proper dependencies
+- Clean up effects when necessary (return cleanup function)
+- Use `useMemo` and `useCallback` for performance optimization when needed
+
+### Conditional Rendering
+- Use early returns for better readability:
+
+```tsx
+const MyComponent = ({ data, loading, error }: Props) => {
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return <ErrorMessage error={error} />;
+  }
+
+  if (!data) {
+    return <EmptyState />;
+  }
+
+  return <DataDisplay data={data} />;
+};
+```
+
+### Lists and Keys
+- Always provide unique keys for list items
+- Prefer stable IDs over array indices for keys
+- Use proper key props to help React optimize re-renders
+
+### Performance
+- Use `React.memo` for components that receive stable props
+- Implement proper dependency arrays in hooks
+- Avoid creating objects/functions inside render (use useMemo/useCallback)
+
+### Error Handling
+- Implement Error Boundaries for component trees
+- Handle async errors properly with try-catch
+- Provide meaningful error messages to users
+
+## Component Structure Template
+
+```tsx
+import React from 'react';
+import { ComponentProps } from '@/types/components';
+
+const MyComponent = ({
+  title,
+  isActive,
+  onToggle
+}: ComponentProps) => {
+  // Early returns for loading/error states
+  if (loading) return <LoadingState />;
+
+  // Event handlers
+  const handleClick = () => {
+    onToggle();
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      handleClick();
+    }
+  };
+
+  // Main render
+  return (
+    <div
+      className="component-container"
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="button"
+      aria-label={title}
+    >
+      {title}
+    </div>
+  );
+};
+
+export default MyComponent;
+```
