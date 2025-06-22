@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
-import { getReceiptWithAdmissionData } from "@/app/actions/receipt-actions";
+import { getReceiptWithAdmissionData } from "@/server/actions/receipt-actions";
 import { PDFService } from "@/lib/pdf-service";
 import { Receipt, AdmissionWithReceiptsAndCourse } from "@/types/fee-collection";
 
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const { id: receiptId } = await params;
-    
+
     // Check if preview mode is requested
     const { searchParams } = new URL(request.url);
     const preview = searchParams.get('preview') === 'true';

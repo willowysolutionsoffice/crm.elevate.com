@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import { CheckCircle, Clock, AlertCircle, XCircle, Circle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { updateInvoice } from '@/app/actions/invoice-actions';
+import { updateInvoice } from '@/server/actions/invoice-actions';
 import { InvoiceStatus } from '@/types/invoice';
 
 interface InvoiceStatusUpdateProps {

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Receipt } from "@/types/fee-collection";
-import { deleteReceipt } from "@/app/actions/fee-collection-actions";
+import { deleteReceipt } from "@/server/actions/fee-collection-actions";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 

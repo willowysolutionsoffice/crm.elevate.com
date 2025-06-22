@@ -34,8 +34,8 @@ import {
   getCoursesForAdmission,
   getEnquirySourcesForAdmission,
   deleteAdmission,
-} from '@/app/actions/admission-actions';
-import { getEnquiry } from '@/app/actions/enquiry';
+} from '@/server/actions/admission-actions';
+import { getEnquiry } from '@/server/actions/enquiry';
 import { AdmissionFormDialog } from '@/components/admission-form-dialog';
 import { toast } from 'sonner';
 import {

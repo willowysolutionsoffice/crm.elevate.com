@@ -23,7 +23,7 @@ import {
   CreditCard,
   AlertCircle,
 } from "lucide-react";
-import { getAdmissionById } from "@/app/actions/admission-actions";
+import { getAdmissionById } from "@/server/actions/admission-actions";
 import { toast } from "sonner";
 import {
   AdmissionWithRelations,

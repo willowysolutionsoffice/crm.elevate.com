@@ -14,7 +14,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { deleteEnquiry } from '@/app/actions/enquiry-action';
+import { deleteEnquiry } from '@/server/actions/enquiry-action';
 
 interface DeleteEnquiryDialogProps {
   enquiryId: string;

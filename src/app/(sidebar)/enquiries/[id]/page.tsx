@@ -45,10 +45,10 @@ import {
   TrendingUp,
   Activity,
 } from 'lucide-react';
-import { getEnquiry, updateEnquiryStatus, assignEnquiry } from '@/app/actions/enquiry';
-import { createFollowUp } from '@/app/actions/follow-up';
-import { createCallLog } from '@/app/actions/call-log';
-import { getUsers } from '@/app/actions/enquiry';
+import { getEnquiry, updateEnquiryStatus, assignEnquiry } from '@/server/actions/enquiry';
+import { createFollowUp } from '@/server/actions/follow-up';
+import { createCallLog } from '@/server/actions/call-log';
+import { getUsers } from '@/server/actions/enquiry';
 import { ENQUIRY_STATUS_OPTIONS } from '@/constants/enquiry';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

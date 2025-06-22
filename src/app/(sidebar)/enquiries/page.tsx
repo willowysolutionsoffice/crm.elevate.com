@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Search, Filter, Eye, Edit, Trash2, MoreVertical } from 'lucide-react';
-import { getEnquiries } from '@/app/actions/enquiry';
+import { getEnquiries } from '@/server/actions/enquiry';
 import { ENQUIRY_STATUS_OPTIONS } from '@/constants/enquiry';
 import { toast } from 'sonner';
 import { EnquiryFormDialog } from '@/components/enquiry/enquiry-form-dialog';

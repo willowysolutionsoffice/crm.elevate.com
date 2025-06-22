@@ -58,8 +58,8 @@ import { AdmissionWithRelations, AdmissionGender } from "@/types/admission";
 import {
   createAdmission,
   updateAdmission,
-} from "@/app/actions/admission-actions";
-import { updateEnquiryStatus } from "@/app/actions/enquiry";
+} from "@/server/actions/admission-actions";
+import { updateEnquiryStatus } from "@/server/actions/enquiry";
 import { EnquiryStatus } from "@/types/enquiry";
 import { toast } from "sonner";
 import { Enquiry } from "@/types/enquiry";

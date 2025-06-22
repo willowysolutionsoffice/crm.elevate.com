@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Search, Filter, Eye, Edit, Trash2, MoreVertical } from 'lucide-react';
-import { getInvoices } from '@/app/actions/invoice-actions';
+import { getInvoices } from '@/server/actions/invoice-actions';
 import { InvoiceFormDialog } from '@/components/invoice/invoice-form-dialog';
 import { DeleteInvoiceDialog } from '@/components/invoice/delete-invoice-dialog';
 import { toast } from 'sonner';

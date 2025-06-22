@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Phone, PhoneCall, PhoneMissed, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
-import { getCallLogs } from '@/app/actions/call-log';
+import { getCallLogs } from '@/server/actions/call-log';
 import { CALL_OUTCOME_OPTIONS } from '@/constants/enquiry';
 import Link from 'next/link';
 import { toast } from 'sonner';

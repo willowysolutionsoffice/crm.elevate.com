@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Clock, Eye, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
-import { getFollowUps, updateFollowUp } from '@/app/actions/follow-up';
+import { getFollowUps, updateFollowUp } from '@/server/actions/follow-up';
 import { FOLLOW_UP_STATUS_OPTIONS } from '@/constants/enquiry';
 import { FollowUpStatus, FollowUp } from '@/types/enquiry';
 import { useForm } from 'react-hook-form';

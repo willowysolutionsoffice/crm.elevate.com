@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
-import { getInvoiceById } from '@/app/actions/invoice-actions';
+import { getInvoiceById } from '@/server/actions/invoice-actions';
 import { PDFService } from '@/lib/pdf-service';
 import { InvoiceWithItems } from '@/types/invoice';
 

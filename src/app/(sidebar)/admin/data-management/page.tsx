@@ -79,7 +79,7 @@ import {
   createEnquirySource,
   updateEnquirySource,
   deleteEnquirySource,
-} from "@/app/actions/data-management";
+} from "@/server/actions/data-management";
 import { Role, Course, Branch, EnquirySource } from "@/types/data-management";
 
 // Validation schemas

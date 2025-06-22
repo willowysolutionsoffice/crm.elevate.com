@@ -29,7 +29,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { createInvoice, updateInvoice } from '@/app/actions/invoice-actions';
+import { createInvoice, updateInvoice } from '@/server/actions/invoice-actions';
 import { InvoiceWithItems } from '@/types/invoice';
 import { toast } from 'sonner';
 

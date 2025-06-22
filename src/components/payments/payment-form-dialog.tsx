@@ -52,7 +52,7 @@ import {
 import {
   createReceipt,
   updateReceipt,
-} from "@/app/actions/fee-collection-actions";
+} from "@/server/actions/fee-collection-actions";
 import { generateReceiptNumber } from "@/lib/fee-utils";
 import { toast } from "sonner";
 

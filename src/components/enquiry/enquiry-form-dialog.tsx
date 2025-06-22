@@ -43,7 +43,7 @@ import {
   getCourses,
   getEnquirySources,
   getRequiredServices,
-} from '@/app/actions/enquiry-action';
+} from '@/server/actions/enquiry-action';
 import { EnquiryStatus, Enquiry } from '@/types/enquiry';
 import { Branch, Course, EnquirySource, RequiredService } from '@/types/data-management';
 

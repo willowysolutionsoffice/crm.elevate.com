@@ -21,7 +21,7 @@ import {
   Eye,
   IndianRupee,
 } from 'lucide-react';
-import { getInvoiceById } from '@/app/actions/invoice-actions';
+import { getInvoiceById } from '@/server/actions/invoice-actions';
 import { toast } from 'sonner';
 import { InvoiceWithItems, InvoiceStatus } from '@/types/invoice';
 import { InvoiceItemsSection } from '@/components/invoice/invoice-items-section';

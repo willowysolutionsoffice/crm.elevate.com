@@ -18,7 +18,7 @@ import {
   addInvoiceItem,
   updateInvoiceItem,
   deleteInvoiceItem,
-} from '@/app/actions/invoice-actions';
+} from '@/server/actions/invoice-actions';
 import { toast } from 'sonner';
 import { InvoiceItem } from '@/types/invoice';
 import { formatCurrency } from '@/lib/utils';

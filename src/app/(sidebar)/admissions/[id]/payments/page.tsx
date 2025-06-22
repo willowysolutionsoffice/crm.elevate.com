@@ -1,6 +1,6 @@
 import { PaymentsTable } from "@/components/payments/payments-table";
 import { PaymentFormDialog } from "@/components/payments/payment-form-dialog";
-import { getAdmissionWithFeeDetails } from "@/app/actions/fee-collection-actions";
+import { getAdmissionWithFeeDetails } from "@/server/actions/fee-collection-actions";
 
 import {
   Card,

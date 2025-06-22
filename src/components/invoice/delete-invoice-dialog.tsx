@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { deleteInvoice } from '@/app/actions/invoice-actions';
+import { deleteInvoice } from '@/server/actions/invoice-actions';
 import { toast } from 'sonner';
 
 interface DeleteInvoiceDialogProps {
