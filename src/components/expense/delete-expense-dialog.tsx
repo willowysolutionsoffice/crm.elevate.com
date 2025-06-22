@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { deleteExpenseAction } from '@/server/actions/expense-actions';
-import { formatCurrency } from '@/lib/utils';
 
 interface DeleteExpenseDialogProps {
   open?: boolean;

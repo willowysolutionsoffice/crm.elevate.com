@@ -6,6 +6,11 @@ export interface SessionResponse {
   session: Session;
 }
 
+// Auth client session data type (returned by authClient.getSession())
+export interface AuthClientSessionData {
+  data: SessionResponse | null;
+}
+
 // Login data types
 export interface LoginData {
   email: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconSearch, IconDotsVertical, IconTrash } from '@tabler/icons-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -206,7 +206,6 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
   const BranchSelect = ({ user }: { user: User }) => {
     const isUpdating = updatingBranchUserId === user.id;
     const currentBranchId = user.branch || '';
-    const currentBranch = branches.find(b => b.id === currentBranchId);
 
     const getBranchDisplayText = (branchId: string | null) => {
       if (!branchId) return 'No Branch';

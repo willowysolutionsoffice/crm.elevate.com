@@ -46,7 +46,6 @@ import {
 } from '@/server/actions/enquiry-action';
 import { EnquiryStatus, Enquiry } from '@/types/enquiry';
 import { Branch, Course, EnquirySource, RequiredService } from '@/types/data-management';
-import { User } from '@prisma/client';
 import { authClient } from '@/lib/auth-client';
 
 // Form schema for client-side validation - make branchId optional when user has branch
@@ -88,7 +87,7 @@ export function EnquiryFormDialog({
 }: EnquiryFormDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<{ branch?: string | null } | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   // Use controlled state if provided, otherwise use internal state
@@ -96,7 +95,7 @@ export function EnquiryFormDialog({
   const setOpen = controlledOnOpenChange || setInternalOpen;
 
   const isEditMode = mode === 'edit' && enquiry;
-  const userBranch = currentUser?.user?.branch;
+  const userBranch = currentUser?.branch;
   const userHasBranch = Boolean(userBranch);
 
   // Get current user session
@@ -105,7 +104,7 @@ export function EnquiryFormDialog({
       try {
         setIsLoadingUser(true);
         const session = await authClient.getSession();
-        setCurrentUser(session.data);
+        setCurrentUser(session.data?.user || null);
       } catch (error) {
         console.error('Failed to get user session:', error);
       } finally {
@@ -223,6 +222,16 @@ export function EnquiryFormDialog({
     // Use user's branch if they have one and no branch is selected
     const finalBranchId = data.branchId || userBranch;
 
+    // Ensure branchId is always a string for create action
+    if (isEditMode && !finalBranchId) {
+      // For edit mode, branchId can be undefined
+    } else if (!isEditMode && !finalBranchId) {
+      // For create mode, branchId is required
+      toast.error('Branch selection is required');
+      setIsProcessingAction(false);
+      return;
+    }
+
     if (isEditMode) {
       // Update existing enquiry
       const payload = {
@@ -231,7 +240,7 @@ export function EnquiryFormDialog({
         phone: data.phone,
         status: data.status || EnquiryStatus.NEW,
         enquirySourceId: data.enquirySourceId,
-        branchId: finalBranchId,
+        branchId: finalBranchId || undefined,
         contact2: data.contact2 || undefined,
         email: data.email || undefined,
         address: data.address || undefined,
@@ -247,7 +256,7 @@ export function EnquiryFormDialog({
         candidateName: data.candidateName,
         phone: data.phone,
         enquirySourceId: data.enquirySourceId,
-        branchId: finalBranchId,
+        branchId: finalBranchId!,
         contact2: data.contact2 || undefined,
         email: data.email || undefined,
         address: data.address || undefined,
