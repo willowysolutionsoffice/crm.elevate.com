@@ -7,17 +7,21 @@ import prisma from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { loginSchema, userFormSchema } from '@/schema/user-schema';
+import { z } from 'zod';
 
 // Create user action
 export const createUserAction = actionClient
   .inputSchema(userFormSchema)
-  .action(async ({ parsedInput: { name, email, password, role } }) => {
+  .action(async ({ parsedInput: { name, email, password, role, branch } }) => {
     const { user } = await auth.api.createUser({
       body: {
         name,
         email,
         password,
         role: role as 'admin' | 'user',
+        data: {
+          branch,
+        },
       },
     });
 
@@ -32,6 +36,32 @@ export const createUserAction = actionClient
       message: 'User created successfully',
       user,
     };
+  });
+
+// Update user branch action
+export const updateUserBranchAction = actionClient
+  .inputSchema(z.object({
+    userId: z.string(),
+    branchId: z.string(),
+  }))
+  .action(async ({ parsedInput: { userId, branchId } }) => {
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { branch: branchId },
+      });
+
+      return {
+        success: true,
+        message: 'User branch updated successfully',
+      };
+    } catch (error) {
+      console.error('Update user branch error:', error);
+      return {
+        success: false,
+        message: 'Failed to update user branch',
+      };
+    }
   });
 
 // Login action
@@ -89,4 +119,9 @@ export const getAllUsers = async () =>
 export const getAllRoles = async () =>
   await prisma.role.findMany({
     orderBy: { name: 'asc' },
+  });
+
+  export const getAllBranches = async () =>
+  await prisma.branch.findMany({
+    orderBy: { createdAt: 'desc' },
   });

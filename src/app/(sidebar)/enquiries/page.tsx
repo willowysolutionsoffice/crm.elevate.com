@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import { EnquiryFormDialog } from '@/components/enquiry/enquiry-form-dialog';
 import { DeleteEnquiryDialog } from '@/components/enquiry/delete-enquiry-dialog';
 import { Enquiry } from '@/types/enquiry';
+import { authClient } from '@/lib/auth-client';
 
 export default function EnquiriesPage() {
   const router = useRouter();

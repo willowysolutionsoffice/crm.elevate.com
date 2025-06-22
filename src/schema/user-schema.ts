@@ -10,6 +10,7 @@ export const userFormSchema = z
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string().min(8, 'Please confirm your password'),
     role: z.string().min(1, 'Please select a role'),
+    branch: z.string().min(1, 'Please select a branch'),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",

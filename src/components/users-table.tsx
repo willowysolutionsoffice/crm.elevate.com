@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconSearch, IconDotsVertical, IconTrash } from '@tabler/icons-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,15 +41,33 @@ import { formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { UsersTableProps } from '@/types/user';
 import { authClient } from '@/lib/auth-client';
+import { updateUserBranchAction } from '@/lib/actions/auth';
+import { useAction } from 'next-safe-action/hooks';
 import { User } from '@prisma/client';
 
-export function UsersTable({ users, roles }: UsersTableProps) {
+export function UsersTable({ users, roles, branches }: UsersTableProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null);
+  const [updatingBranchUserId, setUpdatingBranchUserId] = useState<string | null>(null);
+
+  const { execute: updateBranch } = useAction(updateUserBranchAction, {
+    onSuccess: ({ data }) => {
+      if (data?.success) {
+        toast.success(data.message);
+        router.refresh();
+      }
+    },
+    onError: () => {
+      toast.error('Failed to update user branch. Please try again.');
+    },
+    onSettled: () => {
+      setUpdatingBranchUserId(null);
+    },
+  });
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery) return users;
@@ -59,9 +77,10 @@ export function UsersTable({ users, roles }: UsersTableProps) {
       (user) =>
         user.name.toLowerCase().includes(query) ||
         user.email.toLowerCase().includes(query) ||
-        (user.role && user.role.toLowerCase().includes(query))
+        (user.role && user.role.toLowerCase().includes(query)) ||
+        (user.branch && branches.find(b => b.id === user.branch)?.name.toLowerCase().includes(query))
     );
-  }, [users, searchQuery]);
+  }, [users, searchQuery, branches]);
 
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
@@ -116,6 +135,13 @@ export function UsersTable({ users, roles }: UsersTableProps) {
     } finally {
       setUpdatingRoleUserId(null);
     }
+  };
+
+  const handleBranchUpdate = async (userId: string, newBranchId: string, currentBranchId: string) => {
+    if (newBranchId === currentBranchId) return; // No change needed
+
+    setUpdatingBranchUserId(userId);
+    updateBranch({ userId, branchId: newBranchId });
   };
 
   const RoleSelect = ({ user }: { user: User }) => {
@@ -177,6 +203,53 @@ export function UsersTable({ users, roles }: UsersTableProps) {
     );
   };
 
+  const BranchSelect = ({ user }: { user: User }) => {
+    const isUpdating = updatingBranchUserId === user.id;
+    const currentBranchId = user.branch || '';
+    const currentBranch = branches.find(b => b.id === currentBranchId);
+
+    const getBranchDisplayText = (branchId: string | null) => {
+      if (!branchId) return 'No Branch';
+      const branch = branches.find(b => b.id === branchId);
+      return branch ? branch.name : 'Unknown Branch';
+    };
+
+    return (
+      <div className="flex items-center gap-2">
+        <Select
+          value={currentBranchId}
+          onValueChange={(newBranchId) => handleBranchUpdate(user.id, newBranchId, currentBranchId)}
+          disabled={isUpdating}
+        >
+          <SelectTrigger className="w-32 h-8 border-none shadow-none p-2 hover:bg-muted/50 focus:ring-1 focus:ring-ring">
+            <SelectValue>
+              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                {getBranchDisplayText(currentBranchId)}
+              </span>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {branches.map((branch) => (
+              <SelectItem key={branch.id} value={branch.id} className="cursor-pointer">
+                <div className="flex flex-col">
+                  <span className="font-medium text-sm text-blue-600 dark:text-blue-400">
+                    {branch.name}
+                  </span>
+                  {branch.address && (
+                    <span className="text-xs text-muted-foreground">{branch.address}</span>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {isUpdating && (
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       <Card>
@@ -205,6 +278,7 @@ export function UsersTable({ users, roles }: UsersTableProps) {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Branch</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -212,7 +286,7 @@ export function UsersTable({ users, roles }: UsersTableProps) {
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4">
+                      <TableCell colSpan={6} className="text-center py-4">
                         No users found
                       </TableCell>
                     </TableRow>
@@ -223,6 +297,9 @@ export function UsersTable({ users, roles }: UsersTableProps) {
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <RoleSelect user={user} />
+                        </TableCell>
+                        <TableCell>
+                          <BranchSelect user={user} />
                         </TableCell>
                         <TableCell>{formatDate(user.createdAt)}</TableCell>
                         <TableCell className="text-right">

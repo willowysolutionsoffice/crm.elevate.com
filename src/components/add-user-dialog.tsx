@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,13 +13,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { UserForm } from '@/components/user-form';
-import type { Role } from '@prisma/client';
+import type { Role, Branch } from '@prisma/client';
 
 interface AddUserDialogProps {
   roles: Role[];
+  branches: Branch[];
 }
 
-export function AddUserDialog({ roles }: AddUserDialogProps) {
+export function AddUserDialog({ roles, branches }: AddUserDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
 
@@ -44,7 +45,7 @@ export function AddUserDialog({ roles }: AddUserDialogProps) {
           <DialogTitle>Add User</DialogTitle>
           <DialogDescription>Add a new user to the system</DialogDescription>
         </DialogHeader>
-        <UserForm roles={roles} onSuccess={handleSuccess} />
+        <UserForm roles={roles} branches={branches} onSuccess={handleSuccess} />
       </DialogContent>
     </Dialog>
   );

@@ -20,6 +20,11 @@ export const auth = betterAuth({
         defaultValue: 'telecaller',
         input: true,
       },
+      branch: {
+        type: 'string',
+        required: false,
+        input: true,
+      },
     },
   },
   plugins: [

@@ -1,4 +1,4 @@
-import type { User, Role } from '@prisma/client';
+import type { User, Role, Branch } from '@prisma/client';
 
 // Form-related types
 export interface UserFormData {
@@ -7,10 +7,12 @@ export interface UserFormData {
   password: string;
   confirmPassword: string;
   role: string;
+  branch: string;
 }
 
 export interface UserFormProps {
   roles: Role[];
+  branches: Branch[];
   onSuccess?: () => void;
   initialData?: Partial<UserFormData>;
 }
@@ -19,6 +21,7 @@ export interface UserFormProps {
 export interface UsersTableProps {
   users: User[];
   roles: Role[];
+  branches: Branch[];
 }
 
 // User profile for navigation/display purposes
@@ -28,6 +31,7 @@ export interface UserProfile {
   email: string;
   image?: string | null;
   role?: string | null;
+  branch?: string | null;
 }
 
 export interface RoleConfig {

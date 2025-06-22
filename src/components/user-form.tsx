@@ -29,7 +29,7 @@ import { toast } from 'sonner';
 
 type CreateUserFormData = UserFormData;
 
-export function UserForm({ roles, onSuccess, initialData }: UserFormProps) {
+export function UserForm({ roles, branches, onSuccess, initialData }: UserFormProps) {
   const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm<CreateUserFormData>({
@@ -40,6 +40,7 @@ export function UserForm({ roles, onSuccess, initialData }: UserFormProps) {
       password: '',
       confirmPassword: '',
       role: initialData?.role || '',
+      branch: initialData?.branch || '',
     },
   });
 
@@ -52,6 +53,7 @@ export function UserForm({ roles, onSuccess, initialData }: UserFormProps) {
         password: '',
         confirmPassword: '',
         role: initialData.role || '',
+        branch: initialData.branch || '',
       });
     }
   }, [initialData, form]);
@@ -195,6 +197,48 @@ export function UserForm({ roles, onSuccess, initialData }: UserFormProps) {
                           {role.description && (
                             <span className="text-xs text-muted-foreground truncate">
                               {role.description}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="branch"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Branch</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  disabled={isExecuting}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a branch">
+                        {field.value && (
+                          <span className="truncate">
+                            {branches.find((branch) => branch.id === field.value)?.name}
+                          </span>
+                        )}
+                      </SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{branch.name}</span>
+                          {branch.address && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              {branch.address}
                             </span>
                           )}
                         </div>

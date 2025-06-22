@@ -23,6 +23,7 @@ model User {
   createdAt     DateTime
   updatedAt     DateTime
   role          String?
+  branch        String?
   sessions      Session[]
   accounts      Account[]
 
