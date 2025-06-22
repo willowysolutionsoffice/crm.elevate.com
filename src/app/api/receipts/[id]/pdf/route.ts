@@ -3,7 +3,6 @@ import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { getReceiptWithAdmissionData } from "@/server/actions/receipt-actions";
 import { PDFService } from "@/lib/pdf-service";
-import { Receipt, AdmissionWithReceiptsAndCourse } from "@/types/fee-collection";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

@@ -5,7 +5,6 @@ import {
   AdmissionWithReceiptsAndCourse,
   Receipt,
 } from "@/types/fee-collection";
-import { revalidatePath } from "next/cache";
 
 /**
  * Get a receipt by ID with related data
