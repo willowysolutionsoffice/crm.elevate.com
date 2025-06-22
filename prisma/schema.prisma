@@ -39,6 +39,7 @@ model User {
   createdAdmissions Admission[] @relation("CreatedAdmissions")
   Admission         Admission[]
   createdReceipts   Receipt[]   @relation("CreatedReceipts")
+  expenses          Expense[]
 
   @@unique([email])
   @@map("user")
@@ -201,6 +202,17 @@ enum CollectedTowards {
   ADMISSION_FEE
   COURSE_FEE
   SEMESTER_FEE
+  OTHER
+}
+
+enum ExpenseCategory {
+  OFFICE_SUPPLIES
+  TRAVEL
+  UTILITIES
+  MARKETING
+  MEALS
+  EQUIPMENT
+  SOFTWARE
   OTHER
 }
 
@@ -394,4 +406,20 @@ model Receipt {
   updatedAt DateTime @updatedAt
 
   @@map("receipt")
+}
+
+model Expense {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  amount      Float
+  category    ExpenseCategory
+  expenseDate DateTime
+  notes       String?
+  createdBy   User            @relation(fields: [createdById], references: [id])
+  createdById String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("expense")
 }

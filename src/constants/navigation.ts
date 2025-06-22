@@ -1,4 +1,5 @@
 import {
+  IconCash,
   IconDashboard,
   IconDatabase,
   IconFileInvoice,
@@ -68,6 +69,11 @@ export const SIDEBAR_DATA: SidebarData = {
       title: 'Invoices',
       url: '/invoices',
       icon: IconFileInvoice,
+    },
+    {
+      title: 'Expenses',
+      url: '/expenses',
+      icon: IconCash,
     },
   ],
 };
