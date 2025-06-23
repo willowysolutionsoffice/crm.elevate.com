@@ -32,15 +32,17 @@ model User {
   banExpires DateTime?
 
   // CRM Relations
-  assignedEnquiries Enquiry[]   @relation("AssignedEnquiries")
-  createdEnquiries  Enquiry[]   @relation("CreatedEnquiries")
-  createdFollowUps  FollowUp[]  @relation("CreatedFollowUps")
-  createdCallLogs   CallLog[]   @relation("CreatedCallLogs")
-  createdInvoices   Invoice[]   @relation("CreatedInvoices")
-  createdAdmissions Admission[] @relation("CreatedAdmissions")
-  Admission         Admission[]
-  createdReceipts   Receipt[]   @relation("CreatedReceipts")
-  expenses          Expense[]
+  assignedEnquiries        Enquiry[]         @relation("AssignedEnquiries")
+  createdEnquiries         Enquiry[]         @relation("CreatedEnquiries")
+  createdFollowUps         FollowUp[]        @relation("CreatedFollowUps")
+  createdCallLogs          CallLog[]         @relation("CreatedCallLogs")
+  createdInvoices          Invoice[]         @relation("CreatedInvoices")
+  createdAdmissions        Admission[]       @relation("CreatedAdmissions")
+  Admission                Admission[]
+  createdReceipts          Receipt[]         @relation("CreatedReceipts")
+  expenses                 Expense[]
+  createdEnquiryActivities EnquiryActivity[] @relation("CreatedEnquiryActivities")
+  EnquiryActivity          EnquiryActivity[]
 
   @@unique([email])
   @@map("user")
@@ -217,6 +219,13 @@ enum ExpenseCategory {
   OTHER
 }
 
+enum ActivityType {
+  STATUS_CHANGE
+  FOLLOW_UP
+  CALL_LOG
+  ENROLLMENT_DIRECT
+}
+
 model Enquiry {
   id              String        @id @default(auto()) @map("_id") @db.ObjectId
   candidateName   String
@@ -249,14 +258,44 @@ model Enquiry {
   createdBy       User   @relation("CreatedEnquiries", fields: [createdByUserId], references: [id])
 
   // Child relationships
-  followUps FollowUp[]
-  callLogs  CallLog[]
+  followUps  FollowUp[]
+  callLogs   CallLog[]
+  activities EnquiryActivity[]
 
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   admissions Admission[]
 
   @@map("enquiry")
+}
+
+model EnquiryActivity {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  type           ActivityType
+  title          String
+  description    String?
+  previousStatus EnquiryStatus?
+  newStatus      EnquiryStatus?
+  statusRemarks  String?
+
+  // Relationships
+  enquiryId String  @db.ObjectId
+  enquiry   Enquiry @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+
+  followUpId String?   @db.ObjectId
+  followUp   FollowUp? @relation(fields: [followUpId], references: [id])
+
+  callLogId String?  @db.ObjectId
+  callLog   CallLog? @relation(fields: [callLogId], references: [id])
+
+  createdByUserId String
+  createdBy       User   @relation("CreatedEnquiryActivities", fields: [createdByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  User      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+
+  @@map("enquiry_activity")
 }
 
 model FollowUp {
@@ -273,8 +312,9 @@ model FollowUp {
   createdByUserId String
   createdBy       User   @relation("CreatedFollowUps", fields: [createdByUserId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  activities EnquiryActivity[]
 
   @@map("follow_up")
 }
@@ -293,8 +333,9 @@ model CallLog {
   createdByUserId String
   createdBy       User   @relation("CreatedCallLogs", fields: [createdByUserId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  activities EnquiryActivity[]
 
   @@map("call_log")
 }

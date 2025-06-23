@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { CreateCallLogInput, CallLogFilters } from '@/types/enquiry';
+import { ActivityType } from '@/types/enquiry-activity';
 
 // Generic response type
 interface ActionResponse<T = unknown> {
@@ -56,39 +57,57 @@ export async function createCallLog(data: CreateCallLogInput): Promise<ActionRes
       };
     }
 
-    const callLog = await prisma.callLog.create({
-      data: {
-        ...data,
-        createdByUserId: user.id,
-      },
-      include: {
-        enquiry: {
-          include: {
-            branch: true,
-            preferredCourse: true,
-            enquirySource: true,
+    // Use transaction to create call log and activity
+    const result = await prisma.$transaction(async (tx) => {
+      // Create call log
+      const callLog = await tx.callLog.create({
+        data: {
+          ...data,
+          createdByUserId: user.id,
+        },
+        include: {
+          enquiry: {
+            include: {
+              branch: true,
+              preferredCourse: true,
+              enquirySource: true,
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
           },
         },
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-      },
-    });
+      });
 
-    // Update enquiry's last contact date
-    await prisma.enquiry.update({
-      where: { id: data.enquiryId },
-      data: { lastContactDate: new Date() },
+      // Update enquiry's last contact date
+      await tx.enquiry.update({
+        where: { id: data.enquiryId },
+        data: { lastContactDate: new Date() },
+      });
+
+      // Create activity entry
+      await tx.enquiryActivity.create({
+        data: {
+          type: ActivityType.CALL_LOG,
+          title: 'Call logged',
+          description: data.notes || `Call outcome: ${data.outcome || 'N/A'}`,
+          enquiryId: data.enquiryId,
+          callLogId: callLog.id,
+          createdByUserId: user.id,
+        },
+      });
+
+      return callLog;
     });
 
     revalidatePath('/call-register');
     revalidatePath(`/enquiries/${data.enquiryId}`);
-    return { success: true, data: callLog, message: 'Call log created successfully' };
+    return { success: true, data: result, message: 'Call log created successfully' };
   } catch (error) {
     console.error('Error creating call log:', error);
     return {

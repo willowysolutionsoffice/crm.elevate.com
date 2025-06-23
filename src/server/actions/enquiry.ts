@@ -11,6 +11,7 @@ import {
   UpdateEnquiryInput,
   EnquiryFilters,
 } from '@/types/enquiry';
+import { ActivityType } from '@/types/enquiry-activity';
 
 // Generic response type
 interface ActionResponse<T = unknown> {
@@ -36,6 +37,29 @@ async function getCurrentUser() {
   }
 
   return session.user;
+}
+
+// Helper function to generate activity title
+function generateActivityTitle(
+  type: ActivityType,
+  previousStatus?: string,
+  newStatus?: string
+): string {
+  switch (type) {
+    case ActivityType.STATUS_CHANGE:
+      if (previousStatus && newStatus) {
+        return `Status changed from ${previousStatus} to ${newStatus}`;
+      }
+      return 'Status updated';
+    case ActivityType.FOLLOW_UP:
+      return 'Follow-up scheduled';
+    case ActivityType.CALL_LOG:
+      return 'Call logged';
+    case ActivityType.ENROLLMENT_DIRECT:
+      return 'Direct enrollment completed';
+    default:
+      return 'Activity logged';
+  }
 }
 
 // Enquiry Actions
@@ -380,6 +404,179 @@ export async function updateEnquiryStatus(
     return {
       success: false,
       message: 'Failed to update status',
+    };
+  }
+}
+
+// Enhanced status update with activity tracking
+export async function updateEnquiryStatusWithActivity(
+  id: string,
+  newStatus: EnquiryStatus,
+  statusRemarks?: string
+): Promise<ActionResponse> {
+  try {
+    const user = await getCurrentUser();
+
+    // Check if enquiry exists and user has permission
+    const existingEnquiry = await prisma.enquiry.findUnique({
+      where: { id },
+    });
+
+    if (!existingEnquiry) {
+      return {
+        success: false,
+        message: 'Enquiry not found',
+      };
+    }
+
+    // Role-based access control
+    if (user.role === 'telecaller' && existingEnquiry.assignedToUserId !== user.id) {
+      return {
+        success: false,
+        message: 'Access denied',
+      };
+    }
+
+    const previousStatus = existingEnquiry.status;
+
+    // Use transaction to update enquiry and create activity
+    const result = await prisma.$transaction(async (tx) => {
+      // Update enquiry status
+      const updatedEnquiry = await tx.enquiry.update({
+        where: { id },
+        data: {
+          status: newStatus,
+          lastContactDate: new Date(),
+        },
+        include: {
+          branch: true,
+          preferredCourse: true,
+          enquirySource: true,
+          requiredService: true,
+          assignedTo: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+          createdBy: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+        },
+      });
+
+      // Create activity entry
+      await tx.enquiryActivity.create({
+        data: {
+          type: ActivityType.STATUS_CHANGE,
+          title: generateActivityTitle(ActivityType.STATUS_CHANGE, previousStatus, newStatus),
+          description: statusRemarks,
+          previousStatus,
+          newStatus,
+          statusRemarks,
+          enquiryId: id,
+          createdByUserId: user.id,
+        },
+      });
+
+      return updatedEnquiry;
+    });
+
+    revalidatePath('/enquiries');
+    revalidatePath(`/enquiries/${id}`);
+    return {
+      success: true,
+      data: result,
+      message: 'Status updated successfully with activity logged'
+    };
+  } catch (error) {
+    console.error('Error updating enquiry status with activity:', error);
+    return {
+      success: false,
+      message: 'Failed to update status',
+    };
+  }
+}
+
+// Direct enrollment function
+export async function updateEnquiryStatusDirectToEnrolled(
+  id: string,
+  statusRemarks?: string
+): Promise<ActionResponse> {
+  try {
+    const user = await getCurrentUser();
+
+    // Check if enquiry exists and user has permission
+    const existingEnquiry = await prisma.enquiry.findUnique({
+      where: { id },
+    });
+
+    if (!existingEnquiry) {
+      return {
+        success: false,
+        message: 'Enquiry not found',
+      };
+    }
+
+    // Role-based access control
+    if (user.role === 'telecaller' && existingEnquiry.assignedToUserId !== user.id) {
+      return {
+        success: false,
+        message: 'Access denied',
+      };
+    }
+
+    const previousStatus = existingEnquiry.status;
+
+    // Use transaction to update enquiry and create activity
+    const result = await prisma.$transaction(async (tx) => {
+      // Update enquiry status to ENROLLED
+      const updatedEnquiry = await tx.enquiry.update({
+        where: { id },
+        data: {
+          status: EnquiryStatus.ENROLLED,
+          lastContactDate: new Date(),
+        },
+        include: {
+          branch: true,
+          preferredCourse: true,
+          enquirySource: true,
+          requiredService: true,
+          assignedTo: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+          createdBy: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+        },
+      });
+
+      // Create activity entry for direct enrollment
+      await tx.enquiryActivity.create({
+        data: {
+          type: ActivityType.ENROLLMENT_DIRECT,
+          title: generateActivityTitle(ActivityType.ENROLLMENT_DIRECT),
+          description: statusRemarks || 'Direct enrollment completed without admission form',
+          previousStatus,
+          newStatus: EnquiryStatus.ENROLLED,
+          statusRemarks,
+          enquiryId: id,
+          createdByUserId: user.id,
+        },
+      });
+
+      return updatedEnquiry;
+    });
+
+    revalidatePath('/enquiries');
+    revalidatePath(`/enquiries/${id}`);
+    return {
+      success: true,
+      data: result,
+      message: 'Direct enrollment completed successfully'
+    };
+  } catch (error) {
+    console.error('Error processing direct enrollment:', error);
+    return {
+      success: false,
+      message: 'Failed to process direct enrollment',
     };
   }
 }

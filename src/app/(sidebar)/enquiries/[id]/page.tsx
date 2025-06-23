@@ -18,13 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Phone,
   Mail,
@@ -44,21 +38,28 @@ import {
   Star,
   TrendingUp,
   Activity,
+  Edit2,
+  ArrowUpCircle,
+  Filter,
 } from 'lucide-react';
-import { getEnquiry, updateEnquiryStatus, assignEnquiry } from '@/server/actions/enquiry';
+import { getEnquiry, assignEnquiry } from '@/server/actions/enquiry';
 import { createFollowUp } from '@/server/actions/follow-up';
 import { createCallLog } from '@/server/actions/call-log';
 import { getUsers } from '@/server/actions/enquiry';
+import { getEnquiryActivities } from '@/server/actions/enquiry-activity-actions';
 import { ENQUIRY_STATUS_OPTIONS } from '@/constants/enquiry';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { EnquiryFormDialog } from '@/components/enquiry/enquiry-form-dialog';
+import { StatusUpdateDialog } from '@/components/enquiry/status-update-dialog';
 import { EnquiryStatus, Enquiry, FollowUp, CallLog } from '@/types/enquiry';
+import { EnquiryActivity, ActivityType } from '@/types/enquiry-activity';
 import { User } from '@/types/data-management';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useAction } from 'next-safe-action/hooks';
 
 // Form schemas
 const followUpSchema = z.object({
@@ -82,8 +83,10 @@ export default function EnquiryDetailPage() {
 
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [activities, setActivities] = useState<EnquiryActivity[]>([]);
+  const [activityFilter, setActivityFilter] = useState<ActivityType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isCreatingFollowUp, setIsCreatingFollowUp] = useState(false);
   const [isCreatingCallLog, setIsCreatingCallLog] = useState(false);
@@ -91,6 +94,14 @@ export default function EnquiryDetailPage() {
   const [isFollowUpDialogOpen, setIsFollowUpDialogOpen] = useState(false);
   const [isCallLogDialogOpen, setIsCallLogDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+
+  // Safe action for fetching activities
+  const {
+    execute: fetchActivities,
+    result: activitiesResult,
+    isExecuting: isFetchingActivities,
+  } = useAction(getEnquiryActivities);
 
   // Forms
   const followUpForm = useForm<FollowUpFormData>({
@@ -118,17 +129,48 @@ export default function EnquiryDetailPage() {
     }
   }, [enquiryId]);
 
+  // Fetch activities data
+  const loadActivities = useCallback(async () => {
+    if (!enquiryId) return;
+
+    setIsLoadingActivities(true);
+    try {
+      await fetchActivities({
+        enquiryId,
+        page: 1,
+        limit: 100,
+        type: activityFilter.length > 0 ? activityFilter : undefined,
+      });
+    } catch (error) {
+      console.error('Error loading activities:', error);
+      toast.error('Failed to load activities');
+    } finally {
+      setIsLoadingActivities(false);
+    }
+  }, [enquiryId, activityFilter, fetchActivities]);
+
+  // Handle activities result
+  useEffect(() => {
+    if (activitiesResult?.data?.success) {
+      setActivities((activitiesResult.data.data || []) as EnquiryActivity[]);
+    } else if (activitiesResult?.serverError) {
+      toast.error(`Error loading activities: ${activitiesResult.serverError}`);
+    }
+  }, [activitiesResult]);
+
   useEffect(() => {
     if (enquiryId) {
       fetchEnquiry();
+      loadActivities();
     }
-  }, [enquiryId, fetchEnquiry]);
+  }, [enquiryId, fetchEnquiry, loadActivities]);
 
   // Refresh enquiry data when page becomes visible (user returns from admissions page)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && enquiryId) {
         fetchEnquiry();
+        loadActivities();
       }
     };
 
@@ -138,6 +180,7 @@ export default function EnquiryDetailPage() {
     const handleFocus = () => {
       if (enquiryId) {
         fetchEnquiry();
+        loadActivities();
       }
     };
 
@@ -147,24 +190,15 @@ export default function EnquiryDetailPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [enquiryId, fetchEnquiry]);
+  }, [enquiryId, fetchEnquiry, loadActivities]);
 
-  const handleStatusUpdate = async (newStatus: string) => {
-    setIsUpdatingStatus(true);
-    try {
-      const result = await updateEnquiryStatus(enquiryId, newStatus as EnquiryStatus);
-      if (result.success) {
-        toast.success(result.message);
-        fetchEnquiry(); // Refetch enquiry data
-      } else {
-        toast.error(result.message || 'Failed to update status');
-      }
-    } catch {
-      toast.error('Failed to update status');
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
+  // Handle successful status update
+  const handleStatusUpdateSuccess = useCallback(() => {
+    fetchEnquiry();
+    loadActivities();
+  }, [fetchEnquiry, loadActivities]);
+
+
 
   const handleCreateFollowUp = async (data: FollowUpFormData) => {
     setIsCreatingFollowUp(true);
@@ -179,7 +213,7 @@ export default function EnquiryDetailPage() {
         toast.success(result.message);
         setIsFollowUpDialogOpen(false);
         followUpForm.reset();
-        fetchEnquiry(); // Refetch enquiry data
+        handleStatusUpdateSuccess();
       } else {
         toast.error(result.message || 'Failed to create follow-up');
       }
@@ -204,7 +238,7 @@ export default function EnquiryDetailPage() {
         toast.success(result.message);
         setIsCallLogDialogOpen(false);
         callLogForm.reset();
-        fetchEnquiry(); // Refetch enquiry data
+        handleStatusUpdateSuccess();
       } else {
         toast.error(result.message || 'Failed to create call log');
       }
@@ -222,7 +256,7 @@ export default function EnquiryDetailPage() {
       if (result.success) {
         toast.success(result.message);
         setIsAssignDialogOpen(false);
-        fetchEnquiry(); // Refetch enquiry data
+        handleStatusUpdateSuccess();
       } else {
         toast.error(result.message || 'Failed to assign enquiry');
       }
@@ -254,22 +288,134 @@ export default function EnquiryDetailPage() {
   }, [isAssignDialogOpen]);
 
   const getStatusColor = (status: string) => {
-    const statusOption = ENQUIRY_STATUS_OPTIONS.find((option) => option.value === status);
-    return statusOption
-      ? `bg-${statusOption.color}-100 text-${statusOption.color}-800`
-      : 'bg-gray-100 text-gray-800';
+    const statusConfig = ENQUIRY_STATUS_OPTIONS.find((s) => s.value === status);
+    return statusConfig?.color || 'gray';
   };
 
   const formatDate = (dateString: string | Date) => {
-    return new Date(dateString).toLocaleString();
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const calculateDaysInPipeline = (createdAt: string | Date) => {
-    const created = new Date(createdAt);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - created.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
+    return days;
+  };
+
+  // Activity helper functions
+  const getActivityIcon = (type: ActivityType) => {
+    switch (type) {
+      case ActivityType.STATUS_CHANGE:
+        return ArrowUpCircle;
+      case ActivityType.FOLLOW_UP:
+        return Calendar;
+      case ActivityType.CALL_LOG:
+        return PhoneCall;
+      case ActivityType.ENROLLMENT_DIRECT:
+        return GraduationCap;
+      default:
+        return Activity;
+    }
+  };
+
+  const getActivityColor = (type: ActivityType) => {
+    switch (type) {
+      case ActivityType.STATUS_CHANGE:
+        return 'blue';
+      case ActivityType.FOLLOW_UP:
+        return 'green';
+      case ActivityType.CALL_LOG:
+        return 'purple';
+      case ActivityType.ENROLLMENT_DIRECT:
+        return 'orange';
+      default:
+        return 'gray';
+    }
+  };
+
+  const getActivityTitle = (activity: EnquiryActivity) => {
+    if (activity.title) return activity.title;
+
+    switch (activity.type) {
+      case ActivityType.STATUS_CHANGE:
+        return `Status changed to ${activity.newStatus}`;
+      case ActivityType.FOLLOW_UP:
+        return 'Follow-up created';
+      case ActivityType.CALL_LOG:
+        return 'Call logged';
+      case ActivityType.ENROLLMENT_DIRECT:
+        return 'Direct enrollment completed';
+      default:
+        return 'Activity recorded';
+    }
+  };
+
+  // Type for unified timeline items
+  type TimelineItem = {
+    id: string;
+    type: 'activity' | 'followup' | 'calllog';
+    data: EnquiryActivity | FollowUp | CallLog;
+    createdAt: string | Date;
+  };
+
+  // Filter activities based on type
+  const filteredActivities = activities.filter(activity =>
+    activityFilter.length === 0 || activityFilter.includes(activity.type)
+  );
+
+  // Merge activities with existing follow-ups and call logs for unified timeline
+  const getAllActivities = (): TimelineItem[] => {
+    const allItems: TimelineItem[] = [];
+
+    // Add enquiry activities
+    filteredActivities.forEach(activity => {
+      allItems.push({
+        id: `activity-${activity.id}`,
+        type: 'activity',
+        data: activity,
+        createdAt: activity.createdAt,
+      });
+    });
+
+    // Add follow-ups that aren't already tracked as activities
+    if (enquiry?.followUps) {
+      enquiry.followUps.forEach(followUp => {
+        const hasActivity = activities.some(a => a.followUpId === followUp.id);
+        if (!hasActivity) {
+          allItems.push({
+            id: `followup-${followUp.id}`,
+            type: 'followup',
+            data: followUp,
+            createdAt: followUp.createdAt,
+          });
+        }
+      });
+    }
+
+    // Add call logs that aren't already tracked as activities
+    if (enquiry?.callLogs) {
+      enquiry.callLogs.forEach(callLog => {
+        const hasActivity = activities.some(a => a.callLogId === callLog.id);
+        if (!hasActivity) {
+          allItems.push({
+            id: `calllog-${callLog.id}`,
+            type: 'calllog',
+            data: callLog,
+            createdAt: callLog.createdAt,
+          });
+        }
+      });
+    }
+
+    // Sort by creation date (newest first)
+    return allItems.sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   };
 
   if (!enquiry) {
@@ -497,25 +643,20 @@ export default function EnquiryDetailPage() {
 
               <EnquiryFormDialog mode="edit" enquiry={enquiry} onSuccess={fetchEnquiry} />
 
-              <Select
-                onValueChange={handleStatusUpdate}
-                disabled={isUpdatingStatus}
-                value={enquiry.status}
-              >
-                <SelectTrigger className="relative z-10 w-full">
-                  <SelectValue>
-                    {ENQUIRY_STATUS_OPTIONS.find((opt) => opt.value === enquiry.status)?.label ||
-                      enquiry.status}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {ENQUIRY_STATUS_OPTIONS.map((status) => (
-                    <SelectItem key={status.value} value={status.value}>
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StatusUpdateDialog
+                enquiryId={enquiry.id}
+                currentStatus={enquiry.status}
+                candidateName={enquiry.candidateName}
+                onSuccess={handleStatusUpdateSuccess}
+                open={isStatusDialogOpen}
+                onOpenChange={setIsStatusDialogOpen}
+                trigger={
+                  <Button variant="outline" className="relative z-10 w-full">
+                    <Edit2 className="mr-2 h-4 w-4" />
+                    Update Status
+                  </Button>
+                }
+              />
             </div>
           </div>
         </CardContent>
@@ -657,7 +798,7 @@ export default function EnquiryDetailPage() {
             )}
             {isAssigning && (
               <div className="flex items-center justify-center p-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <div className="animate-spin rounded-full h-6 w-6 border-primary"></div>
               </div>
             )}
           </div>
@@ -891,25 +1032,143 @@ export default function EnquiryDetailPage() {
 
         <TabsContent value="activity" className="space-y-4 sm:space-y-6">
           <div className="space-y-4 sm:space-y-6">
-            {/* Enhanced Follow-ups */}
-            {enquiry.followUps && enquiry.followUps.length > 0 && (
+            {/* Activity Filter Controls */}
+            <Card className="border-0 bg-gray-50 dark:bg-gray-900/50">
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Filter Activities:
+                    </span>
+                  </div>
+                  <ToggleGroup
+                    type="multiple"
+                    value={activityFilter}
+                    onValueChange={(value: string[]) => setActivityFilter(value as ActivityType[])}
+                    className="justify-start"
+                  >
+                    <ToggleGroupItem value={ActivityType.STATUS_CHANGE} aria-label="Status Changes">
+                      <ArrowUpCircle className="h-4 w-4 mr-1" />
+                      Status
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value={ActivityType.FOLLOW_UP} aria-label="Follow-ups">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      Follow-ups
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value={ActivityType.CALL_LOG} aria-label="Calls">
+                      <PhoneCall className="h-4 w-4 mr-1" />
+                      Calls
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value={ActivityType.ENROLLMENT_DIRECT} aria-label="Direct Enrollment">
+                      <GraduationCap className="h-4 w-4 mr-1" />
+                      Enrollment
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Enhanced Unified Activity Timeline */}
+            {isLoadingActivities || isFetchingActivities ? (
+              <Card>
+                <CardContent className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-blue-600" />
+                  <span className="ml-2 text-gray-600 dark:text-gray-400">Loading activities...</span>
+                </CardContent>
+              </Card>
+            ) : getAllActivities().length > 0 ? (
               <Card className="overflow-hidden p-0">
-                <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 pt-6 pb-4">
+                <CardHeader className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-950 dark:to-slate-950 pt-6 pb-4">
                   <CardTitle className="flex items-center gap-2">
-                    <div className="rounded-full bg-green-100 p-2 dark:bg-green-900">
-                      <Calendar className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <div className="rounded-full bg-gray-100 p-2 dark:bg-gray-900">
+                      <Activity className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                     </div>
-                    Follow-ups ({enquiry.followUps.length})
+                    Activity Timeline ({getAllActivities().length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-6">
                   <div className="space-y-4">
-                    {enquiry.followUps.map((followUp: FollowUp) => (
-                      <div
-                        key={followUp.id}
+                    {getAllActivities().map((item) => {
+                      if (item.type === 'activity') {
+                        const activity = item.data as EnquiryActivity;
+                        const ActivityIcon = getActivityIcon(activity.type);
+                        const color = getActivityColor(activity.type);
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "relative rounded-lg border p-4",
+                              {
+                                "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950": color === 'blue',
+                                "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950": color === 'green',
+                                "border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950": color === 'purple',
+                                "border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950": color === 'orange',
+                              }
+                            )}
+                          >
+                            <div className={cn("absolute left-0 top-0 h-full w-1", {
+                              "bg-blue-500": color === 'blue',
+                              "bg-green-500": color === 'green',
+                              "bg-purple-500": color === 'purple',
+                              "bg-orange-500": color === 'orange',
+                            })} />
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={cn("rounded-full p-2", {
+                                  "bg-blue-100 dark:bg-blue-900": color === 'blue',
+                                  "bg-green-100 dark:bg-green-900": color === 'green',
+                                  "bg-purple-100 dark:bg-purple-900": color === 'purple',
+                                  "bg-orange-100 dark:bg-orange-900": color === 'orange',
+                                })}>
+                                  <ActivityIcon className={cn("h-4 w-4", {
+                                    "text-blue-600 dark:text-blue-400": color === 'blue',
+                                    "text-green-600 dark:text-green-400": color === 'green',
+                                    "text-purple-600 dark:text-purple-400": color === 'purple',
+                                    "text-orange-600 dark:text-orange-400": color === 'orange',
+                                  })} />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                                    {getActivityTitle(activity)}
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    by {activity.createdBy.name} • {formatDate(activity.createdAt)}
+                                  </p>
+                                </div>
+                              </div>
+                              {activity.type === ActivityType.STATUS_CHANGE && activity.newStatus && (
+                                <Badge variant="secondary" className="w-fit">
+                                  {activity.newStatus}
+                                </Badge>
+                              )}
+                            </div>
+                            {activity.description && (
+                              <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">
+                                {activity.description}
+                              </p>
+                            )}
+                            {activity.statusRemarks && (
+                              <div className="mt-2 rounded-lg bg-white p-2 dark:bg-gray-800">
+                                <p className="text-sm">
+                                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                                    Remarks:
+                                  </span>{' '}
+                                  {activity.statusRemarks}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      } else if (item.type === 'followup') {
+                        const followUp = item.data as FollowUp;
+                        return (
+                          <div
+                            key={item.id}
                         className="relative rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950"
                       >
-                        <div className="absolute left-0 top-0 h-full w-1 bg-green-500"></div>
+                            <div className="absolute left-0 top-0 h-full w-1 bg-green-500" />
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
                             <div className="rounded-full bg-green-100 p-2 dark:bg-green-900">
@@ -917,10 +1176,10 @@ export default function EnquiryDetailPage() {
                             </div>
                             <div>
                               <p className="font-medium text-gray-900 dark:text-gray-100">
-                                {formatDate(followUp.scheduledAt)}
+                                    Follow-up Scheduled
                               </p>
                               <p className="text-xs text-gray-600 dark:text-gray-400">
-                                by {followUp.createdBy.name} • {formatDate(followUp.createdAt)}
+                                    for {formatDate(followUp.scheduledAt)} • by {followUp.createdBy.name}
                               </p>
                             </div>
                           </div>
@@ -944,31 +1203,15 @@ export default function EnquiryDetailPage() {
                           </div>
                         )}
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Enhanced Call Logs */}
-            {enquiry.callLogs && enquiry.callLogs.length > 0 && (
-              <Card className="overflow-hidden p-0">
-                <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950 dark:to-violet-950 pt-6 pb-4">
-                  <CardTitle className="flex items-center gap-2">
-                    <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
-                      <PhoneCall className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    Call Logs ({enquiry.callLogs.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6">
-                  <div className="space-y-4">
-                    {enquiry.callLogs.map((callLog: CallLog) => (
-                      <div
-                        key={callLog.id}
+                        );
+                      } else if (item.type === 'calllog') {
+                        const callLog = item.data as CallLog;
+                        return (
+                          <div
+                            key={item.id}
                         className="relative rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950"
                       >
-                        <div className="absolute left-0 top-0 h-full w-1 bg-purple-500"></div>
+                            <div className="absolute left-0 top-0 h-full w-1 bg-purple-500" />
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
                             <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
@@ -976,10 +1219,10 @@ export default function EnquiryDetailPage() {
                             </div>
                             <div>
                               <p className="font-medium text-gray-900 dark:text-gray-100">
-                                {formatDate(callLog.callDate)}
+                                    Call Logged
                               </p>
                               <p className="text-xs text-gray-600 dark:text-gray-400">
-                                by {callLog.createdBy.name} • {formatDate(callLog.createdAt)}
+                                    on {formatDate(callLog.callDate)} • by {callLog.createdBy.name}
                               </p>
                             </div>
                           </div>
@@ -1005,17 +1248,21 @@ export default function EnquiryDetailPage() {
                           </p>
                         )}
                       </div>
-                    ))}
+                        );
+                      }
+                      return null;
+                    })}
                   </div>
                 </CardContent>
               </Card>
-            )}
-
-            {(!enquiry.followUps || enquiry.followUps.length === 0) &&
-              (!enquiry.callLogs || enquiry.callLogs.length === 0) && (
+            ) : (
                 <Card>
                   <CardContent className="text-center py-8">
+                  <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-muted-foreground">No activity recorded yet.</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Activities will appear here when you update status, create follow-ups, or log calls.
+                  </p>
                   </CardContent>
                 </Card>
               )}

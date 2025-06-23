@@ -1,4 +1,5 @@
 import { User, Course, Branch, EnquirySource, RequiredService } from '@/types/data-management';
+import type { EnquiryActivity } from '@/types/enquiry-activity';
 
 export enum EnquiryStatus {
   NEW = 'NEW',
@@ -47,6 +48,7 @@ export interface Enquiry {
   // Child relationships
   followUps?: FollowUp[];
   callLogs?: CallLog[];
+  activities?: EnquiryActivity[];
 
   createdAt: Date;
   updatedAt: Date;

@@ -10,6 +10,7 @@ import {
   UpdateFollowUpInput,
   FollowUpFilters,
 } from '@/types/enquiry';
+import { ActivityType } from '@/types/enquiry-activity';
 
 // Generic response type
 interface ActionResponse<T = unknown> {
@@ -61,33 +62,51 @@ export async function createFollowUp(data: CreateFollowUpInput): Promise<ActionR
       };
     }
 
-    const followUp = await prisma.followUp.create({
-      data: {
-        ...data,
-        createdByUserId: user.id,
-      },
-      include: {
-        enquiry: {
-          include: {
-            branch: true,
-            preferredCourse: true,
-            enquirySource: true,
+    // Use transaction to create follow-up and activity
+    const result = await prisma.$transaction(async (tx) => {
+      // Create follow-up
+      const followUp = await tx.followUp.create({
+        data: {
+          ...data,
+          createdByUserId: user.id,
+        },
+        include: {
+          enquiry: {
+            include: {
+              branch: true,
+              preferredCourse: true,
+              enquirySource: true,
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
           },
         },
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
+      });
+
+      // Create activity entry
+      await tx.enquiryActivity.create({
+        data: {
+          type: ActivityType.FOLLOW_UP,
+          title: 'Follow-up scheduled',
+          description: data.notes || `Follow-up scheduled for ${new Date(data.scheduledAt).toLocaleDateString()}`,
+          enquiryId: data.enquiryId,
+          followUpId: followUp.id,
+          createdByUserId: user.id,
         },
-      },
+      });
+
+      return followUp;
     });
 
     revalidatePath('/follow-ups');
     revalidatePath(`/enquiries/${data.enquiryId}`);
-    return { success: true, data: followUp, message: 'Follow-up scheduled successfully' };
+    return { success: true, data: result, message: 'Follow-up scheduled successfully' };
   } catch (error) {
     console.error('Error creating follow-up:', error);
     return {
