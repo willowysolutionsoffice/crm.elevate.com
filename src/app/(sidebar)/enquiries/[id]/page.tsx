@@ -18,7 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+
 import {
   Popover,
   PopoverContent,
@@ -56,7 +56,7 @@ import {
   Activity,
   Edit2,
   ArrowUpCircle,
-  Filter,
+
 } from 'lucide-react';
 import { getEnquiry, assignEnquiry } from '@/server/actions/enquiry';
 import { createFollowUp } from '@/server/actions/follow-up';
@@ -103,7 +103,7 @@ export default function EnquiryDetailPage() {
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [activities, setActivities] = useState<EnquiryActivity[]>([]);
-  const [activityFilter, setActivityFilter] = useState<ActivityType[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
@@ -148,7 +148,7 @@ export default function EnquiryDetailPage() {
     }
   }, [enquiryId]);
 
-  // Fetch activities data
+  // Fetch activities data (always fetch all activities, filter on client side)
   const loadActivities = useCallback(async () => {
     if (!enquiryId) return;
 
@@ -158,7 +158,8 @@ export default function EnquiryDetailPage() {
         enquiryId,
         page: 1,
         limit: 100,
-        type: activityFilter.length > 0 ? activityFilter : undefined,
+        // Don't send filter to server - we'll filter on client side
+        type: undefined,
       });
     } catch (error) {
       console.error('Error loading activities:', error);
@@ -166,7 +167,7 @@ export default function EnquiryDetailPage() {
     } finally {
       setIsLoadingActivities(false);
     }
-  }, [enquiryId, activityFilter, fetchActivities]);
+  }, [enquiryId, fetchActivities]);
 
   // Handle activities result
   useEffect(() => {
@@ -184,32 +185,8 @@ export default function EnquiryDetailPage() {
     }
   }, [enquiryId, fetchEnquiry, loadActivities]);
 
-  // Refresh enquiry data when page becomes visible (user returns from admissions page)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && enquiryId) {
-        fetchEnquiry();
-        loadActivities();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Also listen for focus events
-    const handleFocus = () => {
-      if (enquiryId) {
-        fetchEnquiry();
-        loadActivities();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [enquiryId, fetchEnquiry, loadActivities]);
+  // Note: Removed auto-refresh on visibility change and focus events
+  // Data will only refresh on page refresh or manual actions
 
   // Handle successful status update
   const handleStatusUpdateSuccess = useCallback(() => {
@@ -380,17 +357,12 @@ export default function EnquiryDetailPage() {
     createdAt: string | Date;
   };
 
-  // Filter activities based on type
-  const filteredActivities = activities.filter(activity =>
-    activityFilter.length === 0 || activityFilter.includes(activity.type)
-  );
-
-  // Merge activities with existing follow-ups and call logs for unified timeline
+    // Merge activities with existing follow-ups and call logs for unified timeline
   const getAllActivities = (): TimelineItem[] => {
     const allItems: TimelineItem[] = [];
 
     // Add enquiry activities
-    filteredActivities.forEach(activity => {
+    activities.forEach(activity => {
       allItems.push({
         id: `activity-${activity.id}`,
         type: 'activity',
@@ -1218,43 +1190,6 @@ export default function EnquiryDetailPage() {
 
         <TabsContent value="activity" className="space-y-4 sm:space-y-6">
           <div className="space-y-4 sm:space-y-6">
-            {/* Activity Filter Controls */}
-            <Card className="border-0 bg-gray-50 dark:bg-gray-900/50">
-              <CardContent className="p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Filter Activities:
-                    </span>
-                  </div>
-                  <ToggleGroup
-                    type="multiple"
-                    value={activityFilter}
-                    onValueChange={(value: string[]) => setActivityFilter(value as ActivityType[])}
-                    className="justify-start"
-                  >
-                    <ToggleGroupItem value={ActivityType.STATUS_CHANGE} aria-label="Status Changes">
-                      <ArrowUpCircle className="h-4 w-4 mr-1" />
-                      Status
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value={ActivityType.FOLLOW_UP} aria-label="Follow-ups">
-                      <CalendarIcon className="h-4 w-4 mr-1" />
-                      Follow-ups
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value={ActivityType.CALL_LOG} aria-label="Calls">
-                      <PhoneCall className="h-4 w-4 mr-1" />
-                      Calls
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value={ActivityType.ENROLLMENT_DIRECT} aria-label="Direct Enrollment">
-                      <GraduationCap className="h-4 w-4 mr-1" />
-                      Enrollment
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Enhanced Unified Activity Timeline */}
             {isLoadingActivities || isFetchingActivities ? (
               <Card>
