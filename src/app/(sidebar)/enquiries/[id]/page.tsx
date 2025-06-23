@@ -20,9 +20,25 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
   Phone,
   Mail,
-  Calendar,
+  Calendar as CalendarIcon,
   Clock,
   User as UserIcon,
   Building,
@@ -52,6 +68,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 import { EnquiryFormDialog } from '@/components/enquiry/enquiry-form-dialog';
 import { StatusUpdateDialog } from '@/components/enquiry/status-update-dialog';
 import { EnquiryStatus, Enquiry, FollowUp, CallLog } from '@/types/enquiry';
@@ -63,7 +80,9 @@ import { useAction } from 'next-safe-action/hooks';
 
 // Form schemas
 const followUpSchema = z.object({
-  scheduledAt: z.string().min(1, 'Date and time are required'),
+  scheduledAt: z.date({
+    required_error: 'A date and time is required.',
+  }),
   notes: z.string().max(1000).optional(),
 });
 
@@ -198,14 +217,12 @@ export default function EnquiryDetailPage() {
     loadActivities();
   }, [fetchEnquiry, loadActivities]);
 
-
-
   const handleCreateFollowUp = async (data: FollowUpFormData) => {
     setIsCreatingFollowUp(true);
     try {
       const result = await createFollowUp({
         enquiryId,
-        scheduledAt: new Date(data.scheduledAt),
+        scheduledAt: data.scheduledAt,
         notes: data.notes,
       });
 
@@ -313,7 +330,7 @@ export default function EnquiryDetailPage() {
       case ActivityType.STATUS_CHANGE:
         return ArrowUpCircle;
       case ActivityType.FOLLOW_UP:
-        return Calendar;
+        return CalendarIcon;
       case ActivityType.CALL_LOG:
         return PhoneCall;
       case ActivityType.ENROLLMENT_DIRECT:
@@ -536,7 +553,7 @@ export default function EnquiryDetailPage() {
                 </p>
               </div>
               <div className="rounded-full bg-green-200 p-2 dark:bg-green-800">
-                <Calendar className="h-4 w-4 text-green-700 dark:text-green-300 sm:h-5 sm:w-5" />
+                <CalendarIcon className="h-4 w-4 text-green-700 dark:text-green-300 sm:h-5 sm:w-5" />
               </div>
             </div>
           </CardContent>
@@ -721,44 +738,213 @@ export default function EnquiryDetailPage() {
 
       {/* Follow-up Dialog Content */}
       <Dialog open={isFollowUpDialogOpen} onOpenChange={setIsFollowUpDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Schedule Follow-up</DialogTitle>
             <DialogDescription>Schedule a follow-up with {enquiry.candidateName}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={followUpForm.handleSubmit(handleCreateFollowUp)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="scheduledAt">Date & Time *</Label>
-              <Input
-                id="scheduledAt"
-                type="datetime-local"
-                {...followUpForm.register('scheduledAt')}
+          <Form {...followUpForm}>
+            <form onSubmit={followUpForm.handleSubmit(handleCreateFollowUp)} className="space-y-5">
+              <FormField
+                control={followUpForm.control}
+                name="scheduledAt"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Schedule Date & Time (12h format)</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "MM/dd/yyyy hh:mm aa")
+                            ) : (
+                              <span>MM/DD/YYYY hh:mm aa</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <div className="sm:flex">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={(date) => {
+                              if (date) {
+                                // If no time is set, default to current time
+                                if (!field.value) {
+                                  const now = new Date();
+                                  date.setHours(now.getHours());
+                                  date.setMinutes(Math.ceil(now.getMinutes() / 5) * 5); // Round to nearest 5 minutes
+                                } else {
+                                  // Preserve existing time
+                                  date.setHours(field.value.getHours());
+                                  date.setMinutes(field.value.getMinutes());
+                                }
+                                field.onChange(date);
+                              }
+                            }}
+                            initialFocus
+                          />
+                          <div className="flex flex-col sm:flex-row sm:h-[300px] divide-y sm:divide-y-0 sm:divide-x">
+                            <ScrollArea className="w-64 sm:w-auto">
+                              <div className="flex sm:flex-col p-2">
+                                {Array.from({ length: 12 }, (_, i) => i + 1)
+                                  .reverse()
+                                  .map((hour) => (
+                                    <Button
+                                      key={hour}
+                                      size="icon"
+                                      variant={
+                                        field.value &&
+                                        field.value.getHours() % 12 === hour % 12
+                                          ? "default"
+                                          : "ghost"
+                                      }
+                                      className="sm:w-full shrink-0 aspect-square"
+                                      onClick={() => {
+                                        const currentDate = field.value || new Date();
+                                        const newDate = new Date(currentDate);
+                                        const currentHour = newDate.getHours();
+                                        const isPM = currentHour >= 12;
+                                        newDate.setHours(isPM ? hour + 12 : hour);
+                                        field.onChange(newDate);
+                                      }}
+                                    >
+                                      {hour}
+                                    </Button>
+                                  ))}
+                              </div>
+                              <ScrollBar
+                                orientation="horizontal"
+                                className="sm:hidden"
+                              />
+                            </ScrollArea>
+                            <ScrollArea className="w-64 sm:w-auto">
+                              <div className="flex sm:flex-col p-2">
+                                {Array.from({ length: 12 }, (_, i) => i * 5).map(
+                                  (minute) => (
+                                    <Button
+                                      key={minute}
+                                      size="icon"
+                                      variant={
+                                        field.value &&
+                                        field.value.getMinutes() === minute
+                                          ? "default"
+                                          : "ghost"
+                                      }
+                                      className="sm:w-full shrink-0 aspect-square"
+                                      onClick={() => {
+                                        const currentDate = field.value || new Date();
+                                        const newDate = new Date(currentDate);
+                                        newDate.setMinutes(minute);
+                                        field.onChange(newDate);
+                                      }}
+                                    >
+                                      {minute.toString().padStart(2, "0")}
+                                    </Button>
+                                  )
+                                )}
+                              </div>
+                              <ScrollBar
+                                orientation="horizontal"
+                                className="sm:hidden"
+                              />
+                            </ScrollArea>
+                            <ScrollArea className="">
+                              <div className="flex sm:flex-col p-2">
+                                {["AM", "PM"].map((ampm) => (
+                                  <Button
+                                    key={ampm}
+                                    size="icon"
+                                    variant={
+                                      field.value &&
+                                      ((ampm === "AM" &&
+                                        field.value.getHours() < 12) ||
+                                        (ampm === "PM" &&
+                                          field.value.getHours() >= 12))
+                                        ? "default"
+                                        : "ghost"
+                                    }
+                                    className="sm:w-full shrink-0 aspect-square"
+                                    onClick={() => {
+                                      const currentDate = field.value || new Date();
+                                      const newDate = new Date(currentDate);
+                                      const hours = newDate.getHours();
+                                      if (ampm === "AM" && hours >= 12) {
+                                        newDate.setHours(hours - 12);
+                                      } else if (ampm === "PM" && hours < 12) {
+                                        newDate.setHours(hours + 12);
+                                      }
+                                      field.onChange(newDate);
+                                    }}
+                                  >
+                                    {ampm}
+                                  </Button>
+                                ))}
+                              </div>
+                            </ScrollArea>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <FormDescription>
+                      Please select your preferred date and time for the follow-up.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {followUpForm.formState.errors.scheduledAt && (
-                <p className="text-sm text-red-500">
-                  {followUpForm.formState.errors.scheduledAt.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="followUpNotes">Notes</Label>
-              <Textarea
-                id="followUpNotes"
-                placeholder="Notes for the follow-up..."
-                {...followUpForm.register('notes')}
+
+              <FormField
+                control={followUpForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Add any notes for the follow-up..."
+                        className="min-h-[80px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {followUpForm.formState.errors.notes && (
-                <p className="text-sm text-red-500">
-                  {followUpForm.formState.errors.notes.message}
-                </p>
-              )}
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={isCreatingFollowUp}>
-                {isCreatingFollowUp ? 'Scheduling...' : 'Schedule Follow-up'}
-              </Button>
-            </DialogFooter>
-          </form>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsFollowUpDialogOpen(false)}
+                  disabled={isCreatingFollowUp}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isCreatingFollowUp}>
+                  {isCreatingFollowUp ? (
+                    <>
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-white" />
+                      Scheduling...
+                    </>
+                  ) : (
+                    <>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      Schedule Follow-up
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
@@ -1053,7 +1239,7 @@ export default function EnquiryDetailPage() {
                       Status
                     </ToggleGroupItem>
                     <ToggleGroupItem value={ActivityType.FOLLOW_UP} aria-label="Follow-ups">
-                      <Calendar className="h-4 w-4 mr-1" />
+                      <CalendarIcon className="h-4 w-4 mr-1" />
                       Follow-ups
                     </ToggleGroupItem>
                     <ToggleGroupItem value={ActivityType.CALL_LOG} aria-label="Calls">
@@ -1172,7 +1358,7 @@ export default function EnquiryDetailPage() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
                             <div className="rounded-full bg-green-100 p-2 dark:bg-green-900">
-                              <Calendar className="h-4 w-4 text-green-600 dark:text-green-400" />
+                              <CalendarIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
                             </div>
                             <div>
                               <p className="font-medium text-gray-900 dark:text-gray-100">
