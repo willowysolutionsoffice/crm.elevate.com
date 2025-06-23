@@ -27,10 +27,13 @@ import { ENQUIRY_STATUS_OPTIONS } from '@/constants/enquiry';
 import { toast } from 'sonner';
 import { EnquiryFormDialog } from '@/components/enquiry/enquiry-form-dialog';
 import { DeleteEnquiryDialog } from '@/components/enquiry/delete-enquiry-dialog';
+import { EnquiryMobileCard } from '@/components/enquiry/enquiry-mobile-card';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Enquiry } from '@/types/enquiry';
 
 export default function EnquiriesPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
@@ -180,102 +183,118 @@ export default function EnquiriesPage() {
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[200px]">Candidate</TableHead>
-                    <TableHead className="w-[120px]">Contact</TableHead>
-                    <TableHead className="w-[150px]">Course</TableHead>
-                    <TableHead className="w-[100px]">Status</TableHead>
-                    <TableHead className="w-[120px]">Source</TableHead>
-                    <TableHead className="w-[120px]">Assigned To</TableHead>
-                    <TableHead className="w-[100px]">Date</TableHead>
-                    <TableHead className="w-[80px] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              {isMobile ? (
+                // Mobile Card View
+                <div className="space-y-4">
                   {enquiries.map((enquiry) => (
-                    <TableRow key={enquiry.id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{enquiry.candidateName}</div>
-                          {enquiry.email && (
-                            <div className="text-sm text-muted-foreground">{enquiry.email}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm font-mono">{enquiry.phone}</div>
-                        {enquiry.contact2 && (
-                          <div className="text-xs text-muted-foreground font-mono">
-                            {enquiry.contact2}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {enquiry.preferredCourse?.name || (
-                            <span className="text-muted-foreground italic">Not specified</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(enquiry.status)}>
-                          {ENQUIRY_STATUS_OPTIONS.find((opt) => opt.value === enquiry.status)
-                            ?.label || enquiry.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">{enquiry.enquirySource?.name}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {enquiry.assignedTo?.name || (
-                            <span className="text-muted-foreground italic">Unassigned</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">{formatDate(enquiry.createdAt)}</div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted">
-                              <span className="sr-only">Open menu</span>
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem
-                              onClick={() => handleViewEnquiry(enquiry.id)}
-                              className="cursor-pointer"
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="cursor-pointer"
-                              onClick={() => handleEditEnquiry(enquiry)}
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteEnquiry(enquiry.id, enquiry.candidateName)}
-                              className="cursor-pointer text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                    <EnquiryMobileCard
+                      key={enquiry.id}
+                      enquiry={enquiry}
+                      onView={handleViewEnquiry}
+                      onEdit={handleEditEnquiry}
+                      onDelete={handleDeleteEnquiry}
+                    />
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              ) : (
+                // Desktop Table View
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[200px]">Candidate</TableHead>
+                      <TableHead className="w-[120px]">Contact</TableHead>
+                      <TableHead className="w-[150px]">Course</TableHead>
+                      <TableHead className="w-[100px]">Status</TableHead>
+                      <TableHead className="w-[120px]">Source</TableHead>
+                      <TableHead className="w-[120px]">Assigned To</TableHead>
+                      <TableHead className="w-[100px]">Date</TableHead>
+                      <TableHead className="w-[80px] text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {enquiries.map((enquiry) => (
+                      <TableRow key={enquiry.id} className="hover:bg-muted/50">
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{enquiry.candidateName}</div>
+                            {enquiry.email && (
+                              <div className="text-sm text-muted-foreground">{enquiry.email}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm font-mono">{enquiry.phone}</div>
+                          {enquiry.contact2 && (
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {enquiry.contact2}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {enquiry.preferredCourse?.name || (
+                              <span className="text-muted-foreground italic">Not specified</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(enquiry.status)}>
+                            {ENQUIRY_STATUS_OPTIONS.find((opt) => opt.value === enquiry.status)
+                              ?.label || enquiry.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">{enquiry.enquirySource?.name}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {enquiry.assignedTo?.name || (
+                              <span className="text-muted-foreground italic">Unassigned</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">{formatDate(enquiry.createdAt)}</div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted">
+                                <span className="sr-only">Open menu</span>
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem
+                                onClick={() => handleViewEnquiry(enquiry.id)}
+                                className="cursor-pointer"
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() => handleEditEnquiry(enquiry)}
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteEnquiry(enquiry.id, enquiry.candidateName)}
+                                className="cursor-pointer text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
 
               {/* Pagination */}
               {pagination && (

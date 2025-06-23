@@ -35,6 +35,8 @@ import { Clock, Eye, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { getFollowUps, updateFollowUp } from '@/server/actions/follow-up';
 import { FOLLOW_UP_STATUS_OPTIONS } from '@/constants/enquiry';
 import { FollowUpStatus, FollowUp } from '@/types/enquiry';
+import { FollowUpMobileCard } from '@/components/follow-up/follow-up-mobile-card';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -67,6 +69,7 @@ const updateFollowUpSchema = z
 type UpdateFollowUpFormData = z.infer<typeof updateFollowUpSchema>;
 
 export default function FollowUpsPage() {
+  const isMobile = useIsMobile();
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
@@ -257,71 +260,87 @@ export default function FollowUpsPage() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Candidate</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Scheduled</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredFollowUps.map((followUp) => (
-                  <TableRow key={followUp.id}>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/enquiries/${followUp.enquiry.id}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {followUp.enquiry.candidateName}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{followUp.enquiry.phone}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span>{formatDateTime(followUp.scheduledAt)}</span>
-                        {isOverdue(followUp.scheduledAt, followUp.status) && (
-                          <Badge variant="destructive" className="w-fit mt-1">
-                            Overdue
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(followUp.status)}
-                        <Badge className={getStatusColor(followUp.status)}>
-                          {FOLLOW_UP_STATUS_OPTIONS.find((opt) => opt.value === followUp.status)
-                            ?.label || followUp.status}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="max-w-xs truncate">{followUp.notes || '-'}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openUpdateDialog(followUp)}
-                        >
-                          Update
-                        </Button>
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/enquiries/${followUp.enquiry.id}`}>
-                            <Eye className="h-4 w-4" />
+            <>
+              {isMobile ? (
+                // Mobile Card View
+                <div className="space-y-4">
+                  {filteredFollowUps.map((followUp) => (
+                    <FollowUpMobileCard
+                      key={followUp.id}
+                      followUp={followUp}
+                      onUpdate={openUpdateDialog}
+                    />
+                  ))}
+                </div>
+              ) : (
+                // Desktop Table View
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Candidate</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Scheduled</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredFollowUps.map((followUp) => (
+                      <TableRow key={followUp.id}>
+                        <TableCell className="font-medium">
+                          <Link
+                            href={`/enquiries/${followUp.enquiry.id}`}
+                            className="text-blue-600 hover:underline"
+                          >
+                            {followUp.enquiry.candidateName}
                           </Link>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        </TableCell>
+                        <TableCell>{followUp.enquiry.phone}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span>{formatDateTime(followUp.scheduledAt)}</span>
+                            {isOverdue(followUp.scheduledAt, followUp.status) && (
+                              <Badge variant="destructive" className="w-fit mt-1">
+                                Overdue
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            {getStatusIcon(followUp.status)}
+                            <Badge className={getStatusColor(followUp.status)}>
+                              {FOLLOW_UP_STATUS_OPTIONS.find((opt) => opt.value === followUp.status)
+                                ?.label || followUp.status}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-xs truncate">{followUp.notes || '-'}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openUpdateDialog(followUp)}
+                            >
+                              Update
+                            </Button>
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/enquiries/${followUp.enquiry.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
