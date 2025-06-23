@@ -55,7 +55,7 @@ export const SIDEBAR_DATA: SidebarData = {
     },
     {
       title: 'Reports',
-      url: '/admin/reports',
+      url: '/reports',
       icon: IconFileText,
     },
     {
