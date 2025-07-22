@@ -35,15 +35,7 @@ async function getCurrentUser() {
 export async function getEnquiryActivities(filters: ActivityFilters = {}): Promise<ActionResponse> {
   try {
     const user = await getCurrentUser();
-    const {
-      page = 1,
-      limit = 10,
-      type,
-      enquiryId,
-      userId,
-      dateFrom,
-      dateTo,
-    } = filters;
+    const { page = 1, limit = 10, type, enquiryId, userId, dateFrom, dateTo } = filters;
     const skip = (page - 1) * limit;
 
     // Build where clause
@@ -73,6 +65,14 @@ export async function getEnquiryActivities(filters: ActivityFilters = {}): Promi
       // Telecallers can only see activities for their assigned enquiries
       where.enquiry = {
         assignedToUserId: user.id,
+      };
+    }
+
+    // For executives, only show activities for enquiries from their assigned branch
+    if (user.role === 'executive' && user.branch && !enquiryId) {
+      where.enquiry = {
+        ...(where.enquiry || {}),
+        branchId: user.branch,
       };
     }
 

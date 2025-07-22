@@ -1,8 +1,8 @@
-'use server'
+'use server';
 
-import { z } from 'zod'
-import { authActionClient, executiveActionClient } from '@/lib/safe-action'
-import prisma from '@/lib/prisma'
+import { z } from 'zod';
+import { authActionClient, executiveActionClient } from '@/lib/safe-action';
+import prisma from '@/lib/prisma';
 import {
   DateRangeFilter,
   TelecallerReport,
@@ -11,23 +11,24 @@ import {
   ExpenseReport,
   InvoiceReport,
   IncomeReport,
-  PendingPaymentReport, ReportDashboardData,
+  PendingPaymentReport,
+  ReportDashboardData,
   CSVExportData,
   ReportType,
   TelecallerEnquiryStats,
   ExpenseBreakdown,
   InvoiceStatusBreakdown,
   IncomeSource,
-  PendingPaymentDetails
-} from '@/types/reports'
-import { EnquiryStatus } from '@/types/enquiry'
-import { formatCurrency, formatDate } from '@/lib/utils'
+  PendingPaymentDetails,
+} from '@/types/reports';
+import { EnquiryStatus } from '@/types/enquiry';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 // === VALIDATION SCHEMAS ===
 const dateRangeSchema = z.object({
   from: z.date(),
-  to: z.date()
-})
+  to: z.date(),
+});
 
 const reportFiltersSchema = z.object({
   dateRange: dateRangeSchema.optional(),
@@ -35,41 +36,46 @@ const reportFiltersSchema = z.object({
   courseId: z.string().optional(),
   userId: z.string().optional(),
   status: z.string().optional(),
-  search: z.string().optional()
-})
+  search: z.string().optional(),
+});
 
 // === UTILITY FUNCTIONS ===
-async function getUserAccessibleData(userId: string, userRole: string) {
-  const baseFilter: Record<string, string> = {}
+async function getUserAccessibleData(userId: string, userRole: string, userBranch?: string | null) {
+  const baseFilter: Record<string, string> = {};
 
   // For telecallers, only show their assigned data
   if (userRole === 'telecaller') {
-    baseFilter.assignedToUserId = userId
+    baseFilter.assignedToUserId = userId;
   }
 
-  return baseFilter
+  // For executives, only show data from their assigned branch
+  if (userRole === 'executive' && userBranch) {
+    baseFilter.branchId = userBranch;
+  }
+
+  return baseFilter;
 }
 
 async function getDateRangeFilter(dateRange?: DateRangeFilter) {
   if (!dateRange) {
     // Default to last 30 days
-    const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - 30)
-    return { gte: start, lte: end }
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    return { gte: start, lte: end };
   }
 
-  return { gte: dateRange.from, lte: dateRange.to }
+  return { gte: dateRange.from, lte: dateRange.to };
 }
 
 // === TELECALLER REPORT ACTIONS ===
 export const getTelecallerPerformanceReport = authActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters, ctx }) => {
-    const { userId, user } = ctx
-    const userRole = user.role || 'telecaller'
-    const accessFilter = await getUserAccessibleData(userId, userRole)
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const { userId, user } = ctx;
+    const userRole = user.role || 'telecaller';
+    const accessFilter = await getUserAccessibleData(userId, userRole);
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     // Base query filters
     const baseWhere = {
@@ -78,7 +84,7 @@ export const getTelecallerPerformanceReport = authActionClient
       ...(filters.branchId && filters.branchId !== 'all' && { branchId: filters.branchId }),
       ...(filters.courseId && { preferredCourseId: filters.courseId }),
       ...(filters.status && { status: filters.status as EnquiryStatus }),
-    }
+    };
 
     // Get telecaller performance metrics
     const telecallers = await prisma.user.findMany({
@@ -93,41 +99,55 @@ export const getTelecallerPerformanceReport = authActionClient
             callLogs: true,
             followUps: true,
             admissions: true,
-          }
-        }
-      }
-    })
+          },
+        },
+      },
+    });
 
-    const performance = telecallers.map(telecaller => {
-      const enquiries = telecaller.assignedEnquiries
-      const totalEnquiries = enquiries.length
-      const callsMade = enquiries.reduce((sum, enq) => sum + enq.callLogs.length, 0)
-      const conversions = enquiries.filter(enq => enq.admissions.length > 0).length
-      const conversionRate = totalEnquiries > 0 ? (conversions / totalEnquiries) * 100 : 0
+    const performance = telecallers.map((telecaller) => {
+      const enquiries = telecaller.assignedEnquiries;
+      const totalEnquiries = enquiries.length;
+      const callsMade = enquiries.reduce((sum, enq) => sum + enq.callLogs.length, 0);
+      const conversions = enquiries.filter((enq) => enq.admissions.length > 0).length;
+      const conversionRate = totalEnquiries > 0 ? (conversions / totalEnquiries) * 100 : 0;
 
       // Calculate average call duration from call logs
-      const allCallLogs = enquiries.flatMap(enq => enq.callLogs)
-      const averageCallDuration = allCallLogs.length > 0
-        ? Math.round(allCallLogs.reduce((sum, log) => sum + (log.duration || 0), 0) / allCallLogs.length * 10) / 10
-        : 0
+      const allCallLogs = enquiries.flatMap((enq) => enq.callLogs);
+      const averageCallDuration =
+        allCallLogs.length > 0
+          ? Math.round(
+              (allCallLogs.reduce((sum, log) => sum + (log.duration || 0), 0) /
+                allCallLogs.length) *
+                10
+            ) / 10
+          : 0;
 
       // Calculate follow-up completion rate
-      const totalFollowUps = enquiries.reduce((sum, enq) => sum + enq.followUps.length, 0)
-      const completedFollowUps = enquiries.reduce((sum, enq) =>
-        sum + enq.followUps.filter(f => f.status === 'COMPLETED').length, 0)
-      const followUpCompletion = totalFollowUps > 0 ? (completedFollowUps / totalFollowUps) * 100 : 0
+      const totalFollowUps = enquiries.reduce((sum, enq) => sum + enq.followUps.length, 0);
+      const completedFollowUps = enquiries.reduce(
+        (sum, enq) => sum + enq.followUps.filter((f) => f.status === 'COMPLETED').length,
+        0
+      );
+      const followUpCompletion =
+        totalFollowUps > 0 ? (completedFollowUps / totalFollowUps) * 100 : 0;
 
       // Calculate response time (average time from enquiry creation to first contact)
-      const responseTime = enquiries.length > 0
-        ? Math.round(enquiries.reduce((sum, enq) => {
-            const firstCall = enq.callLogs[0]
-            if (firstCall) {
-              const responseHours = (firstCall.createdAt.getTime() - enq.createdAt.getTime()) / (1000 * 60 * 60)
-              return sum + responseHours
-            }
-            return sum + 24 // Default 24 hours if no calls made
-          }, 0) / enquiries.length * 10) / 10
-        : 0
+      const responseTime =
+        enquiries.length > 0
+          ? Math.round(
+              (enquiries.reduce((sum, enq) => {
+                const firstCall = enq.callLogs[0];
+                if (firstCall) {
+                  const responseHours =
+                    (firstCall.createdAt.getTime() - enq.createdAt.getTime()) / (1000 * 60 * 60);
+                  return sum + responseHours;
+                }
+                return sum + 24; // Default 24 hours if no calls made
+              }, 0) /
+                enquiries.length) *
+                10
+            ) / 10
+          : 0;
 
       return {
         telecallerId: telecaller.id,
@@ -141,25 +161,25 @@ export const getTelecallerPerformanceReport = authActionClient
         responseTime,
         period: filters.dateRange || {
           from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-          to: new Date()
-        }
-      }
-    })
+          to: new Date(),
+        },
+      };
+    });
 
     // Get enquiry stats
-    const enquiryStats = telecallers.map(telecaller => {
-      const enquiries = telecaller.assignedEnquiries
+    const enquiryStats = telecallers.map((telecaller) => {
+      const enquiries = telecaller.assignedEnquiries;
       const statusCounts = enquiries.reduce((acc, enq) => {
-        acc[enq.status] = (acc[enq.status] || 0) + 1
-        return acc
-      }, {} as Record<string, number>)
+        acc[enq.status] = (acc[enq.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
 
       const statusDistribution = Object.entries(statusCounts).map(([status, count]) => ({
         status: status.replace('_', ' '),
         count,
         percentage: enquiries.length > 0 ? Math.round((count / enquiries.length) * 100) : 0,
-        color: getStatusColor(status)
-      }))
+        color: getStatusColor(status),
+      }));
 
       return {
         telecallerId: telecaller.id,
@@ -169,32 +189,33 @@ export const getTelecallerPerformanceReport = authActionClient
         interestedEnquiries: statusCounts['INTERESTED'] || 0,
         enrolledEnquiries: statusCounts['ENROLLED'] || 0,
         droppedEnquiries: statusCounts['DROPPED'] || 0,
-        statusDistribution
-      }
-    })
+        statusDistribution,
+      };
+    });
 
     const report: TelecallerReport = {
       performance,
       enquiryStats,
       totalTelecallers: telecallers.length,
-      topPerformer: performance.length > 0
-        ? performance.reduce((prev, current) =>
-            (prev.conversionRate > current.conversionRate) ? prev : current
-          ).telecallerName
-        : 'None',
-      filters
-    }
+      topPerformer:
+        performance.length > 0
+          ? performance.reduce((prev, current) =>
+              prev.conversionRate > current.conversionRate ? prev : current
+            ).telecallerName
+          : 'None',
+      filters,
+    };
 
-    return report
-  })
+    return report;
+  });
 
 export const getTelecallerEnquiryStats = authActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters, ctx }) => {
-    const { userId, user } = ctx
-    const userRole = user.role || 'telecaller'
-    const accessFilter = await getUserAccessibleData(userId, userRole)
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const { userId, user } = ctx;
+    const userRole = user.role || 'telecaller';
+    const accessFilter = await getUserAccessibleData(userId, userRole);
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     const enquiries = await prisma.enquiry.findMany({
       where: {
@@ -204,14 +225,14 @@ export const getTelecallerEnquiryStats = authActionClient
         ...(filters.status && { status: filters.status as EnquiryStatus }),
       },
       include: {
-        assignedTo: true
-      }
-    })
+        assignedTo: true,
+      },
+    });
 
     // Group by telecaller
     const telecallerStats = enquiries.reduce((acc, enquiry) => {
-      const telecallerId = enquiry.assignedToUserId || 'unassigned'
-      const telecallerName = enquiry.assignedTo?.name || 'Unassigned'
+      const telecallerId = enquiry.assignedToUserId || 'unassigned';
+      const telecallerName = enquiry.assignedTo?.name || 'Unassigned';
 
       if (!acc[telecallerId]) {
         acc[telecallerId] = {
@@ -222,42 +243,42 @@ export const getTelecallerEnquiryStats = authActionClient
           interestedEnquiries: 0,
           enrolledEnquiries: 0,
           droppedEnquiries: 0,
-          statusDistribution: []
-        }
+          statusDistribution: [],
+        };
       }
 
       // Increment status counts
       switch (enquiry.status) {
         case 'NEW':
-          acc[telecallerId].newEnquiries += 1
-          break
+          acc[telecallerId].newEnquiries += 1;
+          break;
         case 'CONTACTED':
-          acc[telecallerId].contactedEnquiries += 1
-          break
+          acc[telecallerId].contactedEnquiries += 1;
+          break;
         case 'INTERESTED':
-          acc[telecallerId].interestedEnquiries += 1
-          break
+          acc[telecallerId].interestedEnquiries += 1;
+          break;
         case 'ENROLLED':
-          acc[telecallerId].enrolledEnquiries += 1
-          break
+          acc[telecallerId].enrolledEnquiries += 1;
+          break;
         case 'DROPPED':
-          acc[telecallerId].droppedEnquiries += 1
-          break
+          acc[telecallerId].droppedEnquiries += 1;
+          break;
       }
 
-      return acc
-    }, {} as Record<string, TelecallerEnquiryStats>)
+      return acc;
+    }, {} as Record<string, TelecallerEnquiryStats>);
 
-    return Object.values(telecallerStats)
-  })
+    return Object.values(telecallerStats);
+  });
 
 export const getTelecallerConversionRates = authActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters, ctx }) => {
-    const { userId, user } = ctx
-    const userRole = user.role || 'telecaller'
-    const accessFilter = await getUserAccessibleData(userId, userRole)
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const { userId, user } = ctx;
+    const userRole = user.role || 'telecaller';
+    const accessFilter = await getUserAccessibleData(userId, userRole);
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     const telecallers = await prisma.user.findMany({
       where: {
@@ -271,35 +292,35 @@ export const getTelecallerConversionRates = authActionClient
             createdAt: dateFilter,
           },
           include: {
-            admissions: true
-          }
-        }
-      }
-    })
+            admissions: true,
+          },
+        },
+      },
+    });
 
-    const conversionData = telecallers.map(telecaller => {
-      const enquiries = telecaller.assignedEnquiries
-      const totalEnquiries = enquiries.length
-      const conversions = enquiries.filter(enq => enq.admissions.length > 0).length
-      const conversionRate = totalEnquiries > 0 ? (conversions / totalEnquiries) * 100 : 0
+    const conversionData = telecallers.map((telecaller) => {
+      const enquiries = telecaller.assignedEnquiries;
+      const totalEnquiries = enquiries.length;
+      const conversions = enquiries.filter((enq) => enq.admissions.length > 0).length;
+      const conversionRate = totalEnquiries > 0 ? (conversions / totalEnquiries) * 100 : 0;
 
       return {
         telecallerId: telecaller.id,
         telecallerName: telecaller.name || 'Unknown',
         totalEnquiries,
         conversions,
-        conversionRate: Math.round(conversionRate * 10) / 10
-      }
-    })
+        conversionRate: Math.round(conversionRate * 10) / 10,
+      };
+    });
 
-    return conversionData
-  })
+    return conversionData;
+  });
 
 // === BRANCH REPORT ACTIONS ===
 export const getBranchPerformanceReport = executiveActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters }) => {
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     const branches = await prisma.branch.findMany({
       where: {
@@ -312,22 +333,22 @@ export const getBranchPerformanceReport = executiveActionClient
             createdAt: dateFilter,
           },
           include: {
-            admissions: true
-          }
-        }
-      }
-    })
+            admissions: true,
+          },
+        },
+      },
+    });
 
-    const performance = branches.map(branch => {
-      const enquiries = branch.enquiries
-      const totalEnquiries = enquiries.length
-      const conversions = enquiries.filter(enq => enq.admissions.length > 0).length
-      const conversionRate = totalEnquiries > 0 ? (conversions / totalEnquiries) * 100 : 0
+    const performance = branches.map((branch) => {
+      const enquiries = branch.enquiries;
+      const totalEnquiries = enquiries.length;
+      const conversions = enquiries.filter((enq) => enq.admissions.length > 0).length;
+      const conversionRate = totalEnquiries > 0 ? (conversions / totalEnquiries) * 100 : 0;
 
       // Mock revenue calculation - implement based on actual requirements
-      const totalRevenue = conversions * 25000 // Average fee per admission
-      const activeStudents = conversions
-      const averageEnquiryValue = totalEnquiries > 0 ? totalRevenue / totalEnquiries : 0
+      const totalRevenue = conversions * 25000; // Average fee per admission
+      const activeStudents = conversions;
+      const averageEnquiryValue = totalEnquiries > 0 ? totalRevenue / totalEnquiries : 0;
 
       return {
         branchId: branch.id,
@@ -340,88 +361,100 @@ export const getBranchPerformanceReport = executiveActionClient
         averageEnquiryValue: Math.round(averageEnquiryValue),
         period: filters.dateRange || {
           from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-          to: new Date()
-        }
-      }
-    })
+          to: new Date(),
+        },
+      };
+    });
 
-    const enquiryDistribution = branches.map(branch => ({
+    const enquiryDistribution = branches.map((branch) => ({
       branchId: branch.id,
       branchName: branch.name,
       enquiryCount: branch.enquiries.length,
       percentage: 0, // Will be calculated below
-      coursePreferences: [] // Mock - implement based on course preferences
-    }))
+      coursePreferences: [], // Mock - implement based on course preferences
+    }));
 
-    const totalEnquiries = enquiryDistribution.reduce((sum, b) => sum + b.enquiryCount, 0)
-    enquiryDistribution.forEach(branch => {
-      branch.percentage = totalEnquiries > 0 ? Math.round((branch.enquiryCount / totalEnquiries) * 100) : 0
-    })
+    const totalEnquiries = enquiryDistribution.reduce((sum, b) => sum + b.enquiryCount, 0);
+    enquiryDistribution.forEach((branch) => {
+      branch.percentage =
+        totalEnquiries > 0 ? Math.round((branch.enquiryCount / totalEnquiries) * 100) : 0;
+    });
 
     const report: BranchReport = {
       performance,
       enquiryDistribution,
       totalBranches: branches.length,
-      topPerformingBranch: performance.length > 0
-        ? performance.reduce((prev, current) =>
-            (prev.conversionRate > current.conversionRate) ? prev : current
-          ).branchName
-        : 'None',
-      filters
-    }
+      topPerformingBranch:
+        performance.length > 0
+          ? performance.reduce((prev, current) =>
+              prev.conversionRate > current.conversionRate ? prev : current
+            ).branchName
+          : 'None',
+      filters,
+    };
 
-    return report
-  })
+    return report;
+  });
 
 export const getBranchAdmissionStats = executiveActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters }) => {
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     const admissionData = await prisma.admission.findMany({
       where: {
         createdAt: dateFilter,
-        ...(filters.branchId && filters.branchId !== 'all' && { enquiry: { branchId: filters.branchId } }),
+        ...(filters.branchId &&
+          filters.branchId !== 'all' && { enquiry: { branchId: filters.branchId } }),
       },
       include: {
         enquiry: true,
         course: true,
-        receipts: true
-      }
-    })
+        receipts: true,
+      },
+    });
 
-    const branchStats = admissionData.reduce((acc, admission) => {
-      const branchId = admission.enquiry?.branchId || 'default'
+    const branchStats = admissionData.reduce(
+      (acc, admission) => {
+        const branchId = admission.enquiry?.branchId || 'default';
 
-      if (!acc[branchId]) {
-        acc[branchId] = {
-          branchId,
-          branchName: `Branch ${branchId}`,
-          totalAdmissions: 0,
-          totalRevenue: 0
+        if (!acc[branchId]) {
+          acc[branchId] = {
+            branchId,
+            branchName: `Branch ${branchId}`,
+            totalAdmissions: 0,
+            totalRevenue: 0,
+          };
         }
-      }
 
-      acc[branchId].totalAdmissions += 1
-      // Calculate revenue from receipts instead of non-existent totalFees
-      const admissionRevenue = admission.receipts.reduce((sum, receipt) => sum + receipt.amountCollected, 0)
-      acc[branchId].totalRevenue += admissionRevenue
-      return acc
-    }, {} as Record<string, {
-      branchId: string;
-      branchName: string;
-      totalAdmissions: number;
-      totalRevenue: number;
-    }>)
+        acc[branchId].totalAdmissions += 1;
+        // Calculate revenue from receipts instead of non-existent totalFees
+        const admissionRevenue = admission.receipts.reduce(
+          (sum, receipt) => sum + receipt.amountCollected,
+          0
+        );
+        acc[branchId].totalRevenue += admissionRevenue;
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          branchId: string;
+          branchName: string;
+          totalAdmissions: number;
+          totalRevenue: number;
+        }
+      >
+    );
 
-    return Object.values(branchStats)
-  })
+    return Object.values(branchStats);
+  });
 
 // === FINANCIAL REPORT ACTIONS ===
 export const getAdmissionPaymentReport = executiveActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters }) => {
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     const admissions = await prisma.admission.findMany({
       where: {
@@ -429,32 +462,38 @@ export const getAdmissionPaymentReport = executiveActionClient
         ...(filters.search && {
           OR: [
             { candidateName: { contains: filters.search, mode: 'insensitive' } },
-            { email: { contains: filters.search, mode: 'insensitive' } }
-          ]
+            { email: { contains: filters.search, mode: 'insensitive' } },
+          ],
         }),
       },
       include: {
         enquiry: true,
         receipts: true,
-        course: true
-      }
-    })
+        course: true,
+      },
+    });
 
-    const students = admissions.map(admission => {
-      const totalPaid = admission.receipts.reduce((sum: number, receipt) => sum + receipt.amountCollected, 0)
+    const students = admissions.map((admission) => {
+      const totalPaid = admission.receipts.reduce(
+        (sum: number, receipt) => sum + receipt.amountCollected,
+        0
+      );
       // Calculate total fees from course fees instead of non-existent totalFees field
-      const totalFees = (admission.course.courseFee || 0) + (admission.course.admissionFee || 0) + (admission.course.semesterFee || 0)
-      const outstanding = totalFees - totalPaid
+      const totalFees =
+        (admission.course.courseFee || 0) +
+        (admission.course.admissionFee || 0) +
+        (admission.course.semesterFee || 0);
+      const outstanding = totalFees - totalPaid;
 
-      let status: 'fully_paid' | 'partially_paid' | 'overdue' | 'pending'
+      let status: 'fully_paid' | 'partially_paid' | 'overdue' | 'pending';
       if (outstanding <= 0) {
-        status = 'fully_paid'
+        status = 'fully_paid';
       } else if (totalPaid > 0) {
-        status = 'partially_paid'
+        status = 'partially_paid';
       } else if (admission.nextDueDate && new Date(admission.nextDueDate) < new Date()) {
-        status = 'overdue'
+        status = 'overdue';
       } else {
-        status = 'pending'
+        status = 'pending';
       }
 
       return {
@@ -465,37 +504,39 @@ export const getAdmissionPaymentReport = executiveActionClient
         paidAmount: totalPaid,
         outstandingAmount: outstanding,
         nextDueDate: admission.nextDueDate,
-        paymentHistory: admission.receipts.map(receipt => ({
+        paymentHistory: admission.receipts.map((receipt) => ({
           receiptNumber: receipt.receiptNumber,
           amount: receipt.amountCollected,
           paymentDate: receipt.createdAt,
-          paymentMode: receipt.paymentMode || 'Cash'
+          paymentMode: receipt.paymentMode || 'Cash',
         })),
-        status
-      }
-    })
+        status,
+      };
+    });
 
-    const totalCollected = students.reduce((sum, s) => sum + s.paidAmount, 0)
-    const totalOutstanding = students.reduce((sum, s) => sum + s.outstandingAmount, 0)
-    const totalOverdue = students.filter(s => s.status === 'overdue').reduce((sum, s) => sum + s.outstandingAmount, 0)
+    const totalCollected = students.reduce((sum, s) => sum + s.paidAmount, 0);
+    const totalOutstanding = students.reduce((sum, s) => sum + s.outstandingAmount, 0);
+    const totalOverdue = students
+      .filter((s) => s.status === 'overdue')
+      .reduce((sum, s) => sum + s.outstandingAmount, 0);
 
     // Payment mode breakdown
-    const paymentModes = admissions.flatMap(a => a.receipts)
+    const paymentModes = admissions.flatMap((a) => a.receipts);
     const paymentModeBreakdown = paymentModes.reduce((acc, receipt) => {
-      const mode = receipt.paymentMode || 'Cash'
-      const existing = acc.find(p => p.mode === mode)
+      const mode = receipt.paymentMode || 'Cash';
+      const existing = acc.find((p) => p.mode === mode);
       if (existing) {
-        existing.amount += receipt.amountCollected
-        existing.count += 1
+        existing.amount += receipt.amountCollected;
+        existing.count += 1;
       } else {
         acc.push({
           mode,
           amount: receipt.amountCollected,
-          count: 1
-        })
+          count: 1,
+        });
       }
-      return acc
-    }, [] as { mode: string; amount: number; count: number }[])
+      return acc;
+    }, [] as { mode: string; amount: number; count: number }[]);
 
     const report: AdmissionPaymentReport = {
       students,
@@ -503,16 +544,16 @@ export const getAdmissionPaymentReport = executiveActionClient
       totalOutstanding,
       totalOverdue,
       paymentModeBreakdown,
-      filters
-    }
+      filters,
+    };
 
-    return report
-  })
+    return report;
+  });
 
 export const getExpenseReport = executiveActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters }) => {
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     const expenses = await prisma.expense.findMany({
       where: {
@@ -521,18 +562,18 @@ export const getExpenseReport = executiveActionClient
         ...(filters.search && {
           OR: [
             { description: { contains: filters.search, mode: 'insensitive' } },
-            { title: { contains: filters.search, mode: 'insensitive' } }
-          ]
+            { title: { contains: filters.search, mode: 'insensitive' } },
+          ],
         }),
       },
       include: {
-        createdBy: true
-      }
-    })
+        createdBy: true,
+      },
+    });
 
     // Category breakdown
     const categoryMap = expenses.reduce((acc, expense) => {
-      const category = expense.category
+      const category = expense.category;
       if (!acc[category]) {
         acc[category] = {
           categoryId: category,
@@ -540,177 +581,201 @@ export const getExpenseReport = executiveActionClient
           totalAmount: 0,
           transactionCount: 0,
           percentage: 0,
-          monthlyTrend: []
-        }
+          monthlyTrend: [],
+        };
       }
-      acc[category].totalAmount += expense.amount
-      acc[category].transactionCount += 1
-      return acc
-    }, {} as Record<string, ExpenseBreakdown>)
+      acc[category].totalAmount += expense.amount;
+      acc[category].transactionCount += 1;
+      return acc;
+    }, {} as Record<string, ExpenseBreakdown>);
 
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const breakdown = Object.values(categoryMap).map((cat: ExpenseBreakdown) => ({
       ...cat,
-      percentage: totalExpenses > 0 ? Math.round((cat.totalAmount / totalExpenses) * 100) : 0
-    }))
+      percentage: totalExpenses > 0 ? Math.round((cat.totalAmount / totalExpenses) * 100) : 0,
+    }));
 
     // User-wise expenses
     const userWiseExpenses = expenses.reduce((acc, expense) => {
-      const userId = expense.createdById
-      const userName = expense.createdBy?.name || 'Unknown'
+      const userId = expense.createdById;
+      const userName = expense.createdBy?.name || 'Unknown';
 
-      const existing = acc.find(u => u.userId === userId)
+      const existing = acc.find((u) => u.userId === userId);
       if (existing) {
-        existing.totalAmount += expense.amount
-        existing.transactionCount += 1
+        existing.totalAmount += expense.amount;
+        existing.transactionCount += 1;
       } else {
         acc.push({
           userId,
           userName,
           totalAmount: expense.amount,
-          transactionCount: 1
-        })
+          transactionCount: 1,
+        });
       }
-      return acc
-    }, [] as { userId: string; userName: string; totalAmount: number; transactionCount: number }[])
+      return acc;
+    }, [] as { userId: string; userName: string; totalAmount: number; transactionCount: number }[]);
 
     const report: ExpenseReport = {
       breakdown,
       totalExpenses,
-      topCategory: breakdown.length > 0
-        ? breakdown.reduce((prev, current) =>
-            (prev.totalAmount > current.totalAmount) ? prev : current
-          ).categoryName
-        : 'None',
+      topCategory:
+        breakdown.length > 0
+          ? breakdown.reduce((prev, current) =>
+              prev.totalAmount > current.totalAmount ? prev : current
+            ).categoryName
+          : 'None',
       monthlyTrend: [], // Implement monthly trend calculation
       userWiseExpenses,
-      filters
-    }
+      filters,
+    };
 
-    return report
-  })
+    return report;
+  });
 
 export const getInvoiceReport = executiveActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters }) => {
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     const invoices = await prisma.invoice.findMany({
       where: {
         createdAt: dateFilter,
-        ...(filters.status && filters.status !== 'all' && {
-          status: filters.status as 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE' | 'CANCELLED'
-        }),
+        ...(filters.status &&
+          filters.status !== 'all' && {
+            status: filters.status as 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE' | 'CANCELLED',
+          }),
         ...(filters.search && {
           OR: [
             { billedTo: { contains: filters.search, mode: 'insensitive' } },
             { invoiceNumber: { contains: filters.search, mode: 'insensitive' } },
-            { notes: { contains: filters.search, mode: 'insensitive' } }
-          ]
+            { notes: { contains: filters.search, mode: 'insensitive' } },
+          ],
         }),
       },
       include: {
-        items: true
+        items: true,
       },
-      orderBy: { createdAt: 'desc' }
-    })
+      orderBy: { createdAt: 'desc' },
+    });
 
     // Status breakdown
     const statusBreakdown = invoices.reduce((acc, invoice) => {
-      const status = invoice.status.toLowerCase() as 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
-      const existing = acc.find(s => s.status === status)
+      const status = invoice.status.toLowerCase() as
+        | 'draft'
+        | 'sent'
+        | 'paid'
+        | 'overdue'
+        | 'cancelled';
+      const existing = acc.find((s) => s.status === status);
 
       if (existing) {
-        existing.count += 1
-        existing.totalAmount += invoice.totalAmount
+        existing.count += 1;
+        existing.totalAmount += invoice.totalAmount;
       } else {
         acc.push({
           status,
           count: 1,
           totalAmount: invoice.totalAmount,
-          percentage: 0 // Will calculate below
-        })
+          percentage: 0, // Will calculate below
+        });
       }
-      return acc
-    }, [] as InvoiceStatusBreakdown[])
+      return acc;
+    }, [] as InvoiceStatusBreakdown[]);
 
     // Calculate percentages
-    const totalInvoices = invoices.length
-    statusBreakdown.forEach(status => {
-      status.percentage = totalInvoices > 0 ? Math.round((status.count / totalInvoices) * 100) : 0
-    })
+    const totalInvoices = invoices.length;
+    statusBreakdown.forEach((status) => {
+      status.percentage = totalInvoices > 0 ? Math.round((status.count / totalInvoices) * 100) : 0;
+    });
 
-    const totalRevenue = invoices.filter(i => i.status === 'PAID').reduce((sum, i) => sum + i.totalAmount, 0)
-    const outstandingAmount = invoices.filter(i => ['SENT', 'OVERDUE'].includes(i.status)).reduce((sum, i) => sum + i.totalAmount, 0)
+    const totalRevenue = invoices
+      .filter((i) => i.status === 'PAID')
+      .reduce((sum, i) => sum + i.totalAmount, 0);
+    const outstandingAmount = invoices
+      .filter((i) => ['SENT', 'OVERDUE'].includes(i.status))
+      .reduce((sum, i) => sum + i.totalAmount, 0);
 
     // Calculate payment timeline (monthly collections)
-    const paidInvoices = invoices.filter(i => i.status === 'PAID')
+    const paidInvoices = invoices.filter((i) => i.status === 'PAID');
     const monthlyData = paidInvoices.reduce((acc, invoice) => {
-      const monthKey = new Date(invoice.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+      const monthKey = new Date(invoice.createdAt).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+      });
       if (!acc[monthKey]) {
-        acc[monthKey] = { collected: 0, pending: 0, period: monthKey }
+        acc[monthKey] = { collected: 0, pending: 0, period: monthKey };
       }
-      acc[monthKey].collected += invoice.totalAmount
-      return acc
-    }, {} as Record<string, { collected: number; pending: number; period: string }>)
+      acc[monthKey].collected += invoice.totalAmount;
+      return acc;
+    }, {} as Record<string, { collected: number; pending: number; period: string }>);
 
     // Add pending amounts to timeline
-    const pendingInvoices = invoices.filter(i => ['SENT', 'OVERDUE'].includes(i.status))
-    pendingInvoices.forEach(invoice => {
-      const monthKey = new Date(invoice.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+    const pendingInvoices = invoices.filter((i) => ['SENT', 'OVERDUE'].includes(i.status));
+    pendingInvoices.forEach((invoice) => {
+      const monthKey = new Date(invoice.createdAt).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+      });
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { collected: 0, pending: 0, period: monthKey }
+        monthlyData[monthKey] = { collected: 0, pending: 0, period: monthKey };
       }
-      monthlyData[monthKey].pending += invoice.totalAmount
-    })
+      monthlyData[monthKey].pending += invoice.totalAmount;
+    });
 
-    const paymentTimeline = Object.values(monthlyData)
-      .sort((a, b) => new Date(a.period).getTime() - new Date(b.period).getTime())
+    const paymentTimeline = Object.values(monthlyData).sort(
+      (a, b) => new Date(a.period).getTime() - new Date(b.period).getTime()
+    );
 
-        // Calculate aging analysis based on invoice creation dates for all invoices
-    const now = new Date()
+    // Calculate aging analysis based on invoice creation dates for all invoices
+    const now = new Date();
     const agingAnalysis = [
       { range: '0-30 days', count: 0, amount: 0 },
       { range: '31-60 days', count: 0, amount: 0 },
       { range: '61-90 days', count: 0, amount: 0 },
-      { range: '90+ days', count: 0, amount: 0 }
-    ]
+      { range: '90+ days', count: 0, amount: 0 },
+    ];
 
     // For aging analysis, show all invoices by age from creation date
-    invoices.forEach(invoice => {
-      const daysOld = Math.floor((now.getTime() - new Date(invoice.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+    invoices.forEach((invoice) => {
+      const daysOld = Math.floor(
+        (now.getTime() - new Date(invoice.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+      );
 
       if (daysOld <= 30) {
-        agingAnalysis[0].count += 1
-        agingAnalysis[0].amount += invoice.totalAmount
+        agingAnalysis[0].count += 1;
+        agingAnalysis[0].amount += invoice.totalAmount;
       } else if (daysOld <= 60) {
-        agingAnalysis[1].count += 1
-        agingAnalysis[1].amount += invoice.totalAmount
+        agingAnalysis[1].count += 1;
+        agingAnalysis[1].amount += invoice.totalAmount;
       } else if (daysOld <= 90) {
-        agingAnalysis[2].count += 1
-        agingAnalysis[2].amount += invoice.totalAmount
+        agingAnalysis[2].count += 1;
+        agingAnalysis[2].amount += invoice.totalAmount;
       } else {
-        agingAnalysis[3].count += 1
-        agingAnalysis[3].amount += invoice.totalAmount
+        agingAnalysis[3].count += 1;
+        agingAnalysis[3].amount += invoice.totalAmount;
       }
-    })
+    });
 
     // Calculate average collection time for paid invoices
-    const collectionTimes = paidInvoices.map(invoice => {
+    const collectionTimes = paidInvoices.map((invoice) => {
       // For simplicity, assuming collection time is from creation to paid status
       // In real scenario, you'd track status change dates
-      return Math.floor((new Date(invoice.updatedAt).getTime() - new Date(invoice.createdAt).getTime()) / (1000 * 60 * 60 * 24))
-    })
-    const averageCollectionTime = collectionTimes.length > 0
-      ? Math.round(collectionTimes.reduce((sum, time) => sum + time, 0) / collectionTimes.length)
-      : 0
+      return Math.floor(
+        (new Date(invoice.updatedAt).getTime() - new Date(invoice.createdAt).getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+    });
+    const averageCollectionTime =
+      collectionTimes.length > 0
+        ? Math.round(collectionTimes.reduce((sum, time) => sum + time, 0) / collectionTimes.length)
+        : 0;
 
     // Debug logging
     console.log('Invoice Report Debug:', {
       totalInvoices: invoices.length,
       agingAnalysis,
-      statusBreakdown: statusBreakdown.map(s => ({ status: s.status, count: s.count }))
-    })
+      statusBreakdown: statusBreakdown.map((s) => ({ status: s.status, count: s.count })),
+    });
 
     const report: InvoiceReport = {
       statusBreakdown,
@@ -719,16 +784,16 @@ export const getInvoiceReport = executiveActionClient
       averageCollectionTime,
       paymentTimeline,
       agingAnalysis,
-      filters
-    }
+      filters,
+    };
 
-    return report
-  })
+    return report;
+  });
 
 export const getIncomeReport = executiveActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters }) => {
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     // Get income from invoices only (excluding course fees)
     const paidInvoices = await prisma.invoice.findMany({
@@ -739,83 +804,90 @@ export const getIncomeReport = executiveActionClient
           OR: [
             { billedTo: { contains: filters.search, mode: 'insensitive' } },
             { invoiceNumber: { contains: filters.search, mode: 'insensitive' } },
-            { notes: { contains: filters.search, mode: 'insensitive' } }
-          ]
-        })
+            { notes: { contains: filters.search, mode: 'insensitive' } },
+          ],
+        }),
       },
       include: {
-        items: true // Include invoice items for detailed analysis
+        items: true, // Include invoice items for detailed analysis
       },
-      orderBy: { createdAt: 'desc' }
-    })
+      orderBy: { createdAt: 'desc' },
+    });
 
-    const invoiceIncome = paidInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0)
-    const totalIncome = invoiceIncome
+    const invoiceIncome = paidInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
+    const totalIncome = invoiceIncome;
 
-        // Categorize invoices by service type/category
+    // Categorize invoices by service type/category
     const serviceCategories = paidInvoices.reduce((acc, invoice) => {
       // Use first item's description or invoice notes as category
-      const category = invoice.items[0]?.itemDescription || invoice.notes || 'General Services'
-      const existing = acc.find(cat => cat.source === category)
+      const category = invoice.items[0]?.itemDescription || invoice.notes || 'General Services';
+      const existing = acc.find((cat) => cat.source === category);
 
       if (existing) {
-        existing.amount += invoice.totalAmount
-        existing.transactionCount += 1
+        existing.amount += invoice.totalAmount;
+        existing.transactionCount += 1;
       } else {
         acc.push({
           source: category,
           amount: invoice.totalAmount,
           percentage: 0, // Will calculate below
-          transactionCount: 1
-        })
+          transactionCount: 1,
+        });
       }
-      return acc
-    }, [] as IncomeSource[])
+      return acc;
+    }, [] as IncomeSource[]);
 
     // Calculate percentages for categories
-    serviceCategories.forEach(category => {
-      category.percentage = totalIncome > 0 ? Math.round((category.amount / totalIncome) * 100) : 0
-    })
+    serviceCategories.forEach((category) => {
+      category.percentage = totalIncome > 0 ? Math.round((category.amount / totalIncome) * 100) : 0;
+    });
 
     // If no categories found, create a default one
-    const sources = serviceCategories.length > 0 ? serviceCategories : [
-      {
-        source: 'Business Services',
-        amount: invoiceIncome,
-        percentage: 100,
-        transactionCount: paidInvoices.length
-      }
-    ]
+    const sources =
+      serviceCategories.length > 0
+        ? serviceCategories
+        : [
+            {
+              source: 'Business Services',
+              amount: invoiceIncome,
+              percentage: 100,
+              transactionCount: paidInvoices.length,
+            },
+          ];
 
     // Calculate monthly revenue with growth
     const monthlyData = paidInvoices.reduce((acc, invoice) => {
-      const monthKey = new Date(invoice.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+      const monthKey = new Date(invoice.createdAt).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+      });
       if (!acc[monthKey]) {
-        acc[monthKey] = { amount: 0, month: monthKey, invoiceCount: 0 }
+        acc[monthKey] = { amount: 0, month: monthKey, invoiceCount: 0 };
       }
-      acc[monthKey].amount += invoice.totalAmount
-      acc[monthKey].invoiceCount += 1
-      return acc
-    }, {} as Record<string, { amount: number; month: string; invoiceCount: number }>)
+      acc[monthKey].amount += invoice.totalAmount;
+      acc[monthKey].invoiceCount += 1;
+      return acc;
+    }, {} as Record<string, { amount: number; month: string; invoiceCount: number }>);
 
     const monthlyRevenue = Object.values(monthlyData)
       .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
       .map((month, index, array) => {
-        const previousMonth = array[index - 1]
-        const growth = previousMonth && previousMonth.amount > 0
-          ? ((month.amount - previousMonth.amount) / previousMonth.amount) * 100
-          : 0
+        const previousMonth = array[index - 1];
+        const growth =
+          previousMonth && previousMonth.amount > 0
+            ? ((month.amount - previousMonth.amount) / previousMonth.amount) * 100
+            : 0;
 
         return {
           month: month.month,
           amount: month.amount,
           growth: Math.round(growth * 10) / 10,
-          invoiceCount: month.invoiceCount
-        }
-      })
+          invoiceCount: month.invoiceCount,
+        };
+      });
 
     // Detailed transactions for the detailed view
-    const detailedTransactions = paidInvoices.map(invoice => ({
+    const detailedTransactions = paidInvoices.map((invoice) => ({
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
       clientName: invoice.billedTo,
@@ -823,8 +895,8 @@ export const getIncomeReport = executiveActionClient
       amount: invoice.totalAmount,
       date: invoice.createdAt,
       itemCount: invoice.items.length,
-      category: invoice.items[0]?.itemDescription || invoice.notes || 'General Services'
-    }))
+      category: invoice.items[0]?.itemDescription || invoice.notes || 'General Services',
+    }));
 
     const report: IncomeReport = {
       totalIncome,
@@ -832,11 +904,11 @@ export const getIncomeReport = executiveActionClient
       monthlyRevenue,
       paymentMethodDistribution: [], // Empty for invoices
       detailedTransactions, // Add detailed transaction data
-      filters
-    }
+      filters,
+    };
 
-    return report
-  })
+    return report;
+  });
 
 export const getPendingPaymentReport = executiveActionClient
   .schema(reportFiltersSchema)
@@ -846,37 +918,49 @@ export const getPendingPaymentReport = executiveActionClient
         ...(filters.search && {
           OR: [
             { candidateName: { contains: filters.search, mode: 'insensitive' } },
-            { email: { contains: filters.search, mode: 'insensitive' } }
-          ]
+            { email: { contains: filters.search, mode: 'insensitive' } },
+          ],
         }),
       },
       include: {
         enquiry: true,
         receipts: {
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'desc' },
         },
-        course: true
-      }
-    })
+        course: true,
+      },
+    });
 
     const pendingStudents = admissions
-      .map(admission => {
-        const totalPaid = admission.receipts.reduce((sum, receipt) => sum + receipt.amountCollected, 0)
+      .map((admission) => {
+        const totalPaid = admission.receipts.reduce(
+          (sum, receipt) => sum + receipt.amountCollected,
+          0
+        );
         // Calculate total fees from course instead of non-existent totalFees field
-        const totalFees = (admission.course.courseFee || 0) + (admission.course.admissionFee || 0) + (admission.course.semesterFee || 0)
-        const outstanding = totalFees - totalPaid
-        const lastPayment = admission.receipts[0]
+        const totalFees =
+          (admission.course.courseFee || 0) +
+          (admission.course.admissionFee || 0) +
+          (admission.course.semesterFee || 0);
+        const outstanding = totalFees - totalPaid;
+        const lastPayment = admission.receipts[0];
 
-        if (outstanding <= 0) return null // Fully paid
+        if (outstanding <= 0) return null; // Fully paid
 
         const daysOverdue = admission.nextDueDate
-          ? Math.max(0, Math.ceil((new Date().getTime() - new Date(admission.nextDueDate).getTime()) / (1000 * 60 * 60 * 24)))
-          : 0
+          ? Math.max(
+              0,
+              Math.ceil(
+                (new Date().getTime() - new Date(admission.nextDueDate).getTime()) /
+                  (1000 * 60 * 60 * 24)
+              )
+            )
+          : 0;
 
-        let priority: 'high' | 'medium' | 'low'
-        if (daysOverdue > 30) priority = 'high'
-        else if (daysOverdue > 7) priority = 'medium'
-        else priority = 'low'
+        let priority: 'high' | 'medium' | 'low';
+        if (daysOverdue > 30) priority = 'high';
+        else if (daysOverdue > 7) priority = 'medium';
+        else priority = 'low';
 
         return {
           studentId: admission.enquiry?.id || admission.id,
@@ -887,32 +971,41 @@ export const getPendingPaymentReport = executiveActionClient
           daysOverdue,
           lastPaymentDate: lastPayment?.createdAt || null,
           nextDueDate: admission.nextDueDate || new Date(),
-          priority
-        }
+          priority,
+        };
       })
-      .filter(Boolean) as PendingPaymentDetails[]
+      .filter(Boolean) as PendingPaymentDetails[];
 
-    const totalOutstanding = pendingStudents.reduce((sum, student) => sum + student.outstandingAmount, 0)
-    const totalStudents = pendingStudents.length
+    const totalOutstanding = pendingStudents.reduce(
+      (sum, student) => sum + student.outstandingAmount,
+      0
+    );
+    const totalStudents = pendingStudents.length;
 
     // Aging analysis
     const agingAnalysis = [
       {
         range: '0-7 days',
-        count: pendingStudents.filter(s => s.daysOverdue <= 7).length,
-        amount: pendingStudents.filter(s => s.daysOverdue <= 7).reduce((sum, s) => sum + s.outstandingAmount, 0)
+        count: pendingStudents.filter((s) => s.daysOverdue <= 7).length,
+        amount: pendingStudents
+          .filter((s) => s.daysOverdue <= 7)
+          .reduce((sum, s) => sum + s.outstandingAmount, 0),
       },
       {
         range: '8-30 days',
-        count: pendingStudents.filter(s => s.daysOverdue > 7 && s.daysOverdue <= 30).length,
-        amount: pendingStudents.filter(s => s.daysOverdue > 7 && s.daysOverdue <= 30).reduce((sum, s) => sum + s.outstandingAmount, 0)
+        count: pendingStudents.filter((s) => s.daysOverdue > 7 && s.daysOverdue <= 30).length,
+        amount: pendingStudents
+          .filter((s) => s.daysOverdue > 7 && s.daysOverdue <= 30)
+          .reduce((sum, s) => sum + s.outstandingAmount, 0),
       },
       {
         range: '30+ days',
-        count: pendingStudents.filter(s => s.daysOverdue > 30).length,
-        amount: pendingStudents.filter(s => s.daysOverdue > 30).reduce((sum, s) => sum + s.outstandingAmount, 0)
-      }
-    ]
+        count: pendingStudents.filter((s) => s.daysOverdue > 30).length,
+        amount: pendingStudents
+          .filter((s) => s.daysOverdue > 30)
+          .reduce((sum, s) => sum + s.outstandingAmount, 0),
+      },
+    ];
 
     const report: PendingPaymentReport = {
       students: pendingStudents,
@@ -922,22 +1015,22 @@ export const getPendingPaymentReport = executiveActionClient
       collectionTargets: {
         thisWeek: totalOutstanding * 0.1, // 10% target for this week
         thisMonth: totalOutstanding * 0.3, // 30% target for this month
-        thisQuarter: totalOutstanding * 0.6 // 60% target for this quarter
+        thisQuarter: totalOutstanding * 0.6, // 60% target for this quarter
       },
-      filters
-    }
+      filters,
+    };
 
-    return report
-  })
+    return report;
+  });
 
 // === CSV EXPORT ACTIONS ===
 export const exportTelecallerReportCSV = authActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters, ctx }) => {
-    const { userId, user } = ctx
-    const userRole = user.role || 'telecaller'
-    const accessFilter = await getUserAccessibleData(userId, userRole)
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const { userId, user } = ctx;
+    const userRole = user.role || 'telecaller';
+    const accessFilter = await getUserAccessibleData(userId, userRole);
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     // Get telecaller data for CSV
     const telecallers = await prisma.user.findMany({
@@ -955,10 +1048,10 @@ export const exportTelecallerReportCSV = authActionClient
             callLogs: true,
             followUps: true,
             admissions: true,
-          }
-        }
-      }
-    })
+          },
+        },
+      },
+    });
 
     const csvData: CSVExportData = {
       filename: `telecaller-report-${formatDate(new Date())}.csv`,
@@ -970,19 +1063,22 @@ export const exportTelecallerReportCSV = authActionClient
         'Conversion Rate (%)',
         'Average Call Duration (min)',
         'Follow-up Completion (%)',
-        'Response Time (hrs)'
+        'Response Time (hrs)',
       ],
-      rows: telecallers.map(telecaller => {
-        const enquiries = telecaller.assignedEnquiries
-        const totalEnquiries = enquiries.length
-        const callsMade = enquiries.reduce((sum, enq) => sum + enq.callLogs.length, 0)
-        const conversions = enquiries.filter(enq => enq.admissions.length > 0).length
-        const conversionRate = totalEnquiries > 0 ? (conversions / totalEnquiries) * 100 : 0
+      rows: telecallers.map((telecaller) => {
+        const enquiries = telecaller.assignedEnquiries;
+        const totalEnquiries = enquiries.length;
+        const callsMade = enquiries.reduce((sum, enq) => sum + enq.callLogs.length, 0);
+        const conversions = enquiries.filter((enq) => enq.admissions.length > 0).length;
+        const conversionRate = totalEnquiries > 0 ? (conversions / totalEnquiries) * 100 : 0;
 
-        const totalFollowUps = enquiries.reduce((sum, enq) => sum + enq.followUps.length, 0)
-        const completedFollowUps = enquiries.reduce((sum, enq) =>
-          sum + enq.followUps.filter(f => f.status === 'COMPLETED').length, 0)
-        const followUpCompletion = totalFollowUps > 0 ? (completedFollowUps / totalFollowUps) * 100 : 0
+        const totalFollowUps = enquiries.reduce((sum, enq) => sum + enq.followUps.length, 0);
+        const completedFollowUps = enquiries.reduce(
+          (sum, enq) => sum + enq.followUps.filter((f) => f.status === 'COMPLETED').length,
+          0
+        );
+        const followUpCompletion =
+          totalFollowUps > 0 ? (completedFollowUps / totalFollowUps) * 100 : 0;
 
         return [
           telecaller.name || 'Unknown',
@@ -992,22 +1088,24 @@ export const exportTelecallerReportCSV = authActionClient
           Math.round(conversionRate * 10) / 10 + '%',
           '5.5', // Mock average call duration
           Math.round(followUpCompletion * 10) / 10 + '%',
-          '2.5' // Mock response time
-        ]
-      })
-    }
+          '2.5', // Mock response time
+        ];
+      }),
+    };
 
-    return csvData
-  })
+    return csvData;
+  });
 
 export const exportFinancialReportCSV = executiveActionClient
-  .schema(z.object({
-    reportType: z.enum(['admission-payment', 'expense', 'invoice', 'income', 'pending-payment']),
-    filters: reportFiltersSchema
-  }))
+  .schema(
+    z.object({
+      reportType: z.enum(['admission-payment', 'expense', 'invoice', 'income', 'pending-payment']),
+      filters: reportFiltersSchema,
+    })
+  )
   .action(async ({ parsedInput: { reportType, filters } }) => {
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
-    let csvData: CSVExportData
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
+    let csvData: CSVExportData;
 
     switch (reportType) {
       case 'admission-payment':
@@ -1017,29 +1115,43 @@ export const exportFinancialReportCSV = executiveActionClient
             ...(filters.search && {
               OR: [
                 { candidateName: { contains: filters.search, mode: 'insensitive' } },
-                { email: { contains: filters.search, mode: 'insensitive' } }
-              ]
+                { email: { contains: filters.search, mode: 'insensitive' } },
+              ],
             }),
           },
           include: {
             receipts: true,
-            course: true
-          }
-        })
+            course: true,
+          },
+        });
 
         csvData = {
           filename: `admission-payment-report-${formatDate(new Date())}.csv`,
-          headers: ['Student Name', 'Admission ID', 'Total Fees', 'Paid Amount', 'Outstanding', 'Status'],
-          rows: admissions.map(admission => {
-            const totalPaid = admission.receipts.reduce((sum, receipt) => sum + receipt.amountCollected, 0)
-            const totalFees = (admission.course.courseFee || 0) + (admission.course.admissionFee || 0) + (admission.course.semesterFee || 0)
-            const outstanding = totalFees - totalPaid
+          headers: [
+            'Student Name',
+            'Admission ID',
+            'Total Fees',
+            'Paid Amount',
+            'Outstanding',
+            'Status',
+          ],
+          rows: admissions.map((admission) => {
+            const totalPaid = admission.receipts.reduce(
+              (sum, receipt) => sum + receipt.amountCollected,
+              0
+            );
+            const totalFees =
+              (admission.course.courseFee || 0) +
+              (admission.course.admissionFee || 0) +
+              (admission.course.semesterFee || 0);
+            const outstanding = totalFees - totalPaid;
 
-            let status: string
-            if (outstanding <= 0) status = 'fully_paid'
-            else if (totalPaid > 0) status = 'partially_paid'
-            else if (admission.nextDueDate && new Date(admission.nextDueDate) < new Date()) status = 'overdue'
-            else status = 'pending'
+            let status: string;
+            if (outstanding <= 0) status = 'fully_paid';
+            else if (totalPaid > 0) status = 'partially_paid';
+            else if (admission.nextDueDate && new Date(admission.nextDueDate) < new Date())
+              status = 'overdue';
+            else status = 'pending';
 
             return [
               admission.candidateName,
@@ -1047,31 +1159,31 @@ export const exportFinancialReportCSV = executiveActionClient
               formatCurrency(totalFees),
               formatCurrency(totalPaid),
               formatCurrency(outstanding),
-              status
-            ]
-          })
-        }
-        break
+              status,
+            ];
+          }),
+        };
+        break;
 
       case 'expense':
         const expenses = await prisma.expense.findMany({
           where: {
             expenseDate: dateFilter,
             ...(filters.userId && { createdById: filters.userId }),
-          }
-        })
+          },
+        });
 
         const categoryMap = expenses.reduce((acc, expense) => {
-          const category = expense.category
+          const category = expense.category;
           if (!acc[category]) {
-            acc[category] = { totalAmount: 0, transactionCount: 0 }
+            acc[category] = { totalAmount: 0, transactionCount: 0 };
           }
-          acc[category].totalAmount += expense.amount
-          acc[category].transactionCount += 1
-          return acc
-        }, {} as Record<string, { totalAmount: number; transactionCount: number }>)
+          acc[category].totalAmount += expense.amount;
+          acc[category].transactionCount += 1;
+          return acc;
+        }, {} as Record<string, { totalAmount: number; transactionCount: number }>);
 
-        const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0)
+        const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
 
         csvData = {
           filename: `expense-report-${formatDate(new Date())}.csv`,
@@ -1080,94 +1192,118 @@ export const exportFinancialReportCSV = executiveActionClient
             category,
             formatCurrency(data.totalAmount),
             data.transactionCount.toString(),
-            `${totalAmount > 0 ? Math.round((data.totalAmount / totalAmount) * 100) : 0}%`
-          ])
-        }
-        break
+            `${totalAmount > 0 ? Math.round((data.totalAmount / totalAmount) * 100) : 0}%`,
+          ]),
+        };
+        break;
 
       case 'pending-payment':
         const pendingAdmissions = await prisma.admission.findMany({
+          where: {
+            ...(filters.search && {
+              OR: [
+                { candidateName: { contains: filters.search, mode: 'insensitive' } },
+                { email: { contains: filters.search, mode: 'insensitive' } },
+              ],
+            }),
+          },
           include: {
             receipts: true,
-            course: true
-          }
-        })
+            course: true,
+          },
+        });
 
         const pendingStudents = pendingAdmissions
-          .map(admission => {
-            const totalPaid = admission.receipts.reduce((sum, receipt) => sum + receipt.amountCollected, 0)
-            const totalFees = (admission.course.courseFee || 0) + (admission.course.admissionFee || 0) + (admission.course.semesterFee || 0)
-            const outstanding = totalFees - totalPaid
+          .map((admission) => {
+            const totalPaid = admission.receipts.reduce(
+              (sum, receipt) => sum + receipt.amountCollected,
+              0
+            );
+            const totalFees =
+              (admission.course.courseFee || 0) +
+              (admission.course.admissionFee || 0) +
+              (admission.course.semesterFee || 0);
+            const outstanding = totalFees - totalPaid;
 
-            if (outstanding <= 0) return null
+            if (outstanding <= 0) return null;
 
             const daysOverdue = admission.nextDueDate
-              ? Math.max(0, Math.ceil((new Date().getTime() - new Date(admission.nextDueDate).getTime()) / (1000 * 60 * 60 * 24)))
-              : 0
+              ? Math.max(
+                  0,
+                  Math.ceil(
+                    (new Date().getTime() - new Date(admission.nextDueDate).getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  )
+                )
+              : 0;
 
-            let priority: string
-            if (daysOverdue > 30) priority = 'high'
-            else if (daysOverdue > 7) priority = 'medium'
-            else priority = 'low'
+            let priority: string;
+            if (daysOverdue > 30) priority = 'high';
+            else if (daysOverdue > 7) priority = 'medium';
+            else priority = 'low';
 
             return [
               admission.candidateName,
               admission.course.name,
               formatCurrency(outstanding),
               daysOverdue.toString(),
-              priority
-            ]
+              priority,
+            ];
           })
-          .filter(Boolean) as string[][]
+          .filter(Boolean) as string[][];
 
         csvData = {
           filename: `pending-payment-report-${formatDate(new Date())}.csv`,
           headers: ['Student Name', 'Course', 'Outstanding Amount', 'Days Overdue', 'Priority'],
-          rows: pendingStudents
-        }
-        break
+          rows: pendingStudents,
+        };
+        break;
 
       default:
-        throw new Error('Invalid report type')
+        throw new Error('Invalid report type');
     }
 
-    return csvData
-  })
+    return csvData;
+  });
 
 // === DASHBOARD DATA ACTION ===
 export const getReportDashboardData = executiveActionClient
   .schema(z.object({}))
-  .action(async () => {
-    const dateFilter = await getDateRangeFilter()
+  .action(async ({ ctx }) => {
+    const { userId, user } = ctx;
+    const userRole = user.role || 'executive';
+    const userBranch = user.branch || undefined;
+    const accessFilter = await getUserAccessibleData(userId, userRole, userBranch);
+    const dateFilter = await getDateRangeFilter();
 
     // Get basic counts
     const [totalEnquiries, totalAdmissions] = await Promise.all([
-      prisma.enquiry.count({ where: { createdAt: dateFilter } }),
-      prisma.admission.count({ where: { createdAt: dateFilter } }),
-      prisma.invoice.count({ where: { createdAt: dateFilter } }),
-      prisma.expense.count({ where: { expenseDate: dateFilter } })
-    ])
+      prisma.enquiry.count({ where: { ...accessFilter, createdAt: dateFilter } }),
+      prisma.admission.count({ where: { ...accessFilter, createdAt: dateFilter } }),
+      prisma.invoice.count({ where: { ...accessFilter, createdAt: dateFilter } }),
+      prisma.expense.count({ where: { ...accessFilter, expenseDate: dateFilter } }),
+    ]);
 
     // Get revenue data
     const [paidInvoices, receipts] = await Promise.all([
       prisma.invoice.findMany({
-        where: { status: 'PAID', createdAt: dateFilter },
-        select: { totalAmount: true }
+        where: { ...accessFilter, status: 'PAID', createdAt: dateFilter },
+        select: { totalAmount: true },
       }),
       prisma.receipt.findMany({
-        where: { createdAt: dateFilter },
-        select: { amountCollected: true }
-      })
-    ])
+        where: { ...accessFilter, createdAt: dateFilter },
+        select: { amountCollected: true },
+      }),
+    ]);
 
-    const invoiceRevenue = paidInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
-    const admissionRevenue = receipts.reduce((sum, rec) => sum + rec.amountCollected, 0)
-    const totalRevenue = invoiceRevenue + admissionRevenue
+    const invoiceRevenue = paidInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+    const admissionRevenue = receipts.reduce((sum, rec) => sum + rec.amountCollected, 0);
+    const totalRevenue = invoiceRevenue + admissionRevenue;
 
     const totalExpensesAmount = await prisma.expense.aggregate({
-      where: { expenseDate: dateFilter },
-      _sum: { amount: true }
-    })
+      where: { ...accessFilter, expenseDate: dateFilter },
+      _sum: { amount: true },
+    });
 
     const dashboardData: ReportDashboardData = {
       summaryCards: [
@@ -1176,76 +1312,82 @@ export const getReportDashboardData = executiveActionClient
           value: totalEnquiries,
           trend: { value: '+12%', type: 'up' },
           icon: 'Users',
-          color: 'blue'
+          color: 'blue',
         },
         {
           title: 'Total Admissions',
           value: totalAdmissions,
           trend: { value: '+8%', type: 'up' },
           icon: 'UserCheck',
-          color: 'green'
+          color: 'green',
         },
         {
           title: 'Total Revenue',
           value: formatCurrency(totalRevenue),
           trend: { value: '+15%', type: 'up' },
           icon: 'TrendingUp',
-          color: 'emerald'
+          color: 'emerald',
         },
         {
           title: 'Total Expenses',
           value: formatCurrency(totalExpensesAmount._sum.amount || 0),
           trend: { value: '-5%', type: 'down' },
           icon: 'TrendingDown',
-          color: 'red'
-        }
+          color: 'red',
+        },
       ],
       availableReports: [
         {
           type: 'telecaller' as ReportType,
           title: 'Telecaller Performance',
           description: 'Individual telecaller performance metrics and statistics',
-          canAccess: true
+          canAccess: true,
         },
         {
           type: 'branch' as ReportType,
           title: 'Branch Performance',
           description: 'Branch-wise performance comparison and analysis',
-          canAccess: true
+          canAccess: true,
         },
         {
           type: 'admission-payment' as ReportType,
           title: 'Admission Payments',
           description: 'Student payment tracking and outstanding balances',
-          canAccess: true
+          canAccess: true,
         },
         {
           type: 'expense' as ReportType,
           title: 'Expense Analysis',
           description: 'Expense breakdown and category analysis',
-          canAccess: true
-        }
+          canAccess: true,
+        },
       ],
-      recentActivity: []
-    }
+      recentActivity: [],
+    };
 
-    return dashboardData
-  })
+    return dashboardData;
+  });
 
 export const getBranchReport = executiveActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters }) => {
-    const dateFilter = await getDateRangeFilter(filters.dateRange)
+    const dateFilter = await getDateRangeFilter(filters.dateRange);
 
     // Get all branches with their related data
     const branches = await prisma.branch.findMany({
+      where: {
+        isActive: true,
+        ...(filters.search && {
+          name: { contains: filters.search, mode: 'insensitive' },
+        }),
+      },
       include: {
         enquiries: {
           where: {
             createdAt: dateFilter,
             ...(filters.search && {
-              candidateName: { contains: filters.search, mode: 'insensitive' }
-            })
+              candidateName: { contains: filters.search, mode: 'insensitive' },
+            }),
           },
           include: {
             preferredCourse: true,
@@ -1253,37 +1395,42 @@ export const getBranchReport = executiveActionClient
               include: {
                 receipts: {
                   where: {
-                    paymentDate: dateFilter // Filter receipts by payment date within the date range
-                  }
+                    paymentDate: dateFilter, // Filter receipts by payment date within the date range
+                  },
                 },
-                course: true
-              }
-            }
-          }
-        }
-      }
-    })
+                course: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
     // Note: Invoices are not directly linked to branches in this business model
     // Revenue comes from admission receipts which are linked to enquiries and branches
 
     // Calculate branch performance metrics
-    const branchPerformance = branches.map(branch => {
-      const enquiries = branch.enquiries
-      const admissions = enquiries.flatMap(e => e.admissions)
+    const branchPerformance = branches.map((branch) => {
+      const enquiries = branch.enquiries;
+      const admissions = enquiries.flatMap((e) => e.admissions);
 
-      const totalEnquiries = enquiries.length
-      const totalAdmissions = admissions.length
-      const conversionRate = totalEnquiries > 0 ? (totalAdmissions / totalEnquiries) * 100 : 0
+      const totalEnquiries = enquiries.length;
+      const totalAdmissions = admissions.length;
+      const conversionRate = totalEnquiries > 0 ? (totalAdmissions / totalEnquiries) * 100 : 0;
 
-            // Calculate revenue from admission receipts (only real revenue)
+      // Calculate revenue from admission receipts (only real revenue)
       const totalRevenue = admissions.reduce((sum, admission) => {
-        const paidAmount = admission.receipts.reduce((receiptSum, receipt) => receiptSum + receipt.amountCollected, 0)
-        return sum + paidAmount
-      }, 0)
+        const paidAmount = admission.receipts.reduce(
+          (receiptSum, receipt) => receiptSum + receipt.amountCollected,
+          0
+        );
+        return sum + paidAmount;
+      }, 0);
 
-      const activeStudents = admissions.filter(a => a.status === 'CONFIRMED' || a.status === 'COMPLETED').length
-      const averageEnquiryValue = totalEnquiries > 0 ? totalRevenue / totalEnquiries : 0
+      const activeStudents = admissions.filter(
+        (a) => a.status === 'CONFIRMED' || a.status === 'COMPLETED'
+      ).length;
+      const averageEnquiryValue = totalEnquiries > 0 ? totalRevenue / totalEnquiries : 0;
 
       return {
         branchId: branch.id,
@@ -1294,61 +1441,67 @@ export const getBranchReport = executiveActionClient
         totalRevenue: Math.round(totalRevenue),
         activeStudents,
         averageEnquiryValue: Math.round(averageEnquiryValue),
-        period: filters.dateRange || { from: new Date(), to: new Date() }
-      }
-    })
+        period: filters.dateRange || { from: new Date(), to: new Date() },
+      };
+    });
 
     // Calculate enquiry distribution
-    const enquiryDistribution = branches.map(branch => {
-      const enquiries = branch.enquiries
-      const totalEnquiries = branches.reduce((sum, b) => sum + b.enquiries.length, 0)
-      const percentage = totalEnquiries > 0 ? Math.round((enquiries.length / totalEnquiries) * 100) : 0
+    const enquiryDistribution = branches.map((branch) => {
+      const enquiries = branch.enquiries;
+      const totalEnquiries = branches.reduce((sum, b) => sum + b.enquiries.length, 0);
+      const percentage =
+        totalEnquiries > 0 ? Math.round((enquiries.length / totalEnquiries) * 100) : 0;
 
       // Get course preferences for this branch
       const coursePreferences = enquiries.reduce((acc, enquiry) => {
         if (enquiry.preferredCourseId) {
-          const existing = acc.find(cp => cp.courseId === enquiry.preferredCourseId)
+          const existing = acc.find((cp) => cp.courseId === enquiry.preferredCourseId);
           if (existing) {
-            existing.count += 1
+            existing.count += 1;
           } else {
             acc.push({
               courseId: enquiry.preferredCourseId,
               courseName: enquiry.preferredCourse?.name || 'Unknown Course',
-              count: 1
-            })
+              count: 1,
+            });
           }
         }
-        return acc
-      }, [] as Array<{ courseId: string; courseName: string; count: number }>)
+        return acc;
+      }, [] as Array<{ courseId: string; courseName: string; count: number }>);
 
       return {
         branchId: branch.id,
         branchName: branch.name,
         enquiryCount: enquiries.length,
         percentage,
-        coursePreferences
-      }
-    })
+        coursePreferences,
+      };
+    });
 
-        // Find top performing branch (by revenue, then by conversion rate)
-    const topPerformingBranch = branchPerformance.length > 0
-      ? branchPerformance.reduce((prev, current) => {
-          if (current.totalRevenue > prev.totalRevenue) return current;
-          if (current.totalRevenue === prev.totalRevenue && current.conversionRate > prev.conversionRate) return current;
-          return prev;
-        }).branchName
-      : 'None'
+    // Find top performing branch (by revenue, then by conversion rate)
+    const topPerformingBranch =
+      branchPerformance.length > 0
+        ? branchPerformance.reduce((prev, current) => {
+            if (current.totalRevenue > prev.totalRevenue) return current;
+            if (
+              current.totalRevenue === prev.totalRevenue &&
+              current.conversionRate > prev.conversionRate
+            )
+              return current;
+            return prev;
+          }).branchName
+        : 'None';
 
     const report: BranchReport = {
       performance: branchPerformance,
       enquiryDistribution,
       totalBranches: branches.length,
       topPerformingBranch,
-      filters
-    }
+      filters,
+    };
 
-    return report
-  })
+    return report;
+  });
 
 // === HELPER FUNCTIONS ===
 function getStatusColor(status: string): string {
@@ -1360,7 +1513,7 @@ function getStatusColor(status: string): string {
     FOLLOW_UP: '#8B5CF6',
     ENROLLED: '#059669',
     DROPPED: '#DC2626',
-    INVALID: '#9CA3AF'
-  }
-  return colors[status] || '#6B7280'
+    INVALID: '#9CA3AF',
+  };
+  return colors[status] || '#6B7280';
 }

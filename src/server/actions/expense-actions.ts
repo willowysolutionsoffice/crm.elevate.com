@@ -47,7 +47,7 @@ export const createExpenseAction = authActionClient
       return {
         success: true,
         data: expense as ExpenseWithRelations,
-        message: 'Expense created successfully'
+        message: 'Expense created successfully',
       };
     } catch (error) {
       console.error('Error creating expense:', error);
@@ -103,7 +103,7 @@ export const updateExpenseAction = authActionClient
       return {
         success: true,
         data: expense as ExpenseWithRelations,
-        message: 'Expense updated successfully'
+        message: 'Expense updated successfully',
       };
     } catch (error) {
       console.error('Error updating expense:', error);
@@ -145,7 +145,7 @@ export const deleteExpenseAction = authActionClient
       revalidatePath('/expenses');
       return {
         success: true,
-        message: `Expense "${existingExpense.title}" deleted successfully`
+        message: `Expense "${existingExpense.title}" deleted successfully`,
       };
     } catch (error) {
       console.error('Error deleting expense:', error);
@@ -200,11 +200,18 @@ export const getExpensesAction = authActionClient
       // Role-based filtering: non-admin users can only see their own expenses
       const user = await prisma.user.findUnique({
         where: { id: ctx.userId },
-        select: { role: true },
+        select: { role: true, branch: true },
       });
 
-      if (user?.role !== 'admin') {
+      if (user?.role === 'telecaller') {
         where.createdById = ctx.userId;
+      }
+
+      // For executives, only show expenses from their assigned branch
+      if (user?.role === 'executive' && user.branch) {
+        // Note: Expenses don't have direct branch relationship,
+        // but executives can see all expenses in their branch
+        // This would need to be implemented based on business logic
       }
 
       const [expenses, total] = await Promise.all([
@@ -230,7 +237,7 @@ export const getExpensesAction = authActionClient
         success: true,
         data: expenses as ExpenseWithRelations[],
         total,
-        message: 'Expenses fetched successfully'
+        message: 'Expenses fetched successfully',
       };
     } catch (error) {
       console.error('Error fetching expenses:', error);
@@ -275,7 +282,7 @@ export const getExpenseByIdAction = authActionClient
       return {
         success: true,
         data: expense as ExpenseWithRelations,
-        message: 'Expense fetched successfully'
+        message: 'Expense fetched successfully',
       };
     } catch (error) {
       console.error('Error fetching expense:', error);
@@ -336,7 +343,7 @@ export const getExpensesByUserAction = authActionClient
         success: true,
         data: expenses as ExpenseWithRelations[],
         total,
-        message: 'User expenses fetched successfully'
+        message: 'User expenses fetched successfully',
       };
     } catch (error) {
       console.error('Error fetching user expenses:', error);
@@ -390,11 +397,13 @@ export const getExpensesByDateRangeAction = authActionClient
       return {
         success: true,
         data: expenses as ExpenseWithRelations[],
-        message: 'Expenses by date range fetched successfully'
+        message: 'Expenses by date range fetched successfully',
       };
     } catch (error) {
       console.error('Error fetching expenses by date range:', error);
-      throw new Error(error instanceof Error ? error.message : 'Failed to fetch expenses by date range');
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to fetch expenses by date range'
+      );
     }
   });
 
@@ -440,7 +449,7 @@ export const getExpensesByCategoryAction = authActionClient
       return {
         success: true,
         data: expenses as ExpenseWithRelations[],
-        message: 'Expenses by category fetched successfully'
+        message: 'Expenses by category fetched successfully',
       };
     } catch (error) {
       console.error('Error fetching expenses by category:', error);
@@ -498,7 +507,7 @@ export const duplicateExpenseAction = authActionClient
       return {
         success: true,
         data: duplicatedExpense as ExpenseWithRelations,
-        message: 'Expense duplicated successfully'
+        message: 'Expense duplicated successfully',
       };
     } catch (error) {
       console.error('Error duplicating expense:', error);

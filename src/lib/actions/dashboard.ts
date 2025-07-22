@@ -2,7 +2,11 @@ import prisma from '@/lib/prisma';
 import { EnquiryStatus, FollowUpStatus } from '@prisma/client';
 import { DashboardData } from '@/types/dashboard';
 
-export async function getDashboardData(userId?: string): Promise<DashboardData> {
+export async function getDashboardData(
+  userId?: string,
+  userRole?: string,
+  userBranch?: string
+): Promise<DashboardData> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -12,8 +16,20 @@ export async function getDashboardData(userId?: string): Promise<DashboardData> 
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  // Base filter for user-specific data (for telecallers)
-  const userFilter = userId ? { assignedToUserId: userId } : {};
+  // Base filter for user-specific data
+  let userFilter: Record<string, string> = {};
+
+  // For telecallers, filter by assigned enquiries
+  if (userRole === 'telecaller' && userId) {
+    userFilter = { assignedToUserId: userId };
+  }
+
+  // For executives, filter by branch
+  if (userRole === 'executive' && userBranch) {
+    userFilter = { branchId: userBranch };
+  }
+
+  // For admins, no filtering (see all data)
 
   // Get basic enquiry stats
   const [

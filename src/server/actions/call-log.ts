@@ -125,7 +125,7 @@ export async function getCallLogs(filters: CallLogFilters = {}): Promise<ActionR
 
     // Build where clause
     const where: {
-      enquiry?: { assignedToUserId: string };
+      enquiry?: { assignedToUserId?: string; branchId?: string };
       outcome?: string;
       callDate?: { gte?: Date; lte?: Date };
     } = {};
@@ -134,6 +134,14 @@ export async function getCallLogs(filters: CallLogFilters = {}): Promise<ActionR
     if (user.role === 'telecaller') {
       where.enquiry = {
         assignedToUserId: user.id,
+      };
+    }
+
+    // For executives, only show data from their assigned branch
+    if (user.role === 'executive' && user.branch) {
+      where.enquiry = {
+        ...where.enquiry,
+        branchId: user.branch,
       };
     }
 

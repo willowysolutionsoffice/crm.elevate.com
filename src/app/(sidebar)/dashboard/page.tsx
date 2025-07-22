@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getDashboardData } from '@/lib/actions/dashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import prisma from '@/lib/prisma';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +21,7 @@ import {
   IconCalendarClock,
   IconUserSearch,
   IconClockExclamation,
+  IconReceipt,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 
@@ -32,9 +34,24 @@ export default async function Dashboard() {
     redirect('/login');
   }
 
+  // Get branch name if user is executive
+  let branchName: string | undefined;
+  if (session.user.role === 'executive' && session.user.branch) {
+    const branch = await prisma.branch.findUnique({
+      where: { id: session.user.branch },
+      select: { name: true },
+    });
+    branchName = branch?.name;
+  }
+
   // Get dashboard data - for telecallers, filter by their assigned enquiries
   const isTelecaller = session.user.role === 'telecaller';
-  const dashboardData = await getDashboardData(isTelecaller ? session.user.id : undefined);
+  const isExecutive = session.user.role === 'executive';
+  const dashboardData = await getDashboardData(
+    isTelecaller ? session.user.id : undefined,
+    session.user.role || undefined,
+    isExecutive ? session.user.branch || undefined : undefined
+  );
 
   const { stats, followUpStats, recentActivity, performanceMetrics } = dashboardData;
 
@@ -46,8 +63,11 @@ export default async function Dashboard() {
           <CardHeader>
             <CardTitle>Welcome back!</CardTitle>
             <CardDescription>
-              Role: {session.user.role?.toUpperCase() || 'TELECALLER'} • Last login:{' '}
-              {new Date(session.session.createdAt).toLocaleDateString()}
+              Role: {session.user.role?.toUpperCase() || 'TELECALLER'}
+              {session.user.role === 'executive' && session.user.branch && (
+                <> • Branch: {branchName || session.user.branch}</>
+              )}
+              {' • '}Last login: {new Date(session.session.createdAt).toLocaleDateString()}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -213,40 +233,81 @@ export default async function Dashboard() {
               <CardDescription>Common tasks and shortcuts</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="ghost" className="w-full justify-start" asChild>
-                <Link href="/my-enquiries">
-                  <IconEye className="mr-2 h-4 w-4" />
-                  View My Enquiries
-                </Link>
-              </Button>
+              {session.user.role === 'telecaller' ? (
+                <>
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link href="/my-enquiries">
+                      <IconEye className="mr-2 h-4 w-4" />
+                      View My Enquiries
+                    </Link>
+                  </Button>
 
-              <Button variant="ghost" className="w-full justify-start" asChild>
-                <Link href="/follow-ups?filter=today">
-                  <IconCalendarClock className="mr-2 h-4 w-4" />
-                  Today&apos;s Follow-ups
-                </Link>
-              </Button>
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link href="/follow-ups?filter=today">
+                      <IconCalendarClock className="mr-2 h-4 w-4" />
+                      Today&apos;s Follow-ups
+                    </Link>
+                  </Button>
 
-              <Button variant="ghost" className="w-full justify-start" asChild>
-                <Link href="/call-register">
-                  <IconPhoneCall className="mr-2 h-4 w-4" />
-                  Call Register
-                </Link>
-              </Button>
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link href="/call-register">
+                      <IconPhoneCall className="mr-2 h-4 w-4" />
+                      Call Register
+                    </Link>
+                  </Button>
 
-              <Button variant="ghost" className="w-full justify-start" asChild>
-                <Link href="/my-enquiries?tab=new">
-                  <IconUserSearch className="mr-2 h-4 w-4" />
-                  New Enquiries
-                </Link>
-              </Button>
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link href="/my-enquiries?tab=new">
+                      <IconUserSearch className="mr-2 h-4 w-4" />
+                      New Enquiries
+                    </Link>
+                  </Button>
 
-              <Button variant="ghost" className="w-full justify-start" asChild>
-                <Link href="/follow-ups?filter=overdue">
-                  <IconClockExclamation className="mr-2 h-4 w-4" />
-                  Overdue Follow-ups
-                </Link>
-              </Button>
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link href="/follow-ups?filter=overdue">
+                      <IconClockExclamation className="mr-2 h-4 w-4" />
+                      Overdue Follow-ups
+                    </Link>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link href="/enquiries">
+                      <IconEye className="mr-2 h-4 w-4" />
+                      View Enquiries
+                    </Link>
+                  </Button>
+
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link href="/follow-ups">
+                      <IconCalendarClock className="mr-2 h-4 w-4" />
+                      Follow-ups
+                    </Link>
+                  </Button>
+
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link href="/reports">
+                      <IconTrendingUp className="mr-2 h-4 w-4" />
+                      Reports
+                    </Link>
+                  </Button>
+
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link href="/admissions">
+                      <IconUserCheck className="mr-2 h-4 w-4" />
+                      Admissions
+                    </Link>
+                  </Button>
+
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link href="/expenses">
+                      <IconReceipt className="mr-2 h-4 w-4" />
+                      Expenses
+                    </Link>
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

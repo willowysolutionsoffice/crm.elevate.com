@@ -94,7 +94,9 @@ export async function createFollowUp(data: CreateFollowUpInput): Promise<ActionR
         data: {
           type: ActivityType.FOLLOW_UP,
           title: 'Follow-up scheduled',
-          description: data.notes || `Follow-up scheduled for ${new Date(data.scheduledAt).toLocaleDateString()}`,
+          description:
+            data.notes ||
+            `Follow-up scheduled for ${new Date(data.scheduledAt).toLocaleDateString()}`,
           enquiryId: data.enquiryId,
           followUpId: followUp.id,
           createdByUserId: user.id,
@@ -129,6 +131,14 @@ export async function getFollowUps(filters: FollowUpFilters = {}): Promise<Actio
     if (user.role === 'telecaller') {
       where.enquiry = {
         assignedToUserId: user.id,
+      };
+    }
+
+    // For executives, only show data from their assigned branch
+    if (user.role === 'executive' && user.branch) {
+      where.enquiry = {
+        ...(where.enquiry || {}),
+        branchId: user.branch,
       };
     }
 

@@ -133,6 +133,11 @@ export async function getEnquiries(filters: EnquiryFilters = {}): Promise<Action
       where.assignedToUserId = user.id;
     }
 
+    // For executives, only show data from their assigned branch
+    if (user.role === 'executive' && user.branch) {
+      where.branchId = user.branch;
+    }
+
     if (search) {
       where.OR = [
         { candidateName: { contains: search, mode: 'insensitive' } },
@@ -484,7 +489,7 @@ export async function updateEnquiryStatusWithActivity(
     return {
       success: true,
       data: result,
-      message: 'Status updated successfully with activity logged'
+      message: 'Status updated successfully with activity logged',
     };
   } catch (error) {
     console.error('Error updating enquiry status with activity:', error);
@@ -570,7 +575,7 @@ export async function updateEnquiryStatusDirectToEnrolled(
     return {
       success: true,
       data: result,
-      message: 'Direct enrollment completed successfully'
+      message: 'Direct enrollment completed successfully',
     };
   } catch (error) {
     console.error('Error processing direct enrollment:', error);
