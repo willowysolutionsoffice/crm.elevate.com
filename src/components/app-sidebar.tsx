@@ -41,7 +41,9 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       <SidebarContent>
         <NavMain items={SIDEBAR_DATA.navMain} />
         {user?.role === 'admin' && <NavAdmin items={SIDEBAR_DATA.admin} />}
-        <NavSecondary items={SIDEBAR_DATA.navSecondary} className="mt-auto" />
+        {user?.role !== 'telecaller' && (
+          <NavSecondary items={SIDEBAR_DATA.navSecondary} className="mt-auto" />
+        )}
       </SidebarContent>
       <SidebarFooter>{user && <NavUser user={user} />}</SidebarFooter>
     </Sidebar>
