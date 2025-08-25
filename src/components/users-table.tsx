@@ -1,5 +1,5 @@
+// src/components/users-table.tsx
 'use client';
-
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconSearch, IconDotsVertical, IconTrash } from '@tabler/icons-react';
@@ -78,7 +78,11 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
         user.name.toLowerCase().includes(query) ||
         user.email.toLowerCase().includes(query) ||
         (user.role && user.role.toLowerCase().includes(query)) ||
-        (user.branch && branches.find(b => b.id === user.branch)?.name.toLowerCase().includes(query))
+        (user.branch &&
+          branches
+            .find((b) => b.id === user.branch)
+            ?.name.toLowerCase()
+            .includes(query))
     );
   }, [users, searchQuery, branches]);
 
@@ -137,7 +141,11 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
     }
   };
 
-  const handleBranchUpdate = async (userId: string, newBranchId: string, currentBranchId: string) => {
+  const handleBranchUpdate = async (
+    userId: string,
+    newBranchId: string,
+    currentBranchId: string
+  ) => {
     if (newBranchId === currentBranchId) return; // No change needed
 
     setUpdatingBranchUserId(userId);
@@ -209,7 +217,7 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
 
     const getBranchDisplayText = (branchId: string | null) => {
       if (!branchId) return 'No Branch';
-      const branch = branches.find(b => b.id === branchId);
+      const branch = branches.find((b) => b.id === branchId);
       return branch ? branch.name : 'Unknown Branch';
     };
 

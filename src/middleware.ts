@@ -1,3 +1,4 @@
+// src/middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { betterFetch } from '@better-fetch/fetch';
 import { SessionResponse } from '@/types/auth';

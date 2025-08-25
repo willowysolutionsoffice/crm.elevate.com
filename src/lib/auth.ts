@@ -1,3 +1,4 @@
+// src/lib/auth.ts
 import { betterAuth } from 'better-auth';
 import prisma from '@/lib/prisma';
 import { prismaAdapter } from 'better-auth/adapters/prisma';

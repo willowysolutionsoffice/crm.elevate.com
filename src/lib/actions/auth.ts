@@ -1,3 +1,4 @@
+// src/actions/auth.ts
 'use server';
 
 import { actionClient } from '@/lib/safe-action';
@@ -40,10 +41,12 @@ export const createUserAction = actionClient
 
 // Update user branch action
 export const updateUserBranchAction = actionClient
-  .inputSchema(z.object({
-    userId: z.string(),
-    branchId: z.string(),
-  }))
+  .inputSchema(
+    z.object({
+      userId: z.string(),
+      branchId: z.string(),
+    })
+  )
   .action(async ({ parsedInput: { userId, branchId } }) => {
     try {
       await prisma.user.update({
@@ -121,7 +124,7 @@ export const getAllRoles = async () =>
     orderBy: { name: 'asc' },
   });
 
-  export const getAllBranches = async () =>
+export const getAllBranches = async () =>
   await prisma.branch.findMany({
     orderBy: { createdAt: 'desc' },
   });

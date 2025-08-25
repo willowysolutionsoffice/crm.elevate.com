@@ -1,3 +1,4 @@
+// src/app/(sidebar)/admin/users/page.tsx
 import { getAllUsers, getAllRoles, getAllBranches } from '@/lib/actions/auth';
 import { UsersTable } from '@/components/users-table';
 import { AddUserDialog } from '@/components/add-user-dialog';
