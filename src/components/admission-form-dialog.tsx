@@ -131,23 +131,24 @@ const admissionFormSchema = z.object({
   // Education Details (Step 2)
   lastQualification: z
     .string()
-    .min(1, "Last qualification is required")
-    .max(100, "Qualification must be less than 100 characters"),
+    .max(100, "Qualification must be less than 100 characters")
+    .optional(),
   yearOfPassing: z
     .number()
     .min(1950, "Year must be after 1950")
     .max(
       new Date().getFullYear(),
       `Year cannot be more than ${new Date().getFullYear()}`
-    ),
+    )
+    .optional(),
   percentageCGPA: z
     .string()
-    .min(1, "Percentage/CGPA is required")
-    .max(20, "Value must be less than 20 characters"),
+    .max(20, "Value must be less than 20 characters")
+    .optional(),
   instituteName: z
     .string()
-    .min(1, "Institute name is required")
-    .max(200, "Institute name must be less than 200 characters"),
+    .max(200, "Institute name must be less than 200 characters")
+    .optional(),
   additionalNotes: z
     .string()
     .max(1000, "Notes must be less than 1000 characters")
@@ -795,7 +796,7 @@ export function AdmissionFormDialog({
                         name="lastQualification"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Last Qualification *</FormLabel>
+                            <FormLabel>Last Qualification</FormLabel>
                             <FormControl>
                               <Input
                                 placeholder="e.g., B.Tech, BCA, 12th Grade"
@@ -812,7 +813,7 @@ export function AdmissionFormDialog({
                         name="yearOfPassing"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Year of Passing *</FormLabel>
+                            <FormLabel>Year of Passing</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
@@ -835,7 +836,7 @@ export function AdmissionFormDialog({
                         name="percentageCGPA"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Percentage/CGPA *</FormLabel>
+                            <FormLabel>Percentage/CGPA</FormLabel>
                             <FormControl>
                               <Input
                                 placeholder="e.g., 85%, 8.5 CGPA"
@@ -852,7 +853,7 @@ export function AdmissionFormDialog({
                         name="instituteName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Institute/College Name *</FormLabel>
+                            <FormLabel>Institute/College Name</FormLabel>
                             <FormControl>
                               <Input
                                 placeholder="Enter institute name"

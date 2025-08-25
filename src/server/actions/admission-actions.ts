@@ -48,10 +48,10 @@ const createAdmissionSchema = z.object({
   dateOfBirth: z.date(),
   address: z.string().min(1, "Address is required"),
   leadSource: z.string().optional(),
-  lastQualification: z.string().min(1, "Last qualification is required"),
-  yearOfPassing: z.number().min(1950).max(new Date().getFullYear()),
-  percentageCGPA: z.string().min(1, "Percentage/CGPA is required"),
-  instituteName: z.string().min(1, "Institute name is required"),
+  lastQualification: z.string().optional(),
+  yearOfPassing: z.number().min(1950).max(new Date().getFullYear()).optional(),
+  percentageCGPA: z.string().optional(),
+  instituteName: z.string().optional(),
   additionalNotes: z.string().optional(),
   courseId: z.string().min(1, "Course selection is required"),
   enquiryId: z.string().optional(),
@@ -150,20 +150,24 @@ export const createAdmission = actionClient
         dateOfBirth: parsedInput.dateOfBirth,
         address: parsedInput.address,
         leadSource: parsedInput.leadSource || null,
-        lastQualification: parsedInput.lastQualification,
-        yearOfPassing: parsedInput.yearOfPassing,
-        percentageCGPA: parsedInput.percentageCGPA,
-        instituteName: parsedInput.instituteName,
+        lastQualification: parsedInput.lastQualification || null,
+        yearOfPassing: parsedInput.yearOfPassing || null,
+        percentageCGPA: parsedInput.percentageCGPA || null,
+        instituteName: parsedInput.instituteName || null,
         additionalNotes: parsedInput.additionalNotes || null,
         status: AdmissionStatus.PENDING,
-        courseId: parsedInput.courseId,
-        createdByUserId: user.id,
+        course: {
+          connect: { id: parsedInput.courseId },
+        },
+        createdBy: {
+          connect: { id: user.id },
+        },
         balance: calculateTotalFee(course),
       };
 
       // Add enquiryId only if it exists
       if (parsedInput.enquiryId) {
-        admissionData.enquiryId = parsedInput.enquiryId;
+        admissionData.enquiry = { connect: { id: parsedInput.enquiryId } };
       }
 
       const admission = await prisma.admission.create({

@@ -393,10 +393,10 @@ model Admission {
   dateOfBirth       DateTime
   address           String
   leadSource        String?
-  lastQualification String
-  yearOfPassing     Int
-  percentageCGPA    String
-  instituteName     String
+  lastQualification String?
+  yearOfPassing     Int?
+  percentageCGPA    String?
+  instituteName     String?
   additionalNotes   String?
 
   // Fee collection fields

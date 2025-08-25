@@ -45,15 +45,21 @@ export interface AdmissionCreateData {
   dateOfBirth: Date;
   address: string;
   leadSource: string | null;
-  lastQualification: string;
-  yearOfPassing: number;
-  percentageCGPA: string;
-  instituteName: string;
+  lastQualification: string | null;
+  yearOfPassing: number | null;
+  percentageCGPA: string | null;
+  instituteName: string | null;
   additionalNotes: string | null;
   status: AdmissionStatus;
-  courseId: string;
-  createdByUserId: string;
-  enquiryId?: string;
+  course: {
+    connect: { id: string };
+  };
+  createdBy: {
+    connect: { id: string };
+  };
+  enquiry?: {
+    connect: { id: string };
+  };
   balance: number;
 }
 
