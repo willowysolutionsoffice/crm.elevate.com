@@ -17,6 +17,8 @@ export interface Invoice {
   subtotal: number;
   taxRate: number;
   taxAmount: number;
+  serviceCharge: number;
+  otherCharges: number;
   totalAmount: number;
   status: InvoiceStatus;
   notes: string | null;

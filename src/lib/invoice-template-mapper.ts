@@ -15,6 +15,8 @@ interface TemplateInputs {
   subtotalFormatted: string;
   taxFormatted: string;
   totalFormatted: string;
+  serviceChargeFormatted: string;
+  otherChargesFormatted: string;
 }
 
 interface PreviewData {
@@ -93,6 +95,8 @@ export class InvoiceTemplateMapper {
       subtotalFormatted: formatCurrency(invoice.subtotal),
       taxFormatted: formatCurrency(invoice.taxAmount),
       totalFormatted: formatCurrency(invoice.totalAmount),
+      serviceChargeFormatted: formatCurrency(invoice.serviceCharge),
+      otherChargesFormatted: formatCurrency(invoice.otherCharges),
     };
   }
   /**
@@ -146,7 +150,11 @@ export class InvoiceTemplateMapper {
       computedValues: {
         subtotalCalculated: invoice.items.reduce((sum, item) => sum + item.lineTotal, 0),
         taxCalculated: templateInputs.subtotal * invoice.taxRate,
-        totalCalculated: templateInputs.subtotal + templateInputs.tax,
+        totalCalculated:
+          templateInputs.subtotal +
+          templateInputs.tax +
+          invoice.serviceCharge +
+          invoice.otherCharges,
       },
       itemCount: invoice.items.length,
       hasMultiplePages: invoice.items.length > 10, // Estimate based on template space

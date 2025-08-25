@@ -10,10 +10,12 @@ interface InvoiceTotalsProps {
   subtotal: number;
   taxRate: number;
   taxAmount: number;
+  serviceCharge: number;
+  otherCharges: number;
   totalAmount: number;
 }
 
-export function InvoiceTotals({ subtotal, taxRate, taxAmount, totalAmount }: InvoiceTotalsProps) {
+export function InvoiceTotals({ subtotal, taxRate, taxAmount, serviceCharge, otherCharges, totalAmount }: InvoiceTotalsProps) {
   return (
     <Card className="w-full overflow-hidden shadow-sm py-0">
       <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b py-6">
@@ -43,6 +45,22 @@ export function InvoiceTotals({ subtotal, taxRate, taxAmount, totalAmount }: Inv
             </Badge>
           </div>
           <span className="font-semibold text-foreground">{formatCurrency(taxAmount)}</span>
+        </div>
+
+        {/* Service Charge */}
+        <div className="flex justify-between items-center py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Service Charge</span>
+          </div>
+          <span className="font-semibold text-foreground">{formatCurrency(serviceCharge)}</span>
+        </div>
+
+        {/* Other Charges */}
+        <div className="flex justify-between items-center py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Other Charges</span>
+          </div>
+          <span className="font-semibold text-foreground">{formatCurrency(otherCharges)}</span>
         </div>
 
         <Separator className="my-4" />

@@ -38,10 +38,15 @@ function generateInvoiceNumber(): string {
 }
 
 // Helper function to calculate invoice totals
-function calculateTotals(items: Array<{ quantity: number; unitPrice: number }>, taxRate: number) {
+function calculateTotals(
+  items: Array<{ quantity: number; unitPrice: number }>,
+  taxRate: number,
+  serviceCharge: number = 0,
+  otherCharges: number = 0
+) {
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const taxAmount = subtotal * taxRate;
-  const totalAmount = subtotal + taxAmount;
+  const totalAmount = subtotal + taxAmount + serviceCharge + otherCharges;
 
   return {
     subtotal: Math.round(subtotal * 100) / 100,
@@ -57,6 +62,8 @@ const createInvoiceSchema = z.object({
   dueDate: z.date().optional(),
   notes: z.string().optional(),
   taxRate: z.number().min(0).max(1),
+  serviceCharge: z.number().min(0).optional(),
+  otherCharges: z.number().min(0).optional(),
 });
 
 // Schema for updating invoice
@@ -67,6 +74,8 @@ const updateInvoiceSchema = z.object({
   dueDate: z.date().optional(),
   notes: z.string().optional(),
   taxRate: z.number().min(0).max(1).optional(),
+  serviceCharge: z.number().min(0).optional(),
+  otherCharges: z.number().min(0).optional(),
   status: z.nativeEnum(InvoiceStatus).optional(),
 });
 
@@ -136,6 +145,8 @@ export const createInvoice = action.schema(createInvoiceSchema).action(async ({ 
         dueDate: parsedInput.dueDate,
         notes: parsedInput.notes,
         taxRate: parsedInput.taxRate,
+        serviceCharge: parsedInput.serviceCharge || 0,
+        otherCharges: parsedInput.otherCharges || 0,
         subtotal: 0,
         taxAmount: 0,
         totalAmount: 0,
@@ -186,10 +197,21 @@ export const updateInvoice = action.schema(updateInvoiceSchema).action(async ({ 
     if (updateData.notes !== undefined) data.notes = updateData.notes;
     if (updateData.status) data.status = updateData.status;
 
-    // If tax rate is updated, recalculate totals
-    if (updateData.taxRate !== undefined) {
-      data.taxRate = updateData.taxRate;
-      const totals = calculateTotals(existingInvoice.items, updateData.taxRate);
+    // If tax rate, service charge, or other charges are updated, recalculate totals
+    if (
+      updateData.taxRate !== undefined ||
+      updateData.serviceCharge !== undefined ||
+      updateData.otherCharges !== undefined
+    ) {
+      data.taxRate = updateData.taxRate ?? existingInvoice.taxRate;
+      data.serviceCharge = updateData.serviceCharge ?? existingInvoice.serviceCharge;
+      data.otherCharges = updateData.otherCharges ?? existingInvoice.otherCharges;
+      const totals = calculateTotals(
+        existingInvoice.items,
+        data.taxRate as number,
+        data.serviceCharge as number,
+        data.otherCharges as number
+      );
       data.subtotal = totals.subtotal;
       data.taxAmount = totals.taxAmount;
       data.totalAmount = totals.totalAmount;
@@ -434,7 +456,12 @@ async function recalculateInvoiceTotals(invoiceId: string) {
     throw new Error('Invoice not found');
   }
 
-  const totals = calculateTotals(invoice.items, invoice.taxRate);
+  const totals = calculateTotals(
+    invoice.items,
+    invoice.taxRate,
+    invoice.serviceCharge,
+    invoice.otherCharges
+  );
 
   await prisma.invoice.update({
     where: { id: invoiceId },

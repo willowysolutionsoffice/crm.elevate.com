@@ -415,6 +415,8 @@ export default function InvoiceDetailPage() {
               subtotal={invoice.subtotal}
               taxRate={invoice.taxRate}
               taxAmount={invoice.taxAmount}
+              serviceCharge={invoice.serviceCharge}
+              otherCharges={invoice.otherCharges}
               totalAmount={invoice.totalAmount}
             />
           </div>

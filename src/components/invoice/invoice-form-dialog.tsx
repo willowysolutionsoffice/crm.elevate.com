@@ -42,6 +42,8 @@ const invoiceFormSchema = z.object({
   dueDate: z.date().optional(),
   notes: z.string().optional(),
   taxRate: z.number().min(0).max(1),
+  serviceCharge: z.number().min(0).optional(),
+  otherCharges: z.number().min(0).optional(),
 });
 
 type InvoiceFormData = z.infer<typeof invoiceFormSchema>;
@@ -78,6 +80,8 @@ export function InvoiceFormDialog({
       dueDate: invoice?.dueDate ? new Date(invoice.dueDate) : undefined,
       notes: invoice?.notes || '',
       taxRate: invoice?.taxRate || 0.18, // Default 18% GST
+      serviceCharge: invoice?.serviceCharge || 0,
+      otherCharges: invoice?.otherCharges || 0,
     },
   });
 
@@ -159,7 +163,7 @@ export function InvoiceFormDialog({
                   <FormControl>
                     <Textarea
                       {...field}
-                      placeholder="Enter client name, address, and contact information&#10;&#10;Example:&#10;ABC Company Ltd.&#10;123 Business Street&#10;City, State 12345&#10;Phone: (555) 123-4567&#10;Email: contact@abccompany.com"
+                      placeholder="Enter client name, address, and contact information\n\nExample:\nABC Company Ltd.\n123 Business Street\nCity, State 12345\nPhone: (555) 123-4567\nEmail: contact@abccompany.com"
                       className="min-h-[120px]"
                     />
                   </FormControl>
@@ -276,6 +280,50 @@ export function InvoiceFormDialog({
                   <p className="text-sm text-muted-foreground">
                     Enter as decimal (e.g., 0.18 for 18% GST)
                   </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Service Charge */}
+            <FormField
+              control={form.control}
+              name="serviceCharge"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Service Charge</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Other Charges */}
+            <FormField
+              control={form.control}
+              name="otherCharges"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Other Charges</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
