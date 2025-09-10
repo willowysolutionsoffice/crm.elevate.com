@@ -100,33 +100,38 @@ const admissionFormSchema = z.object({
     .email("Please enter a valid email address")
     .optional()
     .or(z.literal("")),
-  gender: z.nativeEnum(AdmissionGender, {
+gender: z
+  .nativeEnum(AdmissionGender, {
     errorMap: () => ({ message: "Please select a gender" }),
-  }),
-  dateOfBirth: z
-    .date({
-      required_error: "Date of birth is required",
-      invalid_type_error: "Please select a valid date",
-    })
-    .refine((date) => {
-      const today = new Date();
-      const minAge = new Date(
-        today.getFullYear() - 100,
-        today.getMonth(),
-        today.getDate()
-      );
-      const maxAge = new Date(
-        today.getFullYear() - 15,
-        today.getMonth(),
-        today.getDate()
-      );
-      return date >= minAge && date <= maxAge;
-    }, "Candidate must be between 15 and 100 years old"),
+  })
+  .optional(),
+
+dateOfBirth: z
+  .date({
+    required_error: "Date of birth is required",
+    invalid_type_error: "Please select a valid date",
+  })
+  .refine((date) => {
+    if (!date) return true;
+    const today = new Date();
+    const minAge = new Date(
+      today.getFullYear() - 100,
+      today.getMonth(),
+      today.getDate()
+    );
+    const maxAge = new Date(
+      today.getFullYear() - 15,
+      today.getMonth(),
+      today.getDate()
+    );
+    return date >= minAge && date <= maxAge;
+  }, "Candidate must be between 15 and 100 years old")
+  .optional(),
   address: z
     .string()
     .min(10, "Address must be at least 10 characters")
     .max(500, "Address must be less than 500 characters"),
-  leadSource: z.string().min(1, "Lead source is required"),
+ leadSource: z.string().min(1, "Lead source is required").optional().or(z.literal("")),
 
   // Education Details (Step 2)
   lastQualification: z
@@ -648,7 +653,7 @@ export function AdmissionFormDialog({
                         name="gender"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Gender *</FormLabel>
+                            <FormLabel>Gender</FormLabel>
                             <Select
                               onValueChange={field.onChange}
                               value={field.value}
@@ -680,7 +685,7 @@ export function AdmissionFormDialog({
                         name="dateOfBirth"
                         render={({ field }) => (
                           <FormItem className="flex flex-col">
-                            <FormLabel>Date of Birth *</FormLabel>
+                            <FormLabel>Date of Birth</FormLabel>
                             <FormControl>
                               <DateOfBirthPicker
                                 value={field.value}
@@ -710,7 +715,7 @@ export function AdmissionFormDialog({
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
-                              Lead Source *
+                              Lead Source
                               {enquiryData?.enquirySource?.name && (
                                 <Badge
                                   variant="secondary"
@@ -982,7 +987,7 @@ export function AdmissionFormDialog({
                         <div>
                           <span className="font-medium">Date of Birth:</span>{" "}
                           {form.getValues("dateOfBirth")
-                            ? format(form.getValues("dateOfBirth"), "PPP")
+                            ? format(form.getValues("dateOfBirth") as Date, "PPP")
                             : "N/A"}
                         </div>
                         <div>

@@ -35,18 +35,6 @@ export function InvoiceTotals({ subtotal, taxRate, taxAmount, serviceCharge, oth
           <span className="font-semibold text-foreground">{formatCurrency(subtotal)}</span>
         </div>
 
-        {/* Tax */}
-        <div className="flex justify-between items-center py-2">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Tax</span>
-            <Badge variant="secondary" className="text-xs px-2 py-0.5">
-              {(taxRate * 100).toFixed(1)}%
-            </Badge>
-          </div>
-          <span className="font-semibold text-foreground">{formatCurrency(taxAmount)}</span>
-        </div>
-
         {/* Service Charge */}
         <div className="flex justify-between items-center py-2">
           <div className="flex items-center gap-2">
@@ -61,6 +49,18 @@ export function InvoiceTotals({ subtotal, taxRate, taxAmount, serviceCharge, oth
             <span className="text-sm font-medium">Other Charges</span>
           </div>
           <span className="font-semibold text-foreground">{formatCurrency(otherCharges)}</span>
+        </div>
+        
+        {/* Tax */}
+        <div className="flex justify-between items-center py-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Tax</span>
+            <Badge variant="secondary" className="text-xs px-2 py-0.5">
+              {(taxRate * 100).toFixed(1)}%
+            </Badge>
+          </div>
+          <span className="font-semibold text-foreground">{formatCurrency(taxAmount)}</span>
         </div>
 
         <Separator className="my-4" />

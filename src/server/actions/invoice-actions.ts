@@ -45,7 +45,8 @@ function calculateTotals(
   otherCharges: number = 0
 ) {
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  const taxAmount = subtotal * taxRate;
+  const taxableAmount = subtotal + serviceCharge + otherCharges;
+  const taxAmount = taxableAmount * taxRate;
   const totalAmount = subtotal + taxAmount + serviceCharge + otherCharges;
 
   return {

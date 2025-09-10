@@ -41,8 +41,8 @@ export interface AdmissionCreateData {
   candidateName: string;
   mobileNumber: string;
   email: string | null;
-  gender: AdmissionGender;
-  dateOfBirth: Date;
+  gender: AdmissionGender | null;
+  dateOfBirth: Date | null;
   address: string;
   leadSource: string | null;
   lastQualification: string | null;

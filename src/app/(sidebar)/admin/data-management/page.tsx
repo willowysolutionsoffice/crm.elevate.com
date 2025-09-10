@@ -334,6 +334,9 @@ export default function DataManagementPage() {
           name: item.name,
           description: (item as Course).description || "",
           duration: (item as Course).duration || "",
+          courseFee: (item as Course).courseFee || 0,
+          admissionFee: (item as Course).admissionFee || 0,
+          semesterFee: (item as Course).semesterFee || 0,
         });
         break;
       case "branch":
@@ -992,12 +995,28 @@ export default function DataManagementPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="Course Fee">Course Fee</Label>
-                  {/* Replace with appropriate value or remove if not in a row context */}
+                 <Input
+                    id="edit-course-fee"
+                    {...courseForm.register("courseFee")}
+                    placeholder="Enter course fee"
+                  />
+                  </div>
+                  <div>
                   <Label htmlFor="Admission Fee">Admission Fee</Label>
-                  {/* Replace with appropriate value or remove if not in a row context */}
+                 <Input
+                    id="edit-admission-fee"
+                    {...courseForm.register("admissionFee")}
+                    placeholder="Enter admission fee"
+                  />
+                  </div>
+                  <div>
                   <Label htmlFor="Semester Fee">Semester Fee</Label>
-                  {/* Replace with appropriate value or remove if not in a row context */}
-                </div>
+                 <Input
+                    id="edit-semester-fee"
+                    {...courseForm.register("semesterFee")}
+                    placeholder="Enter semester fee"
+                  />
+                  </div>
                 <div className="flex justify-end space-x-2">
                   <Button
                     type="button"
