@@ -175,7 +175,7 @@ export default async function AdmissionDetailPage({
                     Gender
                   </label>
                   <p className="font-medium">
-                    {AdmissionGenderLabels[admission.gender]}
+                    {admission.gender && AdmissionGenderLabels[admission.gender]}
                   </p>
                 </div>
                 <div>
@@ -205,7 +205,7 @@ export default async function AdmissionDetailPage({
                   <div className="flex items-center gap-2">
                     <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                     <p className="font-medium">
-                      {formatDate(admission.dateOfBirth)}
+                      {admission.dateOfBirth && formatDate(admission.dateOfBirth)}
                     </p>
                   </div>
                 </div>

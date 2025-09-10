@@ -79,9 +79,10 @@ export class PDFService {
    * @param pdfBuffer - PDF Uint8Array
    * @returns Blob for download
    */
-  static createDownloadableBlob(pdfBuffer: Uint8Array): Blob {
-    return new Blob([pdfBuffer], { type: 'application/pdf' });
-  }
+static createDownloadableBlob(pdfBuffer: Uint8Array): Blob {
+  const properBuffer = Buffer.from(pdfBuffer);
+  return new Blob([properBuffer], { type: 'application/pdf' });
+}
 
   /**
    * Generate preview URL for invoice PDF

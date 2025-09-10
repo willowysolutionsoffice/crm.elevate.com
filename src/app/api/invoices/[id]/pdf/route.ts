@@ -37,8 +37,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Generate filename
     const fileName = PDFService.generateFileName(invoice as InvoiceWithItems);
 
+    const properBuffer = Buffer.from(pdfBuffer);
+
     // Return PDF as response with appropriate headers for preview or download
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(properBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -108,10 +110,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       });
     }
 
+    const properBuffer = Buffer.from(pdfBuffer);
+
     // Default: Return as previewable/downloadable file
     const fileName = PDFService.generateFileName(invoiceData);
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(properBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

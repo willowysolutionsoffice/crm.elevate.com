@@ -391,8 +391,8 @@ model Admission {
   candidateName     String
   mobileNumber      String
   email             String?
-  gender            AdmissionGender
-  dateOfBirth       DateTime
+  gender            AdmissionGender?
+  dateOfBirth       DateTime?
   address           String
   leadSource        String?
   lastQualification String?

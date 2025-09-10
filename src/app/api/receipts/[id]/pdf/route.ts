@@ -38,8 +38,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Generate filename
     const filename = PDFService.generateReceiptFileName(receipt, admission);
 
+    const properBuffer = Buffer.from(pdfBuffer);
+
     // Return PDF as response with appropriate headers for preview or download
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(properBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -110,7 +112,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     } else {
       // Return PDF file
       const filename = PDFService.generateReceiptFileName(receiptData, admission);
-      return new NextResponse(pdfBuffer, {
+      const properBuffer= Buffer.from(pdfBuffer);
+      return new NextResponse(properBuffer, {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
