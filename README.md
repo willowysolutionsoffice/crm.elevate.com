@@ -206,3 +206,9 @@ When adding new features:
 ## 📝 License
 
 This project is private and proprietary.
+
+---
+
+
+## Deployments
+- 11/09/2025
