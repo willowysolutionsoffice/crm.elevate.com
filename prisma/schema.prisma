@@ -180,6 +180,12 @@ enum FollowUpStatus {
   RESCHEDULED
 }
 
+enum BillingStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
 enum InvoiceStatus {
   DRAFT
   SENT
@@ -422,6 +428,7 @@ model Admission {
   User      User?     @relation(fields: [userId], references: [id])
   userId    String?
   receipts  Receipt[]
+  serviceBills ServiceBill[]
 
   @@map("admission")
 }
@@ -466,4 +473,32 @@ model Expense {
   updatedAt   DateTime        @updatedAt
 
   @@map("expense")
+}
+
+
+model Service {
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  name    String
+  price   Float
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("service")
+}
+
+model ServiceBill {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  serviceIds  String[] @db.ObjectId // Array of service IDs
+  total       Float
+
+  status      BillingStatus @default(PENDING)
+  
+  // Relationship to admission
+  admissionId String    @db.ObjectId
+  admission   Admission @relation(fields: [admissionId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("service_bill")
 }

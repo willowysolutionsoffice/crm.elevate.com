@@ -61,6 +61,7 @@ import {
   BookOpen,
   Package,
   Search,
+  Wrench,
 } from "lucide-react";
 import {
   getAllRoles,
@@ -79,8 +80,18 @@ import {
   createEnquirySource,
   updateEnquirySource,
   deleteEnquirySource,
+  getAllServices,
+  createService,
+  updateService,
+  deleteService,
 } from "@/server/actions/data-management";
-import { Role, Course, Branch, EnquirySource } from "@/types/data-management";
+import {
+  Role,
+  Course,
+  Branch,
+  EnquirySource,
+  Service,
+} from "@/types/data-management";
 
 // Validation schemas
 const roleSchema = z.object({
@@ -112,10 +123,16 @@ const sourceSchema = z.object({
   name: z.string().min(1, "Name is required"),
 });
 
+const serviceSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  price: z.coerce.number().min(1, "Price is required"),
+});
+
 type RoleForm = z.infer<typeof roleSchema>;
 type CourseForm = z.infer<typeof courseSchema>;
 type BranchForm = z.infer<typeof branchSchema>;
 type SourceForm = z.infer<typeof sourceSchema>;
+type ServiceForm = z.infer<typeof serviceSchema>;
 
 type EditingItem = Role | Course | Branch | EnquirySource;
 
@@ -124,6 +141,7 @@ export default function DataManagementPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [sources, setSources] = useState<EnquirySource[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
 
   const [activeTab, setActiveTab] = useState("roles");
   const [searchQuery, setSearchQuery] = useState("");
@@ -142,6 +160,9 @@ export default function DataManagementPage() {
   const sourceForm = useForm<SourceForm>({
     resolver: zodResolver(sourceSchema),
   });
+  const serviceForm = useForm<ServiceForm>({
+    resolver: zodResolver(serviceSchema),
+  });
 
   useEffect(() => {
     loadData();
@@ -150,19 +171,26 @@ export default function DataManagementPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [rolesResult, coursesResult, branchesResult, sourcesResult] =
-        await Promise.all([
-          getAllRoles(),
-          getAllCourses(),
-          getAllBranches(),
-          getAllEnquirySources(),
-        ]);
+      const [
+        rolesResult,
+        coursesResult,
+        branchesResult,
+        sourcesResult,
+        servicesResult,
+      ] = await Promise.all([
+        getAllRoles(),
+        getAllCourses(),
+        getAllBranches(),
+        getAllEnquirySources(),
+        getAllServices(),
+      ]);
 
       if (rolesResult.success) setRoles(rolesResult.data as Role[]);
       if (coursesResult.success) setCourses(coursesResult.data as Course[]);
       if (branchesResult.success) setBranches(branchesResult.data as Branch[]);
       if (sourcesResult.success)
         setSources(sourcesResult.data as EnquirySource[]);
+      if (servicesResult.success) setServices(servicesResult.data as Service[]);
     } catch {
       toast.error("Failed to load data");
     } finally {
@@ -318,6 +346,44 @@ export default function DataManagementPage() {
     }
   };
 
+  // Service handlers
+  // AlertDialogAction
+  const handleCreateService = async (data: ServiceForm) => {
+    const result = await createService(data);
+    if (result.success) {
+      toast.success(result.message);
+      setDialogOpen(null);
+      serviceForm.reset();
+      loadData();
+    } else {
+      toast.error(result.message);
+    }
+  };
+
+  const handleUpdateService = async (data: ServiceForm) => {
+    if (!editingItem) return;
+    const result = await updateService({ ...data, id: editingItem.id });
+    if (result.success) {
+      toast.success(result.message);
+      setDialogOpen(null);
+      setEditingItem(null);
+      serviceForm.reset();
+      loadData();
+    } else {
+      toast.error(result.message);
+    }
+  };
+
+  const handleDeleteService = async (id: string) => {
+    const result = await deleteService({ id });
+    if (result.success) {
+      toast.success(result.message);
+      loadData();
+    } else {
+      toast.error(result.message);
+    }
+  };
+
   const openEditDialog = (type: string, item: EditingItem) => {
     setEditingItem(item);
     setDialogOpen(`edit-${type}`);
@@ -349,6 +415,14 @@ export default function DataManagementPage() {
         break;
       case "source":
         sourceForm.reset({ name: item.name });
+        break;
+      case "service":
+        serviceForm.reset({
+          name: item.name,
+          price: (item as Service).price || 0,
+        });
+        break;
+      default:
         break;
     }
   };
@@ -461,11 +535,25 @@ export default function DataManagementPage() {
                               case "Email":
                                 return (typedItem.email as string) || "-";
                               case "Course Fee":
-                                return typedItem.courseFee !== null && typedItem.courseFee !== undefined ? `${typedItem.courseFee}` : "-";
+                                return typedItem.courseFee !== null &&
+                                  typedItem.courseFee !== undefined
+                                  ? `${typedItem.courseFee}`
+                                  : "-";
                               case "Admission Fee":
-                                return typedItem.admissionFee !== null && typedItem.admissionFee !== undefined ? `${typedItem.admissionFee}` : "-";
+                                return typedItem.admissionFee !== null &&
+                                  typedItem.admissionFee !== undefined
+                                  ? `${typedItem.admissionFee}`
+                                  : "-";
                               case "Semester Fee":
-                                return typedItem.semesterFee !== null && typedItem.semesterFee !== undefined ? `${typedItem.semesterFee}` : "-";
+                                return typedItem.semesterFee !== null &&
+                                  typedItem.semesterFee !== undefined
+                                  ? `${typedItem.semesterFee}`
+                                  : "-";
+                              case "Price":
+                                return typedItem.price !== null &&
+                                  typedItem.price !== undefined
+                                  ? `${typedItem.price}`
+                                  : "-";
                               default:
                                 return "-";
                             }
@@ -529,6 +617,9 @@ export default function DataManagementPage() {
                                           break;
                                         case "source":
                                           handleDeleteSource(typedItem.id);
+                                          break;
+                                        case "service":
+                                          handleDeleteService(typedItem.id);
                                           break;
                                       }
                                     }}
@@ -783,6 +874,52 @@ export default function DataManagementPage() {
             </div>
           </form>
         );
+      case "service":
+        return (
+          <form
+            onSubmit={serviceForm.handleSubmit(handleCreateService)}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="service-name">Name</Label>
+              <Input
+                id="service-name"
+                {...serviceForm.register("name")}
+                placeholder="Enter service name"
+              />
+              {serviceForm.formState.errors.name && (
+                <p className="text-sm text-destructive">
+                  {serviceForm.formState.errors.name.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="service-price">Price</Label>
+              <Input
+                id="service-price"
+                type="number"
+                step="0.01"
+                {...serviceForm.register("price")}
+                placeholder="Enter service price"
+              />
+              {serviceForm.formState.errors.price && (
+                <p className="text-sm text-destructive">
+                  {serviceForm.formState.errors.price.message}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(null)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit">Create</Button>
+            </div>
+          </form>
+        );
 
       default:
         return null;
@@ -804,7 +941,7 @@ export default function DataManagementPage() {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="roles" className="flex items-center space-x-2">
             <Package className="h-4 w-4" />
             <span>Roles</span>
@@ -820,6 +957,10 @@ export default function DataManagementPage() {
           <TabsTrigger value="sources" className="flex items-center space-x-2">
             <Database className="h-4 w-4" />
             <span>Sources</span>
+          </TabsTrigger>
+          <TabsTrigger value="services" className="flex items-center space-x-2">
+            <Wrench className="h-4 w-4" />
+            <span>Other Services</span>
           </TabsTrigger>
         </TabsList>
 
@@ -889,6 +1030,20 @@ export default function DataManagementPage() {
             </CardHeader>
             <CardContent>
               {renderDataTable("source", sources, ["Name"])}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="services">
+          <Card>
+            <CardHeader>
+              <CardTitle>Services</CardTitle>
+              <CardDescription>
+                Manage additional services and their prices. Total:{" "}
+                {services.length}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderDataTable("service", services, ["Name", "Price"])}
             </CardContent>
           </Card>
         </TabsContent>
@@ -995,28 +1150,28 @@ export default function DataManagementPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="Course Fee">Course Fee</Label>
-                 <Input
+                  <Input
                     id="edit-course-fee"
                     {...courseForm.register("courseFee")}
                     placeholder="Enter course fee"
                   />
-                  </div>
-                  <div>
+                </div>
+                <div>
                   <Label htmlFor="Admission Fee">Admission Fee</Label>
-                 <Input
+                  <Input
                     id="edit-admission-fee"
                     {...courseForm.register("admissionFee")}
                     placeholder="Enter admission fee"
                   />
-                  </div>
-                  <div>
+                </div>
+                <div>
                   <Label htmlFor="Semester Fee">Semester Fee</Label>
-                 <Input
+                  <Input
                     id="edit-semester-fee"
                     {...courseForm.register("semesterFee")}
                     placeholder="Enter semester fee"
                   />
-                  </div>
+                </div>
                 <div className="flex justify-end space-x-2">
                   <Button
                     type="button"
@@ -1134,6 +1289,64 @@ export default function DataManagementPage() {
                   {sourceForm.formState.errors.name && (
                     <p className="text-sm text-destructive">
                       {sourceForm.formState.errors.name.message}
+                    </p>
+                  )}
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => (setDialogOpen(null), setEditingItem(null))}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit">Update</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Dialog
+            open={dialogOpen === "edit-service"}
+            onOpenChange={(open) =>
+              !open && (setDialogOpen(null), setEditingItem(null))
+            }
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Service</DialogTitle>
+                <DialogDescription>
+                  Update service information.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                onSubmit={serviceForm.handleSubmit(handleUpdateService)}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="edit-service-name">Name</Label>
+                  <Input
+                    id="edit-service-name"
+                    {...serviceForm.register("name")}
+                    placeholder="Enter service name"
+                  />
+                  {serviceForm.formState.errors.name && (
+                    <p className="text-sm text-destructive">
+                      {serviceForm.formState.errors.name.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-service-price">Price</Label>
+                  <Input
+                    id="edit-service-price"
+                    type="number"
+                    step="0.01"
+                    {...serviceForm.register("price")}
+                    placeholder="Enter service price"
+                  />
+                  {serviceForm.formState.errors.price && (
+                    <p className="text-sm text-destructive">
+                      {serviceForm.formState.errors.price.message}
                     </p>
                   )}
                 </div>

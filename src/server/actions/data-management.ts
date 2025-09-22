@@ -12,6 +12,8 @@ import {
   CreateEnquirySourceInput,
   UpdateEnquirySourceInput,
   DeleteInput,
+  CreateServiceInput,
+  UpdateServiceInput,
 } from "@/types/data-management";
 
 // Generic response type
@@ -230,6 +232,15 @@ export async function deleteCourse(
   input: DeleteInput
 ): Promise<ActionResponse> {
   try {
+    console.log("Deleting course with ID:", input.id);
+
+
+    await prisma.admission.deleteMany({
+      where: {
+        courseId: input.id,
+      },
+    });
+
     await prisma.course.delete({
       where: { id: input.id },
     });
@@ -564,6 +575,105 @@ export async function toggleEnquirySourceStatus(
     return {
       success: false,
       message: "Failed to toggle enquiry source status",
+    };
+  }
+}
+
+export async function getAllServices(){
+  try{
+    const services = await prisma.service.findMany({});
+    return {
+      success: true,
+      message: "Services fetched successfully",
+      data: services,
+    };
+  }catch(error){
+    console.error("Error fetching services:", error);
+    return {
+      success: false,
+      message: "Failed to fetch services",
+    };
+  }
+}
+
+export async function createService(input: CreateServiceInput){
+  try{
+    const service = await prisma.service.create({
+      data: input,
+    });
+    if(!service){
+      return {
+        success: false,
+        message: "Failed to create service",
+      };
+    }
+    revalidatePath("/admin/data-management");
+    return {
+      success: true,
+      message: "Service created successfully",
+      data: service,
+    };
+  }catch(error){
+    console.error("Error creating service:", error);
+    return {
+      success: false,
+      message: "Failed to create service",
+    };
+  }
+}
+
+export async function updateService(input: UpdateServiceInput){
+  try{
+    if(!input.id){
+      return {
+        success: false,
+        message: "Service id is required",
+      };
+    }
+    const service = await prisma.service.update({
+      where: { id: input.id },
+      data: {
+        name: input.name,
+        price: input.price
+      },
+    });
+    if(!service){
+      return {
+        success: false,
+        message: "Failed to update service",
+      };
+    }
+    revalidatePath("/admin/data-management");
+    return {
+      success: true,
+      message: "Service updated successfully",
+      data: service,
+    };
+  }catch(error){
+    console.error("Error updating service:", error);
+    return {
+      success: false,
+      message: "Failed to update service",
+    };
+  }
+}
+
+export async function deleteService(input: DeleteInput){
+  try{
+    await prisma.service.delete({
+      where: { id: input.id },
+    });
+
+    revalidatePath("/admin/data-management");
+    return {
+      success: true,
+      message: "Service deleted successfully",
+    };
+  }catch(error){
+    console.error("Error deleting service:", error);
+    return {
+      success: false,
+      message: "Failed to delete service",
     };
   }
 }

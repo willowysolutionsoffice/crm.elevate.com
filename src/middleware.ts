@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
   const { user } = session;
 
   // Check if user is trying to access admin routes
-  if (pathname.startsWith('/admin')) {
+  if (pathname.startsWith('/admin')|| pathname.startsWith('/report')) {
     // Only allow admin users to access admin routes
     if (user.role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url));

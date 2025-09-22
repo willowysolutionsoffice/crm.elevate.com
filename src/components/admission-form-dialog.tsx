@@ -132,6 +132,7 @@ dateOfBirth: z
     .min(10, "Address must be at least 10 characters")
     .max(500, "Address must be less than 500 characters"),
  leadSource: z.string().min(1, "Lead source is required").optional().or(z.literal("")),
+ createdAt: z.date().optional(),
 
   // Education Details (Step 2)
   lastQualification: z
@@ -220,6 +221,7 @@ export function AdmissionFormDialog({
       instituteName: admission?.instituteName || "",
       additionalNotes: admission?.additionalNotes || "",
       courseId: admission?.courseId || enquiryData?.preferredCourse?.id || "",
+      createdAt: admission?.createdAt ? new Date(admission.createdAt) : undefined,
     },
     mode: "onChange",
   });
@@ -450,6 +452,7 @@ export function AdmissionFormDialog({
         percentageCGPA: data.percentageCGPA,
         instituteName: data.instituteName,
         additionalNotes: data.additionalNotes,
+        createdAt: data.createdAt,
         courseId: data.courseId,
       };
       executeUpdate(updateData);
@@ -778,6 +781,32 @@ export function AdmissionFormDialog({
                         </FormItem>
                       )}
                     />
+                   <FormField
+                        control={form.control}
+                        name="createdAt"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Date</FormLabel>
+                            <FormControl>
+                              <DateOfBirthPicker
+                                value={field.value}
+                                onChange={field.onChange}
+                                disabled={(date) =>
+                                  date < new Date("1900-01-01")
+                                }
+                                captionLayout="dropdown"
+                                startMonth={new Date(1940, 0, 1)}
+                                className={cn(
+                                  "w-full",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                                autoFocus
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                   </CardContent>
                 </Card>
               )}

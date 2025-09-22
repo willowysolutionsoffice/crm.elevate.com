@@ -19,6 +19,14 @@ export interface Course {
   updatedAt: Date;
 }
 
+export interface Service {
+  id: string;
+  name: string;
+  price: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Branch {
   id: string;
   name: string;
@@ -104,6 +112,17 @@ export interface CreateRequiredServiceInput {
 export interface UpdateRequiredServiceInput extends CreateRequiredServiceInput {
   id: string;
 }
+
+
+export interface CreateServiceInput {
+  name: string;
+  price:number
+}
+
+export interface UpdateServiceInput extends CreateServiceInput {
+  id: string;
+}
+
 
 export interface DeleteInput {
   id: string;

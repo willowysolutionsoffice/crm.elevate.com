@@ -51,6 +51,7 @@ export interface AdmissionCreateData {
   instituteName: string | null;
   additionalNotes: string | null;
   status: AdmissionStatus;
+  createdAt: Date;
   course: {
     connect: { id: string };
   };

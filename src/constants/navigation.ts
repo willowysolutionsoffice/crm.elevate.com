@@ -9,6 +9,7 @@ import {
   IconPhoneCall,
   IconUserPlus,
   IconUsers,
+  IconFileDollar
 } from '@tabler/icons-react';
 import type { SidebarData } from '@/types/navigation';
 import { APP_CONFIG } from '@/config/app';
@@ -65,6 +66,11 @@ export const SIDEBAR_DATA: SidebarData = {
     },
   ],
   navSecondary: [
+    {
+      title: 'Service Billing',
+      url: '/services',
+      icon: IconFileDollar,
+    },
     {
       title: 'Invoices',
       url: '/invoices',

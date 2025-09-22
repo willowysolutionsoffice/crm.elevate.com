@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { authActionClient, executiveActionClient } from '@/lib/safe-action';
+import { adminActionClient, executiveActionClient } from '@/lib/safe-action';
 import prisma from '@/lib/prisma';
 import {
   DateRangeFilter,
@@ -69,7 +69,7 @@ async function getDateRangeFilter(dateRange?: DateRangeFilter) {
 }
 
 // === TELECALLER REPORT ACTIONS ===
-export const getTelecallerPerformanceReport = authActionClient
+export const getTelecallerPerformanceReport = adminActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters, ctx }) => {
     const { userId, user } = ctx;
@@ -209,7 +209,7 @@ export const getTelecallerPerformanceReport = authActionClient
     return report;
   });
 
-export const getTelecallerEnquiryStats = authActionClient
+export const getTelecallerEnquiryStats = adminActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters, ctx }) => {
     const { userId, user } = ctx;
@@ -272,7 +272,7 @@ export const getTelecallerEnquiryStats = authActionClient
     return Object.values(telecallerStats);
   });
 
-export const getTelecallerConversionRates = authActionClient
+export const getTelecallerConversionRates = adminActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters, ctx }) => {
     const { userId, user } = ctx;
@@ -1024,7 +1024,7 @@ export const getPendingPaymentReport = executiveActionClient
   });
 
 // === CSV EXPORT ACTIONS ===
-export const exportTelecallerReportCSV = authActionClient
+export const exportTelecallerReportCSV = adminActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters, ctx }) => {
     const { userId, user } = ctx;

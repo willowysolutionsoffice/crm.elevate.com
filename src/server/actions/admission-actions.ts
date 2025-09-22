@@ -55,6 +55,7 @@ const createAdmissionSchema = z.object({
   additionalNotes: z.string().optional(),
   courseId: z.string().min(1, "Course selection is required"),
   enquiryId: z.string().optional(),
+  createdAt : z.date().optional()
 });
 
 const updateAdmissionSchema = z.object({
@@ -72,7 +73,7 @@ const updateAdmissionSchema = z.object({
   instituteName: z.string().optional(),
   additionalNotes: z.string().optional(),
   courseId: z.string().optional(),
-
+  createdAt : z.date().optional(),
   status: z.nativeEnum(AdmissionStatus).optional(),
   enquiryId: z.string().optional(),
 });
@@ -155,6 +156,7 @@ export const createAdmission = actionClient
         percentageCGPA: parsedInput.percentageCGPA || null,
         instituteName: parsedInput.instituteName || null,
         additionalNotes: parsedInput.additionalNotes || null,
+        createdAt: parsedInput.createdAt || new Date(),
         status: AdmissionStatus.PENDING,
         course: {
           connect: { id: parsedInput.courseId },
@@ -249,8 +251,8 @@ export const updateAdmission = adminActionClient
         data.instituteName = updateData.instituteName;
       if (updateData.additionalNotes !== undefined)
         data.additionalNotes = updateData.additionalNotes || null;
-
       if (updateData.status) data.status = updateData.status;
+      if(updateData.createdAt) data.createdAt = updateData.createdAt;
 
       // Handle course change
       if (updateData.courseId) {
