@@ -60,7 +60,7 @@ import { z } from "zod";
 import CreateServiceBillModal from "./create-service-bill";
 import EditServiceBillModal from "./update-service-bill";
 import DeleteServiceBillModal from "./delete-service-bill";
-
+import { exportPdf, PdfColumn } from "./service-bill-pdf";
 
 interface Service {
   id: string;
@@ -90,7 +90,8 @@ export default function ServiceTable() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [selectedService, setSelectedService] = useState<string>("");
-  const [deletingServiceBill, setDeletingServiceBill] = useState<ServiceBillingWithAdmission | null>(null);
+  const [deletingServiceBill, setDeletingServiceBill] =
+    useState<ServiceBillingWithAdmission | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [totalAmount, setTotalAmount] = useState<number>(0);
   const [editingServiceBill, setEditingServiceBill] =
@@ -117,7 +118,7 @@ export default function ServiceTable() {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
-    }, 500); 
+    }, 500);
 
     // Cleanup function to clear the timeout if search changes
     return () => {
@@ -129,7 +130,6 @@ export default function ServiceTable() {
   const fetchServiceBillsData = useCallback(async () => {
     setIsLoading(true);
     try {
-    
       const result = await listServiceBilling(
         currentPage,
         10,
@@ -158,24 +158,39 @@ export default function ServiceTable() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, debouncedSearch, sortBy, sortOrder , selectedService]); 
+  }, [currentPage, debouncedSearch, sortBy, sortOrder, selectedService]);
 
-
-  const fetchTotalAmount = async () => {
-  try {
-    const result = await totalListing();
-    if (result.success && result.data) {
-      setTotalAmount(result.data.total || 0);
-    }
-  } catch (error) {
-    console.error("Error fetching total amount:", error);
+const exportServiceBillsPdf = () => {
+  if (!serviceBills || serviceBills.length === 0) {
+    toast.error("No data to export");
+    return;
   }
+
+  const columns: PdfColumn<ServiceBillingWithAdmission>[] = [
+    { header: "Bill ID", key: "id" },
+    { header: "Candidate Name", key: (row) => row.admission.candidateName },
+    { header: "Services", key: (row) => row.services?.map(s => s.name).join(", ") || `${row.serviceIds.length} services` },
+    { header: "Created Date", key: (row) => new Date(row.createdAt).toLocaleDateString("en-US") },
+    { header: "Status", key: "status" },
+    { header: "Total Amount", key: (row) => row.total.toFixed(2) },
+  ];
+
+  exportPdf(serviceBills, columns, "service-bills.pdf", "Service Bills Report");
 };
+  const fetchTotalAmount = async () => {
+    try {
+      const result = await totalListing();
+      if (result.success && result.data) {
+        setTotalAmount(result.data.total || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching total amount:", error);
+    }
+  };
 
-useEffect(() => {
-  fetchTotalAmount();
-}, []);
-
+  useEffect(() => {
+    fetchTotalAmount();
+  }, []);
 
   const loadFormData = async () => {
     try {
@@ -218,16 +233,15 @@ useEffect(() => {
     );
   };
 
-
   // Fetch service bills on component mount and when filters change
   useEffect(() => {
     fetchServiceBillsData();
   }, [fetchServiceBillsData]);
 
   // Refresh function to be called after successful service bill creation
-const refreshServiceBills = useCallback(() => {
+  const refreshServiceBills = useCallback(() => {
     fetchServiceBillsData();
-    fetchTotalAmount(); 
+    fetchTotalAmount();
   }, [fetchServiceBillsData]);
 
   // Action handlers for dropdown menu
@@ -244,7 +258,9 @@ const refreshServiceBills = useCallback(() => {
     setEditDialogOpen(true);
   };
 
-  const handleDeleteServiceBill = (serviceBill: ServiceBillingWithAdmission) => {
+  const handleDeleteServiceBill = (
+    serviceBill: ServiceBillingWithAdmission
+  ) => {
     setDeletingServiceBill(serviceBill);
     setDeleteDialogOpen(true);
   };
@@ -311,9 +327,17 @@ const refreshServiceBills = useCallback(() => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Service Bills</h1>
-          <p className="text-gray-600">Manage and track all service bills • Total Revenue: {formatCurrency(totalAmount)}</p>
+          <p className="text-gray-600">
+            Manage and track all service bills • Total Revenue:{" "}
+            {formatCurrency(totalAmount)}
+          </p>
         </div>
-        <Button onClick={() => { setDialogOpen(true); loadFormData(); }}>
+        <Button
+          onClick={() => {
+            setDialogOpen(true);
+            loadFormData();
+          }}
+        >
           <Wrench className="mr-2 h-4 w-4" />
           Create Service Bill
         </Button>
@@ -358,10 +382,16 @@ const refreshServiceBills = useCallback(() => {
                   ))}
                 </SelectContent>
               </Select>
-              <Button onClick={handleClearFilter} className="cursor-pointer" variant="outline">
+              <Button
+                onClick={handleClearFilter}
+                className="cursor-pointer"
+                variant="outline"
+              >
                 Clear Filter
               </Button>
-              <Button variant="outline">Export</Button>
+              <Button variant="outline" onClick={exportServiceBillsPdf}>
+                Export
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -464,7 +494,7 @@ const refreshServiceBills = useCallback(() => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className='text-gray-800 rounded-2xl px-1 bg-gray-200'>
+                        <Badge className="text-gray-800 rounded-2xl px-1 bg-gray-200">
                           {serviceBill.status}
                         </Badge>
                       </TableCell>
@@ -498,7 +528,9 @@ const refreshServiceBills = useCallback(() => {
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => handleDeleteServiceBill(serviceBill)}
+                              onClick={() =>
+                                handleDeleteServiceBill(serviceBill)
+                              }
                               className="text-red-600"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -554,17 +586,17 @@ const refreshServiceBills = useCallback(() => {
         </CardContent>
       </Card>
       <CreateServiceBillModal
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          onSuccess={refreshServiceBills}
-          />
-      <EditServiceBillModal 
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={refreshServiceBills}
+      />
+      <EditServiceBillModal
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         serviceBill={editingServiceBill}
         onSuccess={refreshServiceBills}
       />
-      <DeleteServiceBillModal 
+      <DeleteServiceBillModal
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         serviceBill={deletingServiceBill}
@@ -573,5 +605,3 @@ const refreshServiceBills = useCallback(() => {
     </div>
   );
 }
-
-// pdf
