@@ -490,8 +490,8 @@ model ServiceBill {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   serviceIds  String[] @db.ObjectId // Array of service IDs
   total       Float
-
   status      BillingStatus @default(PENDING)
+  billId      String   @unique
   
   // Relationship to admission
   admissionId String    @db.ObjectId

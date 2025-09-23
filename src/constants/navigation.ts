@@ -47,6 +47,11 @@ export const SIDEBAR_DATA: SidebarData = {
       url: '/admissions',
       icon: IconFilePlus,
     },
+    {
+      title: 'Service Billing',
+      url: '/services',
+      icon: IconFileDollar,
+    },
   ],
   admin: [
     {
@@ -66,11 +71,6 @@ export const SIDEBAR_DATA: SidebarData = {
     },
   ],
   navSecondary: [
-    {
-      title: 'Service Billing',
-      url: '/services',
-      icon: IconFileDollar,
-    },
     {
       title: 'Invoices',
       url: '/invoices',

@@ -13,6 +13,23 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
   ArrowLeft,
   User,
   FileText,
@@ -28,17 +45,24 @@ import {
   Package,
   Clock,
   XCircle,
+  Edit3,
+  Trash2,
+  Plus,
+  Save,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
-import { 
-  getServiceBillById, 
-  getServicesByIds, 
-  getAdmissionHistoryById    
+import {
+  getServiceBillById,
+  getServicesByIds,
+  getAdmissionHistoryById,
+  updateServiceBilling,
+  listServices,
 } from "@/server/actions/service-actions";
 import { ServiceBilling } from "@/types/service-billing";
 import { Service } from "@/types/data-management";
-
+import { exportServiceBillPdf } from "@/components/service/service-bill-detail-pdf";
 
 interface Receipt {
   id: string;
@@ -63,7 +87,6 @@ interface ServiceBill {
   serviceIds: string[];
   total: number;
   status: string;
-  // Add other fields as needed
 }
 
 interface Admission {
@@ -113,35 +136,74 @@ interface ServiceBillDetails {
   admission: Admission;
 }
 
+interface ServiceOption {
+  id: string;
+  name: string;
+  price: number;
+}
+
 // Utility functions
 const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
   }).format(amount);
 };
 
 const formatDate = (date: Date | string) => {
-  return new Date(date).toLocaleDateString('en-IN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+  return new Date(date).toLocaleDateString("en-IN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
 };
 
 const AdmissionGenderLabels: Record<string, string> = {
-  MALE: 'Male',
-  FEMALE: 'Female',
-  OTHER: 'Other'
+  MALE: "Male",
+  FEMALE: "Female",
+  OTHER: "Other",
 };
+
 
 function ServicePage() {
   const params = useParams();
   const { id } = params as { id: string };
   
-  const [serviceBillDetails, setServiceBillDetails] = useState<ServiceBillDetails | null>(null);
+  const [serviceBillDetails, setServiceBillDetails] =
+  useState<ServiceBillDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Edit mode states
+  const [editServices, setEditServices] = useState<Service[]>([]);
+  const [availableServices, setAvailableServices] = useState<ServiceOption[]>([]);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+  
+  // Fetch available services for dropdown
+  const fetchAvailableServices = async () => {
+    try {
+      const result = await listServices();
+      if (result?.success && result.data) {
+        setAvailableServices(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching available services:", error);
+      toast.error("Failed to fetch available services");
+    }
+  };
+  
+  const handleDownloadBill = () => {
+         if (!serviceBillDetails) {
+           return;
+         }
+         exportServiceBillPdf(serviceBillDetails);
+       }
+  useEffect(() => {
+    fetchAvailableServices();
+  }, []);
 
   useEffect(() => {
     const fetchServiceBillDetails = async () => {
@@ -161,15 +223,23 @@ function ServicePage() {
 
         // Fetch services using the serviceIds from the bill
         const servicesResult = await getServicesByIds(serviceBill.serviceIds);
-        if (!servicesResult || typeof servicesResult !== "object" || !("success" in servicesResult) || !servicesResult.success) {
+        if (
+          !servicesResult ||
+          typeof servicesResult !== "object" ||
+          !("success" in servicesResult) ||
+          !servicesResult.success
+        ) {
           setError("Failed to fetch services");
           toast.error("Failed to fetch services");
           return;
         }
 
         const services = servicesResult.data as Service[];
+        
         // Fetch admission details
-        const admissionResult = await getAdmissionHistoryById(serviceBill.admissionId);
+        const admissionResult = await getAdmissionHistoryById(
+          serviceBill.admissionId
+        );
         if (!admissionResult?.success || !admissionResult.data) {
           setError("Failed to fetch admission details");
           toast.error("Failed to fetch admission details");
@@ -181,12 +251,15 @@ function ServicePage() {
         setServiceBillDetails({
           serviceBill,
           services,
-          admission
+          admission,
         });
-
+        
+        // Initialize edit services with current services
+        setEditServices(services);
       } catch (err) {
         console.error("Error fetching service bill details:", err);
-        const errorMessage = "An error occurred while fetching service bill details";
+        const errorMessage =
+          "An error occurred while fetching service bill details";
         setError(errorMessage);
         toast.error(errorMessage);
       } finally {
@@ -198,6 +271,97 @@ function ServicePage() {
       fetchServiceBillDetails();
     }
   }, [id]);
+
+  const handleEditMode = () => {
+    setIsEditMode(true);
+    setEditServices([...serviceBillDetails!.services]);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setEditServices([...serviceBillDetails!.services]);
+  };
+
+  const handleAddService = () => {
+    if (!selectedServiceId) {
+      toast.error("Please select a service");
+      return;
+    }
+
+    const serviceToAdd = availableServices.find(s => s.id === selectedServiceId);
+    if (!serviceToAdd) {
+      toast.error("Service not found");
+      return;
+    }
+
+    // Check if service already exists
+    if (editServices.find(s => s.id === selectedServiceId)) {
+      toast.error("Service already added");
+      return;
+    }
+
+    setEditServices([...editServices, serviceToAdd as Service]);
+    setSelectedServiceId("");
+    setIsAddDialogOpen(false);
+    toast.success("Service added");
+  };
+
+  const handleRemoveService = (serviceId: string) => {
+    if (editServices.length <= 1) {
+      toast.error("At least one service must remain");
+      return;
+    }
+    
+    setEditServices(editServices.filter(s => s.id !== serviceId));
+    toast.success("Service removed");
+  };
+
+  const calculateTotal = (services: Service[]) => {
+    return services.reduce((total, service) => total + service.price, 0);
+  };
+
+  const handleSaveChanges = async () => {
+    if (editServices.length === 0) {
+      toast.error("At least one service is required");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const newTotal = calculateTotal(editServices);
+      const serviceIds = editServices.map(s => s.id);
+
+      const result = await updateServiceBilling({
+        id: serviceBillDetails!.serviceBill.id,
+        serviceIds,
+        total: newTotal,
+        status: serviceBillDetails!.serviceBill.status,
+      });
+
+      if (result?.success) {
+        // Update the state with new data
+        setServiceBillDetails({
+          ...serviceBillDetails!,
+          services: editServices,
+          serviceBill: {
+            ...serviceBillDetails!.serviceBill,
+            total: newTotal,
+            serviceIds,
+          }
+        });
+        
+        setIsEditMode(false);
+        toast.success("Service bill updated successfully");
+      } else {
+        toast.error(result?.message || "Failed to update service bill");
+      }
+    } catch (error) {
+      console.error("Error updating service bill:", error);
+      toast.error("Failed to update service bill");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Loading skeleton
   if (isLoading) {
@@ -249,9 +413,12 @@ function ServicePage() {
         <div className="flex items-center justify-center py-24">
           <div className="text-center">
             <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Service Bill Not Found</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              Service Bill Not Found
+            </h3>
             <p className="text-muted-foreground mb-4">
-              {error || "The service bill you're looking for doesn't exist or has been removed."}
+              {error ||
+                "The service bill you're looking for doesn't exist or has been removed."}
             </p>
             <Link href="/service-bills">
               <Button variant="outline">
@@ -266,9 +433,8 @@ function ServicePage() {
   }
 
   const { serviceBill, services, admission } = serviceBillDetails;
-
-  // Calculate totals
-  const totalAmount = serviceBill.total;
+  const currentServices = isEditMode ? editServices : services;
+  const totalAmount = isEditMode ? calculateTotal(editServices) : serviceBill.total;
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
@@ -348,7 +514,8 @@ function ServicePage() {
                       Gender
                     </label>
                     <p className="font-medium">
-                      {AdmissionGenderLabels[admission.gender] || admission.gender}
+                      {AdmissionGenderLabels[admission.gender] ||
+                        admission.gender}
                     </p>
                   </div>
                 )}
@@ -391,33 +558,147 @@ function ServicePage() {
           {/* Services Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Services Included
-              </CardTitle>
-              <CardDescription>
-                List of services included in this bill
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Services Included
+                  </CardTitle>
+                  <CardDescription>
+                    List of services included in this bill
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {!isEditMode ? (
+                    <Button onClick={handleEditMode} size="sm" variant="outline">
+                      <Edit3 className="h-4 w-4 mr-2" />
+                      Edit Services
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={handleSaveChanges}
+                        size="sm"
+                        disabled={isSaving}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        {isSaving ? "Saving..." : "Save Changes"}
+                      </Button>
+                      <Button
+                        onClick={handleCancelEdit}
+                        size="sm"
+                        variant="outline"
+                        disabled={isSaving}
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
-                {services.map((service) => (
-                  <div key={service.id} className="flex items-center justify-between p-3 border rounded-lg">
+                {currentServices.map((service) => (
+                  <div
+                    key={service.id}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                  >
                     <div className="flex-1">
                       <h4 className="font-medium">{service.name}</h4>
                       <p className="text-sm text-muted-foreground mt-1">
                         Service ID: {service.id}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold">{formatCurrency(service.price)}</p>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="font-semibold">
+                          {formatCurrency(service.price)}
+                        </p>
+                      </div>
+                      {isEditMode && (
+                        <Button
+                          onClick={() => handleRemoveService(service.id)}
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700"
+                          disabled={currentServices.length <= 1}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-              
+
+              {isEditMode && (
+                <>
+                  <div className="pt-2">
+                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Service
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Service</DialogTitle>
+                          <DialogDescription>
+                            Select a service to add to this bill
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="service-select">Service</Label>
+                            <Select
+                              value={selectedServiceId}
+                              onValueChange={setSelectedServiceId}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a service" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableServices
+                                  .filter(service => !currentServices.find(s => s.id === service.id))
+                                  .map((service) => (
+                                    <SelectItem key={service.id} value={service.id}>
+                                      <div className="flex justify-between items-center w-full">
+                                        <span>{service.name}</span>
+                                        <span className="ml-4 font-semibold">
+                                          {formatCurrency(service.price)}
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setIsAddDialogOpen(false);
+                              setSelectedServiceId("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button onClick={handleAddService}>
+                            Add Service
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </>
+              )}
+
               <Separator />
-              
+
               {/* Total Summary */}
               <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between items-center pt-2 border-t">
@@ -426,6 +707,14 @@ function ServicePage() {
                     {formatCurrency(totalAmount)}
                   </span>
                 </div>
+                {isEditMode && totalAmount !== serviceBill.total && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Previous Total:</span>
+                    <span className="text-muted-foreground line-through">
+                      {formatCurrency(serviceBill.total)}
+                    </span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -449,7 +738,9 @@ function ServicePage() {
                       <label className="text-sm font-medium text-muted-foreground">
                         Last Qualification
                       </label>
-                      <p className="font-medium">{admission.lastQualification}</p>
+                      <p className="font-medium">
+                        {admission.lastQualification}
+                      </p>
                     </div>
                   )}
                   {admission.yearOfPassing && (
@@ -518,7 +809,10 @@ function ServicePage() {
                       Total Amount
                     </span>
                   </div>
-                  <Badge variant="outline" className="font-semibold text-blue-600">
+                  <Badge
+                    variant="outline"
+                    className="font-semibold text-blue-600"
+                  >
                     {formatCurrency(totalAmount)}
                   </Badge>
                 </div>
@@ -531,7 +825,7 @@ function ServicePage() {
                     </span>
                   </div>
                   <Badge variant="outline" className="font-semibold">
-                    {services.length} service(s)
+                    {currentServices.length} service(s)
                   </Badge>
                 </div>
 
@@ -579,15 +873,15 @@ function ServicePage() {
           <Card>
             <CardHeader className="flex items-center justify-between">
               <div>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Bill Information
-              </CardTitle>
-              <CardDescription>Service bill record details</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Bill Information
+                </CardTitle>
+                <CardDescription>Service bill record details</CardDescription>
               </div>
-            <Badge variant="outline" className="font-semibold">
-              {serviceBill.status}
-            </Badge>
+              <Badge variant="outline" className="font-semibold">
+                {serviceBill.status}
+              </Badge>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
@@ -596,7 +890,7 @@ function ServicePage() {
                     Bill ID
                   </label>
                   <p className="font-medium font-mono text-sm">
-                    {serviceBill.id}
+                    {serviceBill.billId}
                   </p>
                 </div>
                 <div>
@@ -617,10 +911,20 @@ function ServicePage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
-                    Created By
+                    Billed To
                   </label>
-                  <p className="font-medium">{admission.createdBy.name}</p>
+                  <p className="font-medium">{admission.candidateName}</p>
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Total Amount
+                  </label>
+                  <p className="font-medium">{formatCurrency(totalAmount)}</p>
+                </div>
+                <Button onClick={handleDownloadBill} className="w-full" variant="outline">
+                  <User className="mr-2 h-4 w-4" />
+                  Download Bill as PDF
+                </Button>
               </div>
             </CardContent>
           </Card>

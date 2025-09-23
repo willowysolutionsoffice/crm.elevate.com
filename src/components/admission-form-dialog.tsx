@@ -574,6 +574,32 @@ export function AdmissionFormDialog({
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                     <FormField
+                        control={form.control}
+                        name="createdAt"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Chose Date</FormLabel>
+                            <FormControl>
+                              <DateOfBirthPicker
+                                value={field.value}
+                                onChange={field.onChange}
+                                disabled={(date) =>
+                                  date < new Date("1900-01-01")
+                                }
+                                captionLayout="dropdown"
+                                startMonth={new Date(1940, 0, 1)}
+                                className={cn(
+                                  "w-full",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                                autoFocus
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
@@ -781,32 +807,7 @@ export function AdmissionFormDialog({
                         </FormItem>
                       )}
                     />
-                   <FormField
-                        control={form.control}
-                        name="createdAt"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Date</FormLabel>
-                            <FormControl>
-                              <DateOfBirthPicker
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled={(date) =>
-                                  date < new Date("1900-01-01")
-                                }
-                                captionLayout="dropdown"
-                                startMonth={new Date(1940, 0, 1)}
-                                className={cn(
-                                  "w-full",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                                autoFocus
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+
                   </CardContent>
                 </Card>
               )}

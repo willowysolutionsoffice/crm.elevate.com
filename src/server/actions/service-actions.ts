@@ -9,6 +9,18 @@ interface ActionResponse<T> {
     data?: T;
 }
 
+function generateServiceBillNumber(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const random = Math.floor(Math.random() * 9999)
+    .toString()
+    .padStart(4, "0");
+
+  return `SB-${year}${month}${day}-${random}`;
+}
+
 
 export async function listServiceBilling(
     page = 1,
@@ -153,7 +165,10 @@ export async function createServiceBilling(input: CreateServiceBilling): Promise
             };
         }
         const serviceBilling = await prisma.serviceBill.create({
-            data: input,
+            data: {
+                billId:generateServiceBillNumber(),
+                ...input
+            },
         });
         if(!serviceBilling){
             return {

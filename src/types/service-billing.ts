@@ -6,6 +6,7 @@ export interface ServiceBilling {
     id: string;
     serviceIds: string[];
     total: number;
+    billId: string;
     admissionId: string;
     status: "PENDING" | "PAID" | "CANCELLED";
     createdAt: Date;
@@ -37,6 +38,7 @@ export interface ServiceBillingWithAdmission {
   total: number;
   admissionId: string;
   createdAt: Date;
+  billId: string;
   updatedAt: Date;
   status : "PENDING" | "PAID" | "CANCELLED";
   admission: {

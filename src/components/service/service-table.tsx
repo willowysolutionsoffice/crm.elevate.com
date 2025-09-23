@@ -457,12 +457,12 @@ const exportServiceBillsPdf = () => {
                 <TableBody>
                   {serviceBills.map((serviceBill) => (
                     <TableRow
-                      key={serviceBill.id}
+                      key={serviceBill.billId}
                       className="hover:bg-muted/50"
                     >
                       <TableCell>
                         <div className="font-medium text-xs">
-                          {serviceBill.id}
+                          {serviceBill.billId}
                         </div>
                       </TableCell>
                       <TableCell>
