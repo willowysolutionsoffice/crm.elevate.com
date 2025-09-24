@@ -1,11 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { authClient } from '@/lib/auth-client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -13,37 +19,41 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Search, Eye, Edit, Trash2, MoreVertical, Download } from 'lucide-react';
+} from "@/components/ui/select";
+import {
+  Search,
+  Eye,
+  Edit,
+  Trash2,
+  MoreVertical,
+  Download,
+} from "lucide-react";
 import {
   getAdmissions,
   getCoursesForAdmission,
   getEnquirySourcesForAdmission,
   deleteAdmission,
-} from '@/server/actions/admission-actions';
-import { getEnquiry } from '@/server/actions/enquiry';
-import { AdmissionFormDialog } from '@/components/admission-form-dialog';
-import { toast } from 'sonner';
-import {
-  AdmissionWithRelations,
-  AdmissionStatus,
-} from '@/types/admission';
+} from "@/server/actions/admission-actions";
+import { getEnquiry } from "@/server/actions/enquiry";
+import { AdmissionFormDialog } from "@/components/admission-form-dialog";
+import { toast } from "sonner";
+import { AdmissionWithRelations, AdmissionStatus } from "@/types/admission";
 
-import { EnquirySource } from '@prisma/client';
+import { EnquirySource } from "@prisma/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,8 +63,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Enquiry } from '@/types/enquiry';
+} from "@/components/ui/alert-dialog";
+import { Enquiry } from "@/types/enquiry";
 
 interface SimpleCourse {
   id: string;
@@ -73,17 +83,19 @@ interface AdmissionListResponse {
 export default function AdmissionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const enquiryId = searchParams.get('enquiryId');
+  const enquiryId = searchParams.get("enquiryId");
 
   // Get current user session for role-based access control
   const { data: session } = authClient.useSession();
 
   // Check if current user is admin
-  const isAdmin = session?.user?.role === 'admin';
+  const isAdmin = session?.user?.role === "admin";
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<AdmissionStatus | 'ALL'>('ALL');
-  const [courseFilter, setCourseFilter] = useState<string>('ALL');
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<AdmissionStatus | "ALL">(
+    "ALL"
+  );
+  const [courseFilter, setCourseFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
 
   const [admissions, setAdmissions] = useState<AdmissionWithRelations[]>([]);
@@ -99,11 +111,13 @@ export default function AdmissionsPage() {
 
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedAdmission, setSelectedAdmission] = useState<AdmissionWithRelations | null>(null);
+  const [selectedAdmission, setSelectedAdmission] =
+    useState<AdmissionWithRelations | null>(null);
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [admissionToDelete, setAdmissionToDelete] = useState<AdmissionWithRelations | null>(null);
+  const [admissionToDelete, setAdmissionToDelete] =
+    useState<AdmissionWithRelations | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Enquiry pre-fill state
@@ -125,14 +139,14 @@ export default function AdmissionsPage() {
           setCreateDialogOpen(true);
           // Clear the URL parameter after opening
           const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('enquiryId');
+          newUrl.searchParams.delete("enquiryId");
           router.replace(newUrl.pathname, { scroll: false });
         } else {
-          toast.error(result.message || 'Failed to fetch enquiry data');
+          toast.error(result.message || "Failed to fetch enquiry data");
         }
       } catch (error) {
-        console.error('Error fetching enquiry:', error);
-        toast.error('Failed to fetch enquiry data');
+        console.error("Error fetching enquiry:", error);
+        toast.error("Failed to fetch enquiry data");
       } finally {
         setIsLoadingEnquiry(false);
       }
@@ -158,7 +172,7 @@ export default function AdmissionsPage() {
           setEnquirySources(enquirySourcesResult.data.data || []);
         }
       } catch (error) {
-        console.error('Error fetching initial data:', error);
+        console.error("Error fetching initial data:", error);
         // Set empty arrays as fallback
         setCourses([]);
         setEnquirySources([]);
@@ -184,8 +198,8 @@ export default function AdmissionsPage() {
       };
 
       if (search) filters.search = search;
-      if (statusFilter !== 'ALL') filters.status = statusFilter;
-      if (courseFilter !== 'ALL') filters.courseId = courseFilter;
+      if (statusFilter !== "ALL") filters.status = statusFilter;
+      if (courseFilter !== "ALL") filters.courseId = courseFilter;
 
       const result = await getAdmissions(filters);
 
@@ -199,11 +213,11 @@ export default function AdmissionsPage() {
           pages: data.totalPages,
         });
       } else {
-        toast.error(result.serverError || 'Failed to fetch admissions');
+        toast.error(result.serverError || "Failed to fetch admissions");
       }
     } catch (error) {
-      console.error('Error fetching admissions:', error);
-      toast.error('Failed to fetch admissions');
+      console.error("Error fetching admissions:", error);
+      toast.error("Failed to fetch admissions");
     } finally {
       setIsLoading(false);
     }
@@ -229,7 +243,7 @@ export default function AdmissionsPage() {
 
   const handleEditAdmission = (admission: AdmissionWithRelations) => {
     if (!isAdmin) {
-      toast.error('Access denied. Only administrators can edit admissions.');
+      toast.error("Access denied. Only administrators can edit admissions.");
       return;
     }
     setSelectedAdmission(admission);
@@ -240,7 +254,7 @@ export default function AdmissionsPage() {
 
   const handleDeleteAdmission = (admission: AdmissionWithRelations) => {
     if (!isAdmin) {
-      toast.error('Access denied. Only administrators can delete admissions.');
+      toast.error("Access denied. Only administrators can delete admissions.");
       return;
     }
     setAdmissionToDelete(admission);
@@ -255,26 +269,26 @@ export default function AdmissionsPage() {
       const result = await deleteAdmission({ id: admissionToDelete.id });
 
       if (result.data?.success) {
-        toast.success(result.data.message || 'Admission deleted successfully');
+        toast.success(result.data.message || "Admission deleted successfully");
         refreshAdmissions();
         setDeleteDialogOpen(false);
         setAdmissionToDelete(null);
       } else {
-        toast.error(result.serverError || 'Failed to delete admission');
+        toast.error(result.serverError || "Failed to delete admission");
       }
     } catch (error) {
-      console.error('Error deleting admission:', error);
-      toast.error('Failed to delete admission');
+      console.error("Error deleting admission:", error);
+      toast.error("Failed to delete admission");
     } finally {
       setIsDeleting(false);
     }
   };
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
@@ -289,9 +303,9 @@ export default function AdmissionsPage() {
   };
 
   const clearFilters = () => {
-    setSearch('');
-    setStatusFilter('ALL');
-    setCourseFilter('ALL');
+    setSearch("");
+    setStatusFilter("ALL");
+    setCourseFilter("ALL");
     setCurrentPage(1);
   };
 
@@ -342,7 +356,8 @@ export default function AdmissionsPage() {
         <CardHeader>
           <CardTitle>Filters</CardTitle>
           <CardDescription>
-            Filter admissions by course, status or search by name, mobile, admission number
+            Filter admissions by course, status or search by name, mobile,
+            admission number
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -386,8 +401,23 @@ export default function AdmissionsPage() {
                   ))}
                 </SelectContent>
               </Select>
-
-
+              <Select
+                value={statusFilter}
+                onValueChange={(value: AdmissionStatus | "ALL") => {
+                  setStatusFilter(value);
+                  handleFilterChange();
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Status</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -398,7 +428,8 @@ export default function AdmissionsPage() {
         <CardHeader>
           <CardTitle>All Admissions</CardTitle>
           <CardDescription>
-            A list of all admissions with their current status and course details
+            A list of all admissions with their current status and course
+            details
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -422,26 +453,38 @@ export default function AdmissionsPage() {
                 <TableBody>
                   {admissions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground h-64">
-                        No admissions found. Create your first admission to get started.
+                      <TableCell
+                        colSpan={6}
+                        className="text-center text-muted-foreground h-64"
+                      >
+                        No admissions found. Create your first admission to get
+                        started.
                       </TableCell>
                     </TableRow>
                   ) : (
                     admissions.map((admission) => (
                       <TableRow key={admission.id}>
-                        <TableCell className="font-medium">{admission.admissionNumber}</TableCell>
+                        <TableCell className="font-medium">
+                          {admission.admissionNumber}
+                        </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{admission.candidateName}</div>
+                            <div className="font-medium">
+                              {admission.candidateName}
+                            </div>
                             {admission.email && (
-                              <div className="text-sm text-muted-foreground">{admission.email}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {admission.email}
+                              </div>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>{admission.mobileNumber}</TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{admission.course.name}</div>
+                            <div className="font-medium">
+                              {admission.course.name}
+                            </div>
                             {admission.course.description && (
                               <div className="text-sm text-muted-foreground">
                                 {admission.course.description}
@@ -459,12 +502,18 @@ export default function AdmissionsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleViewAdmission(admission.id)}>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleViewAdmission(admission.id)
+                                }
+                              >
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
                               {isAdmin && (
-                                <DropdownMenuItem onClick={() => handleEditAdmission(admission)}>
+                                <DropdownMenuItem
+                                  onClick={() => handleEditAdmission(admission)}
+                                >
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit Admission
                                 </DropdownMenuItem>
@@ -474,7 +523,9 @@ export default function AdmissionsPage() {
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
-                                    onClick={() => handleDeleteAdmission(admission)}
+                                    onClick={() =>
+                                      handleDeleteAdmission(admission)
+                                    }
                                     className="text-red-600 focus:text-red-600"
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
@@ -495,38 +546,52 @@ export default function AdmissionsPage() {
               {pagination && pagination.pages > 1 && (
                 <div className="flex items-center justify-between space-x-2 py-4">
                   <div className="text-sm text-muted-foreground">
-                    Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
-                    {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                    {pagination.total} results
+                    Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
+                    {Math.min(
+                      pagination.page * pagination.limit,
+                      pagination.total
+                    )}{" "}
+                    of {pagination.total} results
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      onClick={() =>
+                        setCurrentPage(Math.max(1, currentPage - 1))
+                      }
                       disabled={currentPage <= 1}
                     >
                       Previous
                     </Button>
                     <div className="flex items-center space-x-1">
-                      {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-                        const pageNum = i + 1;
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setCurrentPage(pageNum)}
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      })}
+                      {Array.from(
+                        { length: Math.min(5, pagination.pages) },
+                        (_, i) => {
+                          const pageNum = i + 1;
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={
+                                currentPage === pageNum ? "default" : "outline"
+                              }
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNum)}
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        }
+                      )}
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(Math.min(pagination.pages, currentPage + 1))}
+                      onClick={() =>
+                        setCurrentPage(
+                          Math.min(pagination.pages, currentPage + 1)
+                        )
+                      }
                       disabled={currentPage >= pagination.pages}
                     >
                       Next
@@ -586,14 +651,21 @@ export default function AdmissionsPage() {
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure you want to delete this admission?</AlertDialogTitle>
+              <AlertDialogTitle>
+                Are you sure you want to delete this admission?
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the admission record for:{' '}
-                <span className="font-bold">{admissionToDelete.candidateName}</span>
+                This action cannot be undone. This will permanently delete the
+                admission record for:{" "}
+                <span className="font-bold">
+                  {admissionToDelete.candidateName}
+                </span>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={isDeleting}>
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirmDelete}
                 disabled={isDeleting}
@@ -605,7 +677,7 @@ export default function AdmissionsPage() {
                     Deleting...
                   </>
                 ) : (
-                  'Delete Admission'
+                  "Delete Admission"
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -615,4 +687,3 @@ export default function AdmissionsPage() {
     </div>
   );
 }
- 

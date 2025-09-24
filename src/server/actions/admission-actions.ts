@@ -355,8 +355,6 @@ export const getAdmissions = actionClient
       // Add status filter (exclude cancelled by default)
       if (status) {
         where.status = status;
-      } else {
-        where.status = { not: AdmissionStatus.CANCELLED };
       }
 
       // Add search filter
