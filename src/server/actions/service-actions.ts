@@ -1,7 +1,7 @@
 "use server";
 import prisma from "@/lib/prisma";
-import { CreateServiceBilling , DeleteServiceBilling, UpdateServiceBilling , ServiceBilling, ServiceBillingWithAdmission } from "@/types/service-billing";
-import type { Prisma } from "@prisma/client";
+import { CreateServiceBilling , DeleteServiceBilling, UpdateServiceBilling , ServiceBilling, ServiceBillingWithAdmission, PayServiceBilling } from "@/types/service-billing";
+import type { Prisma, ServiceBillItem } from "@prisma/client";
 
 interface ActionResponse<T> {
     success: boolean;
@@ -26,7 +26,7 @@ export async function listServiceBilling(
     page = 1,
     pageSize = 10,
     searchQuery = "",
-    sortBy: 'createdAt' | 'total' = 'createdAt',
+    sortBy: 'billDate' | 'total' = 'billDate',
     sortOrder: 'asc' | 'desc' = 'desc',
     serviceId = "",
 ): Promise<ActionResponse<{ data: ServiceBillingWithAdmission[]; pagination: { page: number; pageSize: number; total: number; pages: number } }>> {
@@ -89,6 +89,8 @@ export async function listServiceBilling(
         // Fetch service details for each bill - only the services that are in the bill
         const serviceBillingWithServices = await Promise.all(
             serviceBilling.map(async (bill) => {
+                // The 'bill' object already contains 'paid' and 'balance' from the ServiceBill model.
+                
                 // Only fetch services that are in this specific bill's serviceIds
                 const services = await prisma.service.findMany({
                     where: {
@@ -104,7 +106,7 @@ export async function listServiceBilling(
                 });
 
                 return {
-                    ...bill,
+                    ...bill, // This spreads all ServiceBill fields, including 'paid' and 'balance'
                     services, 
                 };
             })
@@ -145,7 +147,7 @@ export async function listServiceBilling(
 
 export async function createServiceBilling(input: CreateServiceBilling): Promise<ActionResponse<ServiceBilling | null>> {
     try {
-        if(!input.serviceIds || !input.total || !input.admissionId){
+        if(!input.serviceIds || !input.admissionId){
             return {
                 success: false,
                 message: "Service ids, total and admission id are required",
@@ -164,12 +166,52 @@ export async function createServiceBilling(input: CreateServiceBilling): Promise
                 data:null,
             };
         }
-        const serviceBilling = await prisma.serviceBill.create({
-            data: {
-                billId:generateServiceBillNumber(),
-                ...input
+        const billId = generateServiceBillNumber();
+
+        const services = await prisma.service.findMany({
+            where: {
+                id: {
+                    in: input.serviceIds
+                }
             },
+            select: {
+                price: true,
+            },
+        })
+
+        const total = services.reduce((total, service) => total + service.price, 0);
+
+        const isPaid = input.paid !== undefined && input.paid > 0;
+
+        let status : "PAID" | "UNPAID" | "PARTIALLY_PAID" = "UNPAID";
+        let balance : number = total;
+
+        if (isPaid && input.paid && input.paid > 0) {
+            if(input.paid >= total){
+                status = "PAID";
+                balance = 0;
+            }else{
+                status = "PARTIALLY_PAID";
+                balance = total - input.paid;
+            }
+
+        }
+
+        const createData = {
+            billId: billId,
+            serviceIds: input.serviceIds,
+            total: total,
+            billDate: input.billDate,
+            admissionId: input.admissionId,
+            status: status,
+            balance: balance,
+            ...(isPaid && { paid: input.paid }),
+        };
+
+        const serviceBilling = await prisma.serviceBill.create({
+            data: createData,
         });
+
         if(!serviceBilling){
             return {
                 success: false,
@@ -177,6 +219,25 @@ export async function createServiceBilling(input: CreateServiceBilling): Promise
                 data:null,
             };
         }
+
+        if(isPaid && input.paid && input.paid > 0){
+            const serviceBillItem = await prisma.serviceBillItem.create({
+            data:{
+                serviceBillId: serviceBilling.id,
+                amount:input.paid,
+                ...(input.paymentMode && { paymentMode: input.paymentMode }),
+            }
+        })
+
+        if(!serviceBillItem){
+            return {
+                success: false,
+                message: "Failed to create service billing item",
+                data:null,
+            }
+        }
+        }
+
         return {
             success: true,
             message: "Service billing created successfully",
@@ -184,7 +245,11 @@ export async function createServiceBilling(input: CreateServiceBilling): Promise
         };
     } catch (error) {
         console.error("Error creating service billing:", error);
-        throw new Error("Failed to create service billing");
+        return {
+            success: false,
+            message: "Failed to create service billing due to an internal error.",
+            data: null,
+        }
     }
 }
 
@@ -198,19 +263,10 @@ export async function updateServiceBilling(input: UpdateServiceBilling): Promise
                 data:null,
             };
         }
-        if(!input.serviceIds && !input.total){
-            return {
-                success: false,
-                message: "Service ids, total and admission id are required",
-                data:null,
-            };
-        }
         const serviceBilling = await prisma.serviceBill.update({
             where: { id: input.id },
             data: {
                 serviceIds: input.serviceIds,
-                total: input.total,
-                status: input.status
             },
         });
         if(!serviceBilling){
@@ -220,6 +276,7 @@ export async function updateServiceBilling(input: UpdateServiceBilling): Promise
                 data:null,
             };
         }
+
         return {
             success: true,
             message: "Service billing updated successfully",
@@ -231,6 +288,128 @@ export async function updateServiceBilling(input: UpdateServiceBilling): Promise
             success: false,
             message: "Failed to update service billing",
         }
+    }
+}
+
+
+export async function getServiceBillHistory(id: string) : Promise<ActionResponse<ServiceBillItem[]>> {
+    try {
+        const serviceBillHistory = await prisma.serviceBillItem.findMany({
+            where: { serviceBillId: id },
+            orderBy: { createdAt: "desc" },
+        });
+        return {
+            success: true,
+            message: "Service bill history fetched successfully",
+            data: serviceBillHistory,
+        };
+    } catch (error) {
+        console.error("Error fetching service bill history:", error);
+        return {
+            success: false,
+            message: "Failed to fetch service bill history",
+        };
+    }
+}
+
+export async function payServiceBilling(input: PayServiceBilling): Promise<ActionResponse<ServiceBilling | null>> {
+    try {
+        const existingBill = await prisma.serviceBill.findUnique({
+            where: { id: input.id },
+        });
+
+        if (!existingBill) {
+            return {
+                success: false,
+                message: "Service bill not found.",
+                data: null,
+            };
+        }
+
+        const newTotalPaid = existingBill.paid + input.paid;
+        
+        const newBalance = existingBill.total - newTotalPaid;
+
+        let newStatus = existingBill.status; 
+        if (newBalance <= 0) {
+            newStatus = "PAID";
+        } else if (newTotalPaid > 0) {
+            newStatus = "PARTIALLY_PAID";
+        }
+
+        const serviceBilling = await prisma.serviceBill.update({
+            where: { id: input.id },
+            data: {
+                paid: newTotalPaid,
+                balance: newBalance,
+                status: newStatus,
+            },
+        });
+
+        if(!serviceBilling){
+            return {
+                success: false,
+                message: "Failed to update service billing",
+                data:null,
+            };
+        }
+
+        if(input.paid > 0){
+            const serviceBillItem = await prisma.serviceBillItem.create({
+                data:{
+                    serviceBillId: serviceBilling.id,
+                    amount:input.paid,
+                    ...(input.paymentMode && { paymentMode: input.paymentMode }), 
+                }
+            })
+
+            if(!serviceBillItem){
+                return {
+                    success: false,
+                    message: "Failed to create service billing item",
+                    data:null,
+                }
+            }
+        }
+
+        return {
+            success: true,
+            message: "Payment successfully processed.",
+            data: serviceBilling,
+        };
+    } catch (error) {
+        console.error("Error processing payment:", error);
+        return {
+            success: false,
+            message: "Failed to process payment due to a server error.",
+            data: null,
+        }
+    }
+}
+
+export async function getServiceBillByStudentId(studentId: string): Promise<ActionResponse<ServiceBilling | null>> {
+    try {
+        const serviceBill = await prisma.serviceBill.findFirst({
+            where: { admissionId: studentId },
+        });
+        if (!serviceBill) {
+            return {
+                success: false,
+                message: "Service billing not found",
+                data: null,
+            };
+        }
+        return {
+            success: true,
+            message: "Service billing fetched successfully",
+            data: serviceBill,
+        };
+    } catch (error) {
+        console.error("Error fetching service billing:", error);
+        return {
+            success: false,
+            message: "Failed to fetch service billing",
+        };
     }
 }
 

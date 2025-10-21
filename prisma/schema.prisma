@@ -43,6 +43,7 @@ model User {
   expenses                 Expense[]
   createdEnquiryActivities EnquiryActivity[] @relation("CreatedEnquiryActivities")
   EnquiryActivity          EnquiryActivity[]
+  HandledAdmissions        Admission[]       @relation("HandledAdmissions")
 
   @@unique([email])
   @@map("user")
@@ -181,9 +182,9 @@ enum FollowUpStatus {
 }
 
 enum BillingStatus {
-  PENDING
+  UNPAID
   PAID
-  CANCELLED
+  PARTIALLY_PAID
 }
 
 enum InvoiceStatus {
@@ -392,8 +393,8 @@ model InvoiceItem {
 }
 
 model Admission {
-  id                String          @id @default(auto()) @map("_id") @db.ObjectId
-  admissionNumber   String          @unique
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  admissionNumber   String           @unique
   candidateName     String
   mobileNumber      String
   email             String?
@@ -420,14 +421,20 @@ model Admission {
   courseId String @db.ObjectId
   course   Course @relation(fields: [courseId], references: [id])
 
+  agentName       String?
+  agentCommission Float?
+
   createdByUserId String
   createdBy       User   @relation("CreatedAdmissions", fields: [createdByUserId], references: [id])
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  User      User?     @relation(fields: [userId], references: [id])
-  userId    String?
-  receipts  Receipt[]
+  handledByUserId String?
+  handledBy       User?   @relation("HandledAdmissions", fields: [handledByUserId], references: [id])
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  User         User?         @relation(fields: [userId], references: [id])
+  userId       String?
+  receipts     Receipt[]
   serviceBills ServiceBill[]
 
   @@map("admission")
@@ -475,11 +482,10 @@ model Expense {
   @@map("expense")
 }
 
-
 model Service {
-  id      String  @id @default(auto()) @map("_id") @db.ObjectId
-  name    String
-  price   Float
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  price     Float
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 
@@ -487,18 +493,36 @@ model Service {
 }
 
 model ServiceBill {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  serviceIds  String[] @db.ObjectId // Array of service IDs
-  total       Float
-  status      BillingStatus @default(PENDING)
-  billId      String   @unique
-  
-  // Relationship to admission
+  id         String        @id @default(auto()) @map("_id") @db.ObjectId
+  serviceIds String[]      @db.ObjectId // Array of service IDs
+  total      Float         @default(0)
+  status     BillingStatus @default(UNPAID)
+  billId     String        @unique
+  paid       Float         @default(0)
+  balance    Float         @default(0)
+  billDate   DateTime      @default(now())
+
   admissionId String    @db.ObjectId
   admission   Admission @relation(fields: [admissionId], references: [id])
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items ServiceBillItem[]
 
   @@map("service_bill")
+}
+
+model ServiceBillItem {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  serviceBillId String      @db.ObjectId
+  serviceBill   ServiceBill @relation(fields: [serviceBillId], references: [id])
+
+  amount      Float
+  paymentMode String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("service_bill_item")
 }

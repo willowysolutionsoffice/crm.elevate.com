@@ -50,6 +50,7 @@ import {
   Plus,
   Save,
   X,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -59,10 +60,13 @@ import {
   getAdmissionHistoryById,
   updateServiceBilling,
   listServices,
+  getServiceBillHistory,
+  payServiceBilling,
 } from "@/server/actions/service-actions";
-import { ServiceBilling } from "@/types/service-billing";
+import { ServiceBilling, ServiceBillItem } from "@/types/service-billing";
 import { Service } from "@/types/data-management";
 import { exportServiceBillPdf } from "@/components/service/service-bill-detail-pdf";
+import PaymentModal from "@/components/service/payment-service-bill";
 
 interface Receipt {
   id: string;
@@ -82,10 +86,12 @@ interface Receipt {
 interface ServiceBill {
   id: string;
   admissionId: string;
-  createdAt: Date;
+  billDate: Date;
   updatedAt: Date;
   serviceIds: string[];
   total: number;
+  paid: number;
+  balance: number;
   status: string;
 }
 
@@ -164,24 +170,30 @@ const AdmissionGenderLabels: Record<string, string> = {
   OTHER: "Other",
 };
 
-
 function ServicePage() {
   const params = useParams();
   const { id } = params as { id: string };
-  
+
   const [serviceBillDetails, setServiceBillDetails] =
-  useState<ServiceBillDetails | null>(null);
+    useState<ServiceBillDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [billHistory, setBillHistory] = useState<ServiceBillItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
   // Edit mode states
   const [editServices, setEditServices] = useState<Service[]>([]);
-  const [availableServices, setAvailableServices] = useState<ServiceOption[]>([]);
+  const [availableServices, setAvailableServices] = useState<ServiceOption[]>(
+    []
+  );
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
-  
+
   // Fetch available services for dropdown
   const fetchAvailableServices = async () => {
     try {
@@ -194,13 +206,68 @@ function ServicePage() {
       toast.error("Failed to fetch available services");
     }
   };
-  
+
+  const handleProcessPayment = async (amount: number, paymentMode?: string) => {
+    setIsProcessingPayment(true);
+
+    try {
+      const paymentPayload = {
+        id: serviceBill.id,
+        paid: amount,
+        paymentMode: paymentMode,
+      };
+
+      const result = await payServiceBilling(paymentPayload);
+
+      if (result.success) {
+        toast.success(
+          `Payment of ${formatCurrency(amount)} processed successfully!`
+        );
+        setPaymentDialogOpen(false);
+
+        // Refresh the page data
+        const serviceBillResult = await getServiceBillById(id);
+        if (serviceBillResult?.success && serviceBillResult.data) {
+          setServiceBillDetails({
+            ...serviceBillDetails!,
+            serviceBill: serviceBillResult.data as ServiceBilling,
+          });
+        }
+
+        // Refresh bill history
+        await fetchBillHistory();
+      } else {
+        toast.error(result.message || "Failed to process payment");
+      }
+    } catch (error) {
+      console.error("Payment processing error:", error);
+      toast.error("Failed to process payment");
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const fetchBillHistory = async () => {
+    try {
+      setIsLoadingHistory(true);
+      const result = await getServiceBillHistory(id);
+      if (result?.success && result.data) {
+        setBillHistory(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching bill history:", error);
+      toast.error("Failed to fetch bill history");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
   const handleDownloadBill = () => {
-         if (!serviceBillDetails) {
-           return;
-         }
-         exportServiceBillPdf(serviceBillDetails);
-       }
+    if (!serviceBillDetails) {
+      return;
+    }
+    exportServiceBillPdf(serviceBillDetails);
+  };
   useEffect(() => {
     fetchAvailableServices();
   }, []);
@@ -235,7 +302,7 @@ function ServicePage() {
         }
 
         const services = servicesResult.data as Service[];
-        
+
         // Fetch admission details
         const admissionResult = await getAdmissionHistoryById(
           serviceBill.admissionId
@@ -253,9 +320,11 @@ function ServicePage() {
           services,
           admission,
         });
-        
+
         // Initialize edit services with current services
         setEditServices(services);
+
+        await fetchBillHistory();
       } catch (err) {
         console.error("Error fetching service bill details:", err);
         const errorMessage =
@@ -270,6 +339,7 @@ function ServicePage() {
     if (id) {
       fetchServiceBillDetails();
     }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleEditMode = () => {
@@ -288,14 +358,16 @@ function ServicePage() {
       return;
     }
 
-    const serviceToAdd = availableServices.find(s => s.id === selectedServiceId);
+    const serviceToAdd = availableServices.find(
+      (s) => s.id === selectedServiceId
+    );
     if (!serviceToAdd) {
       toast.error("Service not found");
       return;
     }
 
     // Check if service already exists
-    if (editServices.find(s => s.id === selectedServiceId)) {
+    if (editServices.find((s) => s.id === selectedServiceId)) {
       toast.error("Service already added");
       return;
     }
@@ -311,8 +383,8 @@ function ServicePage() {
       toast.error("At least one service must remain");
       return;
     }
-    
-    setEditServices(editServices.filter(s => s.id !== serviceId));
+
+    setEditServices(editServices.filter((s) => s.id !== serviceId));
     toast.success("Service removed");
   };
 
@@ -329,13 +401,11 @@ function ServicePage() {
     setIsSaving(true);
     try {
       const newTotal = calculateTotal(editServices);
-      const serviceIds = editServices.map(s => s.id);
+      const serviceIds = editServices.map((s) => s.id);
 
       const result = await updateServiceBilling({
         id: serviceBillDetails!.serviceBill.id,
         serviceIds,
-        total: newTotal,
-        status: serviceBillDetails!.serviceBill.status,
       });
 
       if (result?.success) {
@@ -347,9 +417,9 @@ function ServicePage() {
             ...serviceBillDetails!.serviceBill,
             total: newTotal,
             serviceIds,
-          }
+          },
         });
-        
+
         setIsEditMode(false);
         toast.success("Service bill updated successfully");
       } else {
@@ -434,7 +504,24 @@ function ServicePage() {
 
   const { serviceBill, services, admission } = serviceBillDetails;
   const currentServices = isEditMode ? editServices : services;
-  const totalAmount = isEditMode ? calculateTotal(editServices) : serviceBill.total;
+  const totalAmount = isEditMode
+    ? calculateTotal(editServices)
+    : serviceBill.total;
+
+  const totalPaid = billHistory.reduce((sum, item) => sum + item.amount, 0);
+  const remainingBalance = serviceBillDetails
+    ? serviceBillDetails.serviceBill.total - totalPaid
+    : 0;
+
+  const formatDateTime = (date: Date | string) => {
+    return new Date(date).toLocaleString("en-IN", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
@@ -570,7 +657,11 @@ function ServicePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {!isEditMode ? (
-                    <Button onClick={handleEditMode} size="sm" variant="outline">
+                    <Button
+                      onClick={handleEditMode}
+                      size="sm"
+                      variant="outline"
+                    >
                       <Edit3 className="h-4 w-4 mr-2" />
                       Edit Services
                     </Button>
@@ -636,7 +727,10 @@ function ServicePage() {
               {isEditMode && (
                 <>
                   <div className="pt-2">
-                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                    <Dialog
+                      open={isAddDialogOpen}
+                      onOpenChange={setIsAddDialogOpen}
+                    >
                       <DialogTrigger asChild>
                         <Button variant="outline" className="w-full">
                           <Plus className="h-4 w-4 mr-2" />
@@ -662,9 +756,17 @@ function ServicePage() {
                               </SelectTrigger>
                               <SelectContent>
                                 {availableServices
-                                  .filter(service => !currentServices.find(s => s.id === service.id))
+                                  .filter(
+                                    (service) =>
+                                      !currentServices.find(
+                                        (s) => s.id === service.id
+                                      )
+                                  )
                                   .map((service) => (
-                                    <SelectItem key={service.id} value={service.id}>
+                                    <SelectItem
+                                      key={service.id}
+                                      value={service.id}
+                                    >
                                       <div className="flex justify-between items-center w-full">
                                         <span>{service.name}</span>
                                         <span className="ml-4 font-semibold">
@@ -709,13 +811,117 @@ function ServicePage() {
                 </div>
                 {isEditMode && totalAmount !== serviceBill.total && (
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Previous Total:</span>
+                    <span className="text-muted-foreground">
+                      Previous Total:
+                    </span>
                     <span className="text-muted-foreground line-through">
                       {formatCurrency(serviceBill.total)}
                     </span>
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Billing History  */}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Payment History
+              </CardTitle>
+              <CardDescription>
+                Track of all payments made towards this bill
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingHistory ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : billHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">
+                    No payment history available
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Payments will appear here once recorded
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-3 mb-4">
+                    {billHistory.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-4 border rounded-lg bg-white hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className="text-xs">
+                              Payment #{billHistory.length - index}
+                            </Badge>
+                            {item.paymentMode && (
+                              <Badge variant="secondary" className="text-xs">
+                                {item.paymentMode}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {formatDateTime(item.createdAt)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-green-600">
+                            {formatCurrency(item.amount)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  {/* Payment Summary */}
+                  <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        Total Bill Amount:
+                      </span>
+                      <span className="font-semibold">
+                        {formatCurrency(serviceBill.total)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        Total Paid:
+                      </span>
+                      <span className="font-semibold text-green-600">
+                        {formatCurrency(totalPaid)}
+                      </span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="text-base font-medium">
+                        Remaining Balance:
+                      </span>
+                      <span
+                        className={`text-lg font-bold ${
+                          remainingBalance > 0
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        {formatCurrency(remainingBalance)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -794,11 +1000,24 @@ function ServicePage() {
           {/* Bill Summary */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Receipt className="h-5 w-5" />
-                Bill Summary
-              </CardTitle>
-              <CardDescription>Service bill overview</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Receipt className="h-5 w-5" />
+                    Bill Summary
+                  </CardTitle>
+                  <CardDescription>Service bill overview</CardDescription>
+                </div>
+                {serviceBill.balance > 0 && (
+                  <Button
+                    onClick={() => setPaymentDialogOpen(true)}
+                    className="cursor-pointer"
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Make Payment
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
@@ -829,6 +1048,36 @@ function ServicePage() {
                   </Badge>
                 </div>
 
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-700">
+                      Paid Amount
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="font-semibold text-green-600"
+                  >
+                    {formatCurrency(serviceBill.paid)}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    <span className="text-sm font-medium text-yellow-700">
+                      Balance Amount
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="font-semibold text-yellow-600"
+                  >
+                    {formatCurrency(serviceBill.balance)}
+                  </Badge>
+                </div>
+
                 {admission.balance > 0 && (
                   <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
                     <div className="flex items-center gap-2">
@@ -838,7 +1087,7 @@ function ServicePage() {
                       </span>
                     </div>
                     <Badge variant="destructive" className="font-semibold">
-                      {formatCurrency(admission.balance)}
+                      {formatCurrency(admission.balance + serviceBill.balance)}
                     </Badge>
                   </div>
                 )}
@@ -895,10 +1144,10 @@ function ServicePage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
-                    Created Date
+                    Bill Date
                   </label>
                   <p className="font-medium">
-                    {formatDate(serviceBill.createdAt)}
+                    {formatDate(serviceBill.billDate)}
                   </p>
                 </div>
                 <div>
@@ -921,7 +1170,11 @@ function ServicePage() {
                   </label>
                   <p className="font-medium">{formatCurrency(totalAmount)}</p>
                 </div>
-                <Button onClick={handleDownloadBill} className="w-full" variant="outline">
+                <Button
+                  onClick={handleDownloadBill}
+                  className="w-full"
+                  variant="outline"
+                >
                   <User className="mr-2 h-4 w-4" />
                   Download Bill as PDF
                 </Button>
@@ -930,6 +1183,17 @@ function ServicePage() {
           </Card>
         </div>
       </div>
+      {/* Payment Modal */}
+      <PaymentModal
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        customerName={admission.candidateName}
+        totalAmount={serviceBill.total}
+        paidAmount={serviceBill.paid}
+        balance={serviceBill.balance}
+        onProcessPayment={handleProcessPayment}
+        isProcessing={isProcessingPayment}
+      />
     </div>
   );
 }

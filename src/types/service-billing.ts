@@ -8,21 +8,23 @@ export interface ServiceBilling {
     total: number;
     billId: string;
     admissionId: string;
-    status: "PENDING" | "PAID" | "CANCELLED";
-    createdAt: Date;
+    status: "PARTIALLY_PAID" | "PAID" | "UNPAID";
+    billDate: Date;
     updatedAt: Date;
+    paid: number;
+    balance: number;
 }
 
 export interface CreateServiceBilling {
     serviceIds: string[];
-    total: number;
+    billDate:Date
+    paymentMode?: string;
     admissionId: string;
+    paid?: number;
 }
 
 export interface UpdateServiceBilling {
     serviceIds?: string[];
-    total?: number;
-    status?: "PENDING" | "PAID" | "CANCELLED";
     id: string;
 }
 
@@ -37,10 +39,12 @@ export interface ServiceBillingWithAdmission {
   serviceIds: string[];
   total: number;
   admissionId: string;
-  createdAt: Date;
+  paid: number;
+  balance: number;
+  billDate: Date;
   billId: string;
   updatedAt: Date;
-  status : "PENDING" | "PAID" | "CANCELLED";
+  status : "PAID" | "UNPAID" | "PARTIALLY_PAID";
   admission: {
     candidateName: string;
     admissionNumber: string;
@@ -52,3 +56,18 @@ export interface ServiceBillingWithAdmission {
   }>;
 }
 
+
+export interface PayServiceBilling {
+  id: string;
+  paid: number;
+  paymentMode?: string;
+}
+
+export interface ServiceBillItem {
+  id: string;
+  serviceBillId: string;
+  amount: number;
+  paymentMode: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}

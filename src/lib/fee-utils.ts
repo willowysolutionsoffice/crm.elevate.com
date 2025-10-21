@@ -51,7 +51,20 @@ export function calculateTotalFee(course: CourseFee) {
   const courseFee = course.courseFee ?? 0;
   const semesterFee = course.semesterFee ?? 0;
 
-  return admissionFee + courseFee + semesterFee;
+  let totalFee = admissionFee + courseFee + semesterFee;
+  if(course.agentCommission) {
+    totalFee -= course.agentCommission
+  }
+
+  return totalFee;
+}
+
+
+export function calculateBalance(balance: number, totalPaid: number) {
+  if(totalPaid > balance) {
+    return 0;
+  }
+  return balance - totalPaid;
 }
 
 export const calculateTotalPaid = (admission: AdmissionWithReceiptsAndCourse) =>

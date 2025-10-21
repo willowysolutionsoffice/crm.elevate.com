@@ -86,10 +86,22 @@ export const loginAction = actionClient
         });
       }
 
+      const user = await prisma.user.findUnique({
+        where: { email: signInResult.user.email },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          branch: true,
+        }
+      });
+
       // The nextCookies plugin will automatically handle setting the session cookies
       return {
         success: true,
         message: 'Login successful',
+        data: user,
         redirectTo: '/dashboard',
       };
     } catch (error) {

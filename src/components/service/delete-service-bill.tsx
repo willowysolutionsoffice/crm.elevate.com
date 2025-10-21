@@ -108,7 +108,7 @@ export default function DeleteServiceBillModal({
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Created Date:</span>
-                    <span>{formatDate(serviceBill.createdAt)}</span>
+                    <span>{formatDate(serviceBill.billDate)}</span>
                   </div>
                 </div>
               )}

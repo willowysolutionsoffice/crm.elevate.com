@@ -12,13 +12,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -38,9 +31,6 @@ const serviceBillSchema = z.object({
   serviceIds: z
     .array(z.string())
     .min(1, "At least one service must be selected"),
-  // ✅ POINT 1: By defining 'status' here without '.optional()',
-  // Zod makes it a REQUIRED field for the form to be valid.
-  status: z.enum(["PENDING", "PAID", "CANCELLED"]),
 });
 
 type ServiceBillForm = z.infer<typeof serviceBillSchema>;
@@ -67,7 +57,6 @@ export default function EditServiceBillModal({
     defaultValues: {
       admissionId: "",
       serviceIds: [],
-      status: "PENDING",
     },
   });
 
@@ -110,15 +99,16 @@ export default function EditServiceBillModal({
         toast.error("At least one service must be selected");
         return;
       }
-
-      const total = calculateTotal();
-      console.log(data,"data")
-      const result = await updateServiceBilling({
+      const payload: {
+        id: string;
+        serviceIds: string[];
+        paymentMode?: string;
+      } = {
         id: serviceBill.id,
         serviceIds: data.serviceIds,
-        status: data.status,
-        total,
-      });
+      };
+
+      const result = await updateServiceBilling(payload);
 
       if (result.success) {
         toast.success(result.message);
@@ -146,7 +136,6 @@ export default function EditServiceBillModal({
       serviceBillForm.reset({
         admissionId: serviceBill.admissionId,
         serviceIds: serviceBill.serviceIds,
-        status: serviceBill.status,
       });
       setSelectedServices(serviceBill.serviceIds);
     } else {
@@ -178,29 +167,6 @@ export default function EditServiceBillModal({
               <div className="p-2.5 bg-muted rounded-md text-sm text-muted-foreground">
                 {serviceBill?.admission.candidateName}
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status-select">Status</Label>
-              <Select
-                value={serviceBillForm.watch("status")}
-                onValueChange={(value) =>
-                  serviceBillForm.setValue(
-                    "status",
-                    value as "PENDING" | "PAID" | "CANCELLED",
-                    { shouldValidate: true }
-                  )
-                }
-              >
-                <SelectTrigger id="status-select">
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="PAID">Paid</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 

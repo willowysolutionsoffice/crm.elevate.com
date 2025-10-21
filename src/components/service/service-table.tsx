@@ -37,6 +37,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -45,6 +46,7 @@ import {
   listServices,
   listServiceBilling,
   totalListing,
+  payServiceBilling,
 } from "@/server/actions/service-actions";
 import { ServiceBillingWithAdmission } from "@/types/service-billing";
 import { useForm } from "react-hook-form";
@@ -61,6 +63,7 @@ import CreateServiceBillModal from "./create-service-bill";
 import EditServiceBillModal from "./update-service-bill";
 import DeleteServiceBillModal from "./delete-service-bill";
 import { exportPdf, PdfColumn } from "./service-bill-pdf";
+import PaymentModal from "./payment-service-bill";
 
 interface Service {
   id: string;
@@ -76,14 +79,14 @@ const serviceBillSchema = z.object({
 });
 
 type ServiceBillForm = z.infer<typeof serviceBillSchema>;
-type SortBy = "createdAt" | "total";
+type SortBy = "billDate" | "total";
 type SortOrder = "asc" | "desc";
 
 export default function ServiceTable() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortBy, setSortBy] = useState<SortBy>("createdAt");
+  const [sortBy, setSortBy] = useState<SortBy>("billDate");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [services, setServices] = useState<Service[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -107,6 +110,12 @@ export default function ServiceTable() {
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Payment modal states
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [payingServiceBill, setPayingServiceBill] =
+    useState<ServiceBillingWithAdmission | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
   const serviceBillForm = useForm<ServiceBillForm>({
     resolver: zodResolver(serviceBillSchema),
     defaultValues: {
@@ -120,13 +129,11 @@ export default function ServiceTable() {
       setDebouncedSearch(search);
     }, 500);
 
-    // Cleanup function to clear the timeout if search changes
     return () => {
       clearTimeout(handler);
     };
   }, [search]);
 
-  // Fetch service bills using the server action with sorting
   const fetchServiceBillsData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -160,23 +167,38 @@ export default function ServiceTable() {
     }
   }, [currentPage, debouncedSearch, sortBy, sortOrder, selectedService]);
 
-const exportServiceBillsPdf = () => {
-  if (!serviceBills || serviceBills.length === 0) {
-    toast.error("No data to export");
-    return;
-  }
+  const exportServiceBillsPdf = () => {
+    if (!serviceBills || serviceBills.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
 
-  const columns: PdfColumn<ServiceBillingWithAdmission>[] = [
-    { header: "Bill ID", key: "id" },
-    { header: "Candidate Name", key: (row) => row.admission.candidateName },
-    { header: "Services", key: (row) => row.services?.map(s => s.name).join(", ") || `${row.serviceIds.length} services` },
-    { header: "Created Date", key: (row) => new Date(row.createdAt).toLocaleDateString("en-US") },
-    { header: "Status", key: "status" },
-    { header: "Total Amount", key: (row) => row.total.toFixed(2) },
-  ];
+    const columns: PdfColumn<ServiceBillingWithAdmission>[] = [
+      { header: "Bill ID", key: "id" },
+      { header: "Candidate Name", key: (row) => row.admission.candidateName },
+      {
+        header: "Services",
+        key: (row) =>
+          row.services?.map((s) => s.name).join(", ") ||
+          `${row.serviceIds.length} services`,
+      },
+      {
+        header: "Bill Date",
+        key: (row) => new Date(row.billDate).toLocaleDateString("en-US"),
+      },
+      { header: "Status", key: "status" },
+      { header: "Total Amount", key: (row) => row.total.toFixed(2) },
+      { header: "Balance", key: (row) => row.balance.toFixed(2) },
+    ];
 
-  exportPdf(serviceBills, columns, "service-bills.pdf", "Service Bills Report");
-};
+    exportPdf(
+      serviceBills,
+      columns,
+      "service-bills.pdf",
+      "Service Bills Report"
+    );
+  };
+
   const fetchTotalAmount = async () => {
     try {
       const result = await totalListing();
@@ -210,7 +232,6 @@ const exportServiceBillsPdf = () => {
     }
   };
 
-  // Handle sorting
   const handleSort = (column: SortBy) => {
     if (sortBy === column) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -218,10 +239,9 @@ const exportServiceBillsPdf = () => {
       setSortBy(column);
       setSortOrder("desc");
     }
-    setCurrentPage(1); // Reset to first page when sorting
+    setCurrentPage(1);
   };
 
-  // Get sort icon for column headers
   const getSortIcon = (column: SortBy) => {
     if (sortBy !== column) {
       return <ArrowUpDown className="ml-2 h-4 w-4" />;
@@ -233,18 +253,15 @@ const exportServiceBillsPdf = () => {
     );
   };
 
-  // Fetch service bills on component mount and when filters change
   useEffect(() => {
     fetchServiceBillsData();
   }, [fetchServiceBillsData]);
 
-  // Refresh function to be called after successful service bill creation
   const refreshServiceBills = useCallback(() => {
     fetchServiceBillsData();
     fetchTotalAmount();
   }, [fetchServiceBillsData]);
 
-  // Action handlers for dropdown menu
   const handleViewServiceBill = (serviceBillId: string) => {
     router.push(`/services/${serviceBillId}`);
   };
@@ -263,6 +280,43 @@ const exportServiceBillsPdf = () => {
   ) => {
     setDeletingServiceBill(serviceBill);
     setDeleteDialogOpen(true);
+  };
+
+  const handlePayServiceBill = (serviceBill: ServiceBillingWithAdmission) => {
+    setPayingServiceBill(serviceBill);
+    setPaymentDialogOpen(true);
+  };
+
+  const handleProcessPayment = async (amount: number, paymentMode?: string) => {
+    if (!payingServiceBill) return;
+
+    setIsProcessingPayment(true);
+
+    try {
+      const paymentPayload = {
+        id: payingServiceBill.id,
+        paid: amount,
+        paymentMode: paymentMode,
+      };
+
+      const result = await payServiceBilling(paymentPayload);
+
+      if (result.success) {
+        toast.success(
+          `Payment of ${formatCurrency(amount)} processed successfully!`
+        );
+        setPaymentDialogOpen(false);
+        setPayingServiceBill(null);
+        refreshServiceBills();
+      } else {
+        toast.error(result.message || "Failed to process payment");
+      }
+    } catch (error) {
+      console.error("Payment processing error:", error);
+      toast.error("Failed to process payment");
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   const formatDate = (date: string | Date) => {
@@ -289,10 +343,9 @@ const exportServiceBillsPdf = () => {
     loadServices();
   }, []);
 
-  // Handle search with debouncing
   const handleSearchChange = (value: string) => {
     setSearch(value);
-    setCurrentPage(1); // Reset to first page when searching
+    setCurrentPage(1);
   };
 
   const handleClearFilter = () => {
@@ -301,7 +354,6 @@ const exportServiceBillsPdf = () => {
     setCurrentPage(1);
   };
 
-  // Helper function to format service IDs for display
   const formatServiceTypes = (services?: Array<{ name: string }>) => {
     if (!services || services.length === 0)
       return { names: "No services", originalNames: "No services" };
@@ -343,7 +395,6 @@ const exportServiceBillsPdf = () => {
         </Button>
       </div>
 
-      {/* Filters and Search */}
       <Card>
         <CardHeader>
           <CardTitle>Filters & Sorting</CardTitle>
@@ -397,7 +448,6 @@ const exportServiceBillsPdf = () => {
         </CardContent>
       </Card>
 
-      {/* Service Bills Table */}
       <Card>
         <CardHeader>
           <CardTitle>All Service Bills</CardTitle>
@@ -432,11 +482,11 @@ const exportServiceBillsPdf = () => {
                     <TableHead className="w-[180px]">Services</TableHead>
                     <TableHead
                       className="w-[100px] cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleSort("createdAt")}
+                      onClick={() => handleSort("billDate")}
                     >
                       <div className="flex items-center">
-                        Created Date
-                        {getSortIcon("createdAt")}
+                        Bill Date
+                        {getSortIcon("billDate")}
                       </div>
                     </TableHead>
                     <TableHead className="w-[100px]">Status</TableHead>
@@ -448,6 +498,9 @@ const exportServiceBillsPdf = () => {
                         Total Amount
                         {getSortIcon("total")}
                       </div>
+                    </TableHead>
+                    <TableHead className="w-[100px] text-right">
+                      Balance
                     </TableHead>
                     <TableHead className="w-[80px] text-right">
                       Actions
@@ -490,17 +543,28 @@ const exportServiceBillsPdf = () => {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm text-gray-600">
-                          {formatDate(serviceBill.createdAt)}
+                          {formatDate(serviceBill.billDate)}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className="text-gray-800 rounded-2xl px-1 bg-gray-200">
+                        <Badge className="text-gray-800 rounded-2xl px-2 bg-gray-200">
                           {serviceBill.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="font-medium">
                           {formatCurrency(serviceBill.total)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div
+                          className={`font-medium ${
+                            serviceBill.balance > 0
+                              ? "text-red-600"
+                              : "text-green-600"
+                          }`}
+                        >
+                          {formatCurrency(serviceBill.balance)}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
@@ -526,6 +590,16 @@ const exportServiceBillsPdf = () => {
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
+                            {serviceBill.balance > 0 && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handlePayServiceBill(serviceBill)
+                                }
+                              >
+                                <CreditCard className="mr-2 h-4 w-4" />
+                                Pay
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() =>
@@ -544,7 +618,6 @@ const exportServiceBillsPdf = () => {
                 </TableBody>
               </Table>
 
-              {/* Pagination */}
               {pagination && pagination.pages > 1 && (
                 <div className="flex items-center justify-between px-2 py-4">
                   <div className="flex-1 text-sm text-muted-foreground">
@@ -585,6 +658,20 @@ const exportServiceBillsPdf = () => {
           )}
         </CardContent>
       </Card>
+
+      {payingServiceBill && (
+        <PaymentModal
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          customerName={payingServiceBill.admission.candidateName}
+          totalAmount={payingServiceBill.total}
+          paidAmount={payingServiceBill.paid}
+          balance={payingServiceBill.balance}
+          onProcessPayment={handleProcessPayment}
+          isProcessing={isProcessingPayment}
+        />
+      )}
+
       <CreateServiceBillModal
         open={dialogOpen}
         onOpenChange={setDialogOpen}

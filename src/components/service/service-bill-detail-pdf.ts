@@ -7,7 +7,9 @@ export interface ServiceBillPdfData {
     billId: string;
     total: number;
     status: string;
-    createdAt: Date;
+    paid: number;
+    balance: number;
+    billDate: Date;
     updatedAt: Date;
   };
   services: Array<{
@@ -76,11 +78,15 @@ export const exportServiceBillPdf = (
   doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
   doc.text(`Bill ID: ${serviceBill.billId}`, 14, yPosition);
-  doc.text(`Date: ${formatDate(serviceBill.createdAt)}`, 120, yPosition);
+  doc.text(`Date: ${formatDate(serviceBill.billDate)}`, 120, yPosition);
   
   yPosition += 10;
   doc.text(`Status: ${serviceBill.status}`, 14, yPosition);
   doc.text(`Total Amount: ${formatCurrency(serviceBill.total)}`, 120, yPosition);
+
+  yPosition += 10;
+  doc.text(`Amount Paid: ${formatCurrency(serviceBill.paid)}`, 14, yPosition);
+  doc.text(`Balance Due: ${formatCurrency(serviceBill.balance)}`, 120, yPosition);
   
   yPosition += 20;
 
@@ -249,7 +255,7 @@ export const exportServiceBillPdf = (
   yPosition += 8;
   doc.text(`• Created By: ${admission.createdBy.name}`, 18, yPosition);
   yPosition += 6;
-  doc.text(`• Created Date: ${formatDate(serviceBill.createdAt)}`, 18, yPosition);
+  doc.text(`• Created Date: ${formatDate(serviceBill.billDate)}`, 18, yPosition);
   yPosition += 6;
   doc.text(`• Last Updated: ${formatDate(serviceBill.updatedAt)}`, 18, yPosition);
   yPosition += 6;

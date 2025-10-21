@@ -38,6 +38,7 @@ export function LoginForm() {
 
   useEffect(() => {
     if (result?.data?.success) {
+      localStorage.setItem('user', JSON.stringify(result.data.data));
       router.push('/dashboard');
     }
   }, [result, router]);

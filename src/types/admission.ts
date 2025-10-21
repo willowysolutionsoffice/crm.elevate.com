@@ -50,8 +50,11 @@ export interface AdmissionCreateData {
   percentageCGPA: string | null;
   instituteName: string | null;
   additionalNotes: string | null;
+  agentName?: string ;
+  agentCommission?: number;
   status: AdmissionStatus;
   createdAt: Date;
+  handledBy?: { connect: { id: string } };
   course: {
     connect: { id: string };
   };

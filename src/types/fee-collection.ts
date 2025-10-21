@@ -37,6 +37,7 @@ export interface CourseFee {
   courseFee: number | null;
   admissionFee: number | null;
   semesterFee: number | null;
+  agentCommission: number | null;
 }
 
 /**
@@ -48,6 +49,8 @@ export interface AdmissionWithReceiptsAndCourse {
   candidateName: string;
   totalFee?: number;
   balance: number;
+  agentName?: string;
+  agentCommission?: number;
   nextDueDate?: Date;
   receipts: Receipt[];
   course: CourseFee;

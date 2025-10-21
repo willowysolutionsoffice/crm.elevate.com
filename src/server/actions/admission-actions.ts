@@ -12,7 +12,7 @@ import {
   AdmissionCreateData,
 } from "@/types/admission";
 import { Prisma } from "@prisma/client";
-import { calculateTotalFee } from "@/lib/fee-utils";
+import { calculateBalance, calculateTotalFee } from "@/lib/fee-utils";
 
 // Helper function to get current user
 async function getCurrentUser() {
@@ -26,6 +26,8 @@ async function getCurrentUser() {
 
   return session.user;
 }
+
+const agentRoles = ["manager", "admin","counsellor"];
 
 // Helper function to generate admission number
 function generateAdmissionNumber(): string {
@@ -54,6 +56,8 @@ const createAdmissionSchema = z.object({
   instituteName: z.string().optional(),
   additionalNotes: z.string().optional(),
   courseId: z.string().min(1, "Course selection is required"),
+  agentName: z.string().optional(),
+  agentCommission: z.number().min(0).optional(),
   enquiryId: z.string().optional(),
   createdAt : z.date().optional()
 });
@@ -66,6 +70,8 @@ const updateAdmissionSchema = z.object({
   gender: z.nativeEnum(AdmissionGender).optional(),
   dateOfBirth: z.date().optional(),
   address: z.string().optional(),
+  agentName: z.string().optional(),
+  agentCommission: z.number().min(0).optional(),
   leadSource: z.string().optional(),
   lastQualification: z.string().optional(),
   yearOfPassing: z.number().min(1950).max(new Date().getFullYear()).optional(),
@@ -141,6 +147,12 @@ export const createAdmission = actionClient
         throw new Error("Could not generate unique admission number");
       }
 
+      const eligibleForAgentCommission = user.role && agentRoles.includes(user?.role?.toLocaleLowerCase());
+
+      if(!eligibleForAgentCommission && (parsedInput.agentName || parsedInput.agentCommission)){
+        throw new Error("You don't have permission to add agent details");
+      }
+
       // Prepare data object with conditional fields
       const admissionData: AdmissionCreateData = {
         admissionNumber,
@@ -157,6 +169,7 @@ export const createAdmission = actionClient
         instituteName: parsedInput.instituteName || null,
         additionalNotes: parsedInput.additionalNotes || null,
         createdAt: parsedInput.createdAt || new Date(),
+        ...(eligibleForAgentCommission ? { agentName: parsedInput.agentName, agentCommission: parsedInput.agentCommission , handledBy:{connect:{id:user.id}} } : {}),
         status: AdmissionStatus.PENDING,
         course: {
           connect: { id: parsedInput.courseId },
@@ -164,7 +177,7 @@ export const createAdmission = actionClient
         createdBy: {
           connect: { id: user.id },
         },
-        balance: calculateTotalFee(course),
+        balance: calculateTotalFee({...course,agentCommission: parsedInput.agentCommission || 0}),
       };
 
       // Add enquiryId only if it exists
@@ -216,6 +229,7 @@ export const updateAdmission = adminActionClient
   .schema(updateAdmissionSchema)
   .action(async ({ parsedInput }) => {
     try {
+      const user = await getCurrentUser();
       const { id, ...updateData } = parsedInput;
 
       // Check if admission exists
@@ -230,6 +244,12 @@ export const updateAdmission = adminActionClient
 
       // Build update data
       const data: Record<string, unknown> = {};
+
+      const eligibleForAgentCommission = user.role && agentRoles.includes(user?.role?.toLocaleLowerCase());
+
+      if(!eligibleForAgentCommission && (updateData.agentName || updateData.agentCommission)){
+        throw new Error("You don't have permission to add agent details");
+      }
 
       // Basic fields
       if (updateData.candidateName)
@@ -254,6 +274,12 @@ export const updateAdmission = adminActionClient
       if (updateData.status) data.status = updateData.status;
       if(updateData.createdAt) data.createdAt = updateData.createdAt;
 
+      if (updateData.agentName || updateData.agentCommission) {
+        data.agentName = updateData.agentName || null;
+        data.agentCommission = updateData.agentCommission || null;
+        data.handledBy = { connect: { id: user.id } };
+      }
+
       // Handle course change
       if (updateData.courseId) {
         data.course = { connect: { id: updateData.courseId } };
@@ -261,7 +287,7 @@ export const updateAdmission = adminActionClient
 
       const admission = await prisma.admission.update({
         where: { id },
-        data,
+        data: {...data,balance:calculateBalance(existingAdmission.balance,updateData.agentCommission || 0)},
         include: {
           course: {
             select: {
@@ -521,6 +547,9 @@ export const getCoursesForAdmission = actionClient.action(async () => {
       select: {
         id: true,
         name: true,
+        admissionFee: true,
+        semesterFee: true,
+        courseFee: true,
         description: true,
         duration: true,
       },

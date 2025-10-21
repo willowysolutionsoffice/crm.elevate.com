@@ -22,14 +22,19 @@ import {
   IndianRupee,
   CreditCard,
   AlertCircle,
+  Receipt,
+  ExternalLink,
 } from "lucide-react";
 import { getAdmissionById } from "@/server/actions/admission-actions";
+import { getServiceBillByStudentId } from "@/server/actions/service-actions";
 import { toast } from "sonner";
 import {
   AdmissionWithRelations,
   AdmissionGenderLabels,
 } from "@/types/admission";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { getServiceBillHistory } from "@/server/actions/service-actions";
+import { Clock } from "lucide-react";
 import Link from "next/link";
 
 export default async function AdmissionDetailPage({
@@ -53,55 +58,14 @@ export default async function AdmissionDetailPage({
 
   const admission = result.data.data as AdmissionWithRelations;
 
-  // Receipt generation functionality removed - fee management no longer supported
+  // Fetch service billing data
+  const serviceBillResult = await getServiceBillByStudentId(id);
 
-  // Loading skeleton
-  // if (isLoading) {
-  //   return (
-  //     <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
-  //       {/* Header Skeleton */}
-  //       <div className="flex items-center justify-between">
-  //         <div className="flex items-center gap-4">
-  //           <Skeleton className="h-10 w-10" />
-  //           <div className="space-y-2">
-  //             <Skeleton className="h-8 w-64" />
-  //             <Skeleton className="h-4 w-32" />
-  //           </div>
-  //         </div>
-  //         <div className="flex gap-2">
-  //           <Skeleton className="h-9 w-20" />
-  //           <Skeleton className="h-9 w-32" />
-  //         </div>
-  //       </div>
+  const serviceBill = serviceBillResult.success ? serviceBillResult.data : null;
 
-  //       {/* Content Skeleton */}
-  //       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  //         <div className="lg:col-span-2 space-y-6">
-  //           <Card>
-  //             <CardHeader>
-  //               <Skeleton className="h-6 w-32" />
-  //               <Skeleton className="h-4 w-48" />
-  //             </CardHeader>
-  //             <CardContent className="space-y-4">
-  //               <Skeleton className="h-24 w-full" />
-  //               <Skeleton className="h-16 w-full" />
-  //             </CardContent>
-  //           </Card>
-  //         </div>
-  //         <div className="space-y-6">
-  //           <Card>
-  //             <CardHeader>
-  //               <Skeleton className="h-6 w-24" />
-  //             </CardHeader>
-  //             <CardContent>
-  //               <Skeleton className="h-32 w-full" />
-  //             </CardContent>
-  //           </Card>
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  const serviceBillHistory = serviceBill
+    ? await getServiceBillHistory(serviceBill.id)
+    : { success: false, data: [] };
 
   if (!admission) {
     return (
@@ -144,7 +108,6 @@ export default async function AdmissionDetailPage({
             </p>
           </div>
         </div>
-        {/* Receipt generation removed - fee management no longer supported */}
       </div>
 
       {/* Main Content */}
@@ -175,7 +138,8 @@ export default async function AdmissionDetailPage({
                     Gender
                   </label>
                   <p className="font-medium">
-                    {admission.gender && AdmissionGenderLabels[admission.gender]}
+                    {admission.gender &&
+                      AdmissionGenderLabels[admission.gender]}
                   </p>
                 </div>
                 <div>
@@ -205,7 +169,8 @@ export default async function AdmissionDetailPage({
                   <div className="flex items-center gap-2">
                     <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                     <p className="font-medium">
-                      {admission.dateOfBirth && formatDate(admission.dateOfBirth)}
+                      {admission.dateOfBirth &&
+                        formatDate(admission.dateOfBirth)}
                     </p>
                   </div>
                 </div>
@@ -328,65 +293,268 @@ export default async function AdmissionDetailPage({
               )}
             </CardContent>
           </Card>
+
+          {/* Billing Histry  */}
+          {serviceBill &&
+            serviceBillHistory.success &&
+            serviceBillHistory.data &&
+            serviceBillHistory.data.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Service Payment History
+                  </CardTitle>
+                  <CardDescription>
+                    Transaction history for service billing
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {serviceBillHistory.data.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className={`flex items-center justify-between p-4 rounded-lg border ${
+                          index === 0
+                            ? "bg-blue-50 border-blue-200"
+                            : "bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <IndianRupee className="h-4 w-4 text-gray-600" />
+                            <span className="font-semibold text-lg">
+                              {formatCurrency(item.amount)}
+                            </span>
+                            {index === 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                Latest
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <CalendarIcon className="h-3 w-3" />
+                              <span>{formatDate(item.createdAt)}</span>
+                            </div>
+                            {item.paymentMode && (
+                              <div className="flex items-center gap-1">
+                                <CreditCard className="h-3 w-3" />
+                                <span>{item.paymentMode}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {serviceBillHistory.data.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No payment history available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
         </div>
 
         {/* Right Column */}
         <div className="space-y-6">
-          {/* Additional information can be added here */}
+         {/* Course Fees & Receipts */}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <FileText className="h-5 w-5" />
+      Course Fees & Receipts
+    </CardTitle>
+    <CardDescription>Payment and receipt details</CardDescription>
+  </CardHeader>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Fees & Reciepts
-              </CardTitle>
-              <CardDescription>Payment and reciept details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Fee Summary */}
-              <div className="grid grid-cols-1 gap-4">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Balance
-                    </span>
-                  </div>
-                  <Badge
-                    variant={
-                      admission.balance > 0 ? "destructive" : "secondary"
-                    }
-                    className="font-semibold"
-                  >
-                    {formatCurrency(admission.balance)}
-                  </Badge>
-                </div>
+  <CardContent className="space-y-4">
+    {/* Fee Summary */}
+    <div className="grid grid-cols-1 gap-4">
+      {/* Balance */}
+      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+        <div className="flex items-center gap-2">
+          <CreditCard className="h-4 w-4 text-gray-600" />
+          <span className="text-sm font-medium text-gray-700">Balance</span>
+        </div>
+        <Badge
+          variant={admission.balance > 0 ? "destructive" : "secondary"}
+          className="font-semibold"
+        >
+          {formatCurrency(admission.balance)}
+        </Badge>
+      </div>
 
-                {admission.nextDueDate && (
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+      {/* Agent Info (Optional) */}
+      {admission?.agentName && (
+        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">
+              Agent Name
+            </span>
+          </div>
+          <Badge variant="outline" className="font-medium">
+            {admission.agentName}
+          </Badge>
+        </div>
+      )}
+
+      {admission?.agentCommission != null && (
+        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <IndianRupee className="h-4 w-4 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">
+              Agent Commission
+            </span>
+          </div>
+          <Badge variant="secondary" className="font-semibold">
+            {formatCurrency(admission.agentCommission)}
+          </Badge>
+        </div>
+      )}
+
+      {/* Next Due Date */}
+      {admission?.nextDueDate && (
+        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <span className="text-sm font-medium text-gray-700">Next Due</span>
+          </div>
+          <Badge variant="outline" className="font-medium">
+            {formatDate(admission.nextDueDate)}
+          </Badge>
+        </div>
+      )}
+    </div>
+
+    <Separator />
+
+    <Link href={`/admissions/${admission.id}/payments`}>
+      <Button className="w-full">
+        <IndianRupee className="mr-2 h-4 w-4" />
+        View Payment Details
+      </Button>
+    </Link>
+  </CardContent>
+</Card>
+
+
+          {/* Service Billing */}
+          {serviceBill && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5" />
+                  Service Billing
+                </CardTitle>
+                <CardDescription>
+                  Additional services and charges
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Service Bill Summary */}
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                     <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-orange-600" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Next Due
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-700">
+                        Bill ID
                       </span>
                     </div>
-                    <Badge variant="outline" className="font-medium">
-                      {formatDate(admission.nextDueDate)}
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {serviceBill.billId}
                     </Badge>
                   </div>
-                )}
-              </div>
 
-              <Separator />
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <IndianRupee className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Total Amount
+                      </span>
+                    </div>
+                    <span className="font-semibold">
+                      {formatCurrency(serviceBill.total)}
+                    </span>
+                  </div>
 
-              <Link href={`/admissions/${admission.id}/payments`}>
-                <Button className="w-full">
-                  <IndianRupee />
-                  View Payment Details
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-700">
+                        Paid
+                      </span>
+                    </div>
+                    <span className="font-semibold text-green-700">
+                      {formatCurrency(serviceBill.paid)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-orange-600" />
+                      <span className="text-sm font-medium text-orange-700">
+                        Balance
+                      </span>
+                    </div>
+                    <Badge
+                      variant={
+                        serviceBill.balance > 0 ? "destructive" : "secondary"
+                      }
+                      className="font-semibold"
+                    >
+                      {formatCurrency(serviceBill.balance)}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Status
+                      </span>
+                    </div>
+                    <Badge
+                      variant={
+                        serviceBill.status === "PAID"
+                          ? "default"
+                          : serviceBill.status === "PARTIALLY_PAID"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      {serviceBill.status.replace("_", " ")}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Bill Date
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium">
+                      {formatDate(serviceBill.billDate)}
+                    </span>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <Link href={`/services/${serviceBill.id}`}>
+                  <Button className="w-full" variant="outline">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    View Service Details
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Admission Information */}
           <Card>

@@ -67,7 +67,7 @@ export async function getReceiptWithAdmissionData(receiptId: string) {
       success: true,
       data: {
         receipt: receipt as Receipt,
-        admission: admission as AdmissionWithReceiptsAndCourse,
+        admission: admission as unknown as AdmissionWithReceiptsAndCourse,
       },
     };
   } catch (error) {

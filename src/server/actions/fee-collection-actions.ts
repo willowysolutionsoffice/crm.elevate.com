@@ -48,7 +48,7 @@ export async function createReceipt(data: CreateReceiptInput) {
           },
         },
       },
-    })) as AdmissionWithReceiptsAndCourse;
+    })) as unknown as AdmissionWithReceiptsAndCourse;
 
     if (admission) {
       // Calculate new balance
@@ -105,7 +105,7 @@ export async function updateReceipt(data: UpdateReceiptInput) {
           },
         },
       },
-    })) as AdmissionWithReceiptsAndCourse;
+    })) as unknown as AdmissionWithReceiptsAndCourse;
 
     if (admission) {
       const totalPaid = calculateTotalPaid(admission);
@@ -237,7 +237,7 @@ export async function getAdmissionWithFeeDetails(admissionId: string) {
           },
         },
       },
-    })) as AdmissionWithReceiptsAndCourse;
+    })) as unknown as AdmissionWithReceiptsAndCourse;
 
     if (!admission) {
       return { error: "Admission not found" };
