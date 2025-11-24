@@ -1151,7 +1151,7 @@ export function AdmissionFormDialog({
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>
-                                  Agent Commission (optional)
+                                  Agent Discount (optional)
                                 </FormLabel>
                                 <FormControl>
                                   <Input
