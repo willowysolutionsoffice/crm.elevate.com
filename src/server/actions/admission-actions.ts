@@ -404,9 +404,19 @@ export const getAdmissions = actionClient
         if (dateTo) where.createdAt.lte = dateTo;
       }
 
+      const existingCourses = await prisma.course.findMany({
+  select: { id: true },
+});
+
+      const validCourseIds = existingCourses.map(c => c.id);
+
+
       const [admissions, totalCount] = await Promise.all([
         prisma.admission.findMany({
-          where,
+          where:{
+            ...where,
+            courseId:{in:validCourseIds}
+          },
           skip,
           take: limit,
           orderBy: { createdAt: "desc" },
