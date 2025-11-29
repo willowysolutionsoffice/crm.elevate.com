@@ -84,6 +84,10 @@ import {
   createService,
   updateService,
   deleteService,
+  getAllRequiredServices,
+  updateRequiredService,
+  createRequiredService,
+  deleteRequiredService,
 } from "@/server/actions/data-management";
 import {
   Role,
@@ -91,6 +95,7 @@ import {
   Branch,
   EnquirySource,
   Service,
+  RequiredService,
 } from "@/types/data-management";
 
 // Validation schemas
@@ -128,17 +133,23 @@ const serviceSchema = z.object({
   price: z.coerce.number().min(1, "Price is required"),
 });
 
+const requiredServiceSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+});
+
 type RoleForm = z.infer<typeof roleSchema>;
 type CourseForm = z.infer<typeof courseSchema>;
 type BranchForm = z.infer<typeof branchSchema>;
 type SourceForm = z.infer<typeof sourceSchema>;
+type RequiredServiceForm = z.infer<typeof requiredServiceSchema>;
 type ServiceForm = z.infer<typeof serviceSchema>;
 
-type EditingItem = Role | Course | Branch | EnquirySource;
+type EditingItem = Role | Course | Branch | EnquirySource | Service | RequiredService;
 
 export default function DataManagementPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [requiredServices, setRequiredServices] = useState<RequiredService[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [sources, setSources] = useState<EnquirySource[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -164,6 +175,10 @@ export default function DataManagementPage() {
     resolver: zodResolver(serviceSchema),
   });
 
+  const requiredServiceForm = useForm<RequiredServiceForm>({
+    resolver: zodResolver(requiredServiceSchema),
+  });
+
   useEffect(() => {
     loadData();
   }, []);
@@ -177,12 +192,14 @@ export default function DataManagementPage() {
         branchesResult,
         sourcesResult,
         servicesResult,
+        requiredServicesResult,
       ] = await Promise.all([
         getAllRoles(),
         getAllCourses(),
         getAllBranches(),
         getAllEnquirySources(),
         getAllServices(),
+        getAllRequiredServices(),
       ]);
 
       if (rolesResult.success) setRoles(rolesResult.data as Role[]);
@@ -191,6 +208,10 @@ export default function DataManagementPage() {
       if (sourcesResult.success)
         setSources(sourcesResult.data as EnquirySource[]);
       if (servicesResult.success) setServices(servicesResult.data as Service[]);
+      if (requiredServicesResult.success){
+        console.log("required" ,requiredServicesResult)
+         setRequiredServices(requiredServicesResult.data as RequiredService[]);
+      }
     } catch {
       toast.error("Failed to load data");
     } finally {
@@ -256,6 +277,42 @@ export default function DataManagementPage() {
       setDialogOpen(null);
       setEditingItem(null);
       courseForm.reset();
+      loadData();
+    } else {
+      toast.error(result.message);
+    }
+  };
+
+  const handleCreateRequiredService = async (data: RequiredServiceForm) => {
+    const result = await createRequiredService(data);
+    if (result.success) {
+      toast.success(result.message);
+      setDialogOpen(null);
+      requiredServiceForm.reset();
+      loadData();
+    } else {
+      toast.error(result.message);
+    }
+  };
+
+  const handleUpdateRequiredService = async (data: RequiredServiceForm) => {
+    if (!editingItem) return;
+    const result = await updateRequiredService({ ...data, id: editingItem.id });
+    if (result.success) {
+      toast.success(result.message);
+      setDialogOpen(null);
+      setEditingItem(null);
+      requiredServiceForm.reset();
+      loadData();
+    } else {
+      toast.error(result.message);
+    }
+  };
+
+  const handleDeleteRequiredService = async (id: string) => {
+    const result = await deleteRequiredService({ id });
+    if (result.success) {
+      toast.success(result.message);
       loadData();
     } else {
       toast.error(result.message);
@@ -360,6 +417,7 @@ export default function DataManagementPage() {
     }
   };
 
+
   const handleUpdateService = async (data: ServiceForm) => {
     if (!editingItem) return;
     const result = await updateService({ ...data, id: editingItem.id });
@@ -405,6 +463,11 @@ export default function DataManagementPage() {
           semesterFee: (item as Course).semesterFee || 0,
         });
         break;
+      case "required-service":
+        requiredServiceForm.reset({
+          name: item.name,
+        });
+        break;
       case "branch":
         branchForm.reset({
           name: item.name,
@@ -415,6 +478,11 @@ export default function DataManagementPage() {
         break;
       case "source":
         sourceForm.reset({ name: item.name });
+        break;
+      case "required-service":
+        requiredServiceForm.reset({
+          name: item.name,
+        });
         break;
       case "service":
         serviceForm.reset({
@@ -612,6 +680,10 @@ export default function DataManagementPage() {
                                         case "course":
                                           handleDeleteCourse(typedItem.id);
                                           break;
+                                        case "required-service":
+                                          handleDeleteRequiredService(
+                                            typedItem.id
+                                        )
                                         case "branch":
                                           handleDeleteBranch(typedItem.id);
                                           break;
@@ -763,6 +835,38 @@ export default function DataManagementPage() {
               {courseForm.formState.errors.semesterFee && (
                 <p className="text-sm text-destructive">
                   {courseForm.formState.errors.semesterFee.message}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(null)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit">Create</Button>
+            </div>
+          </form>
+        );
+
+      case "required-service":
+        return (
+          <form
+            onSubmit={requiredServiceForm.handleSubmit(handleCreateRequiredService)}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="required-service-name">Name</Label>
+              <Input
+                id="required-service-name"
+                {...requiredServiceForm.register("name")}
+                placeholder="Enter required service name"
+              />
+              {requiredServiceForm.formState.errors.name && (
+                <p className="text-sm text-destructive">
+                  {requiredServiceForm.formState.errors.name.message}
                 </p>
               )}
             </div>
@@ -941,7 +1045,7 @@ export default function DataManagementPage() {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="roles" className="flex items-center space-x-2">
             <Package className="h-4 w-4" />
             <span>Roles</span>
@@ -949,6 +1053,10 @@ export default function DataManagementPage() {
           <TabsTrigger value="courses" className="flex items-center space-x-2">
             <BookOpen className="h-4 w-4" />
             <span>Courses</span>
+          </TabsTrigger>
+          <TabsTrigger value="required-services" className="flex items-center space-x-2">
+            <BookOpen className="h-4 w-4" />
+            <span>Required Services</span>
           </TabsTrigger>
           <TabsTrigger value="branches" className="flex items-center space-x-2">
             <MapPin className="h-4 w-4" />
@@ -994,6 +1102,22 @@ export default function DataManagementPage() {
                 "Course Fee",
                 "Admission Fee",
                 "Semester Fee",
+              ])}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="required-services">
+          <Card>
+            <CardHeader>
+              <CardTitle>Required Services</CardTitle>
+              <CardDescription>
+                Manage available required services and programs. Total: {requiredServices.length}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderDataTable("required-service", requiredServices, [
+                "Name"
               ])}
             </CardContent>
           </Card>
@@ -1186,6 +1310,49 @@ export default function DataManagementPage() {
             </DialogContent>
           </Dialog>
 
+<Dialog
+  open={dialogOpen === "edit-required-service"}
+  onOpenChange={(open) =>
+    !open && (setDialogOpen(null), setEditingItem(null))
+  }
+>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Edit Required Service</DialogTitle>
+      <DialogDescription>
+        Update required service information.
+      </DialogDescription>
+    </DialogHeader>
+    <form
+      onSubmit={requiredServiceForm.handleSubmit(handleUpdateRequiredService)}
+      className="space-y-4"
+    >
+      <div className="space-y-2">
+        <Label htmlFor="edit-required-service-name">Name</Label>
+        <Input
+          id="edit-required-service-name"
+          {...requiredServiceForm.register("name")}
+          placeholder="Enter required service name"
+        />
+        {requiredServiceForm.formState.errors.name && (
+          <p className="text-sm text-destructive">
+            {requiredServiceForm.formState.errors.name.message}
+          </p>
+        )}
+      </div>
+      <div className="flex justify-end space-x-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => (setDialogOpen(null), setEditingItem(null))}
+        >
+          Cancel
+        </Button>
+        <Button type="submit">Update</Button>
+      </div>
+    </form>
+  </DialogContent>
+</Dialog>
           <Dialog
             open={dialogOpen === "edit-branch"}
             onOpenChange={(open) =>

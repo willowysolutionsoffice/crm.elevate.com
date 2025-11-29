@@ -14,6 +14,8 @@ import {
   DeleteInput,
   CreateServiceInput,
   UpdateServiceInput,
+  CreateRequiredServiceInput,
+  UpdateRequiredServiceInput,
 } from "@/types/data-management";
 
 // Generic response type
@@ -579,6 +581,26 @@ export async function toggleEnquirySourceStatus(
   }
 }
 
+export async function getAllRequiredServices(): Promise<ActionResponse> {
+  try {
+    const requiredServices = await prisma.requiredService.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    return {
+      success: true,
+      message: "Required services fetched successfully",
+      data: requiredServices,
+    };
+  } catch (error) {
+    console.error("Error fetching required services:", error);
+    return {
+      success: false,
+      message: "Failed to fetch required services",
+    };
+  }
+}
+
 export async function getAllServices(){
   try{
     const services = await prisma.service.findMany({});
@@ -674,6 +696,77 @@ export async function deleteService(input: DeleteInput){
     return {
       success: false,
       message: "Failed to delete service",
+    };
+  }
+}
+
+// Required Service Actions
+
+export async function createRequiredService(
+  input: CreateRequiredServiceInput
+): Promise<ActionResponse> {
+  try {
+    const requiredService = await prisma.requiredService.create({
+      data: input,
+    });
+    revalidatePath("/admin/data-management");
+
+    return {
+      success: true,
+      message: "Required service created successfully",
+      data: requiredService,
+    };
+  } catch (error) {
+    console.error("Error creating required service:", error);
+    return {
+      success: false,
+      message: "Failed to create required service",
+    };
+  }
+}
+
+export async function updateRequiredService(
+  input: UpdateRequiredServiceInput
+): Promise<ActionResponse> {
+  try {
+    const requiredService = await prisma.requiredService.update({
+      where: { id: input.id },
+      data: {
+        name: input.name,
+      },
+    });
+    revalidatePath("/admin/data-management");
+    return {
+      success: true,
+      message: "Required service updated successfully",
+      data: requiredService,
+    };
+  } catch (error) {
+    console.error("Error updating required service:", error);
+    return {
+      success: false,
+      message: "Failed to update required service",
+    };
+  }
+}
+
+export async function deleteRequiredService(
+  input: DeleteInput
+): Promise<ActionResponse> {  
+  try {
+    await prisma.requiredService.delete({
+      where: { id: input.id },
+    });
+    revalidatePath("/admin/data-management");
+    return {
+      success: true,
+      message: "Required service deleted successfully",
+    };
+  } catch (error) {
+    console.error("Error deleting required service:", error);
+    return {
+      success: false,
+      message: "Failed to delete required service",
     };
   }
 }

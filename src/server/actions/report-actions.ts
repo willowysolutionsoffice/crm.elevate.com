@@ -456,9 +456,16 @@ export const getAdmissionPaymentReport = executiveActionClient
   .action(async ({ parsedInput: filters }) => {
     const dateFilter = await getDateRangeFilter(filters.dateRange);
 
+    const existingCourses = await prisma.course.findMany({
+  select: { id: true },
+});
+
+const validCourseIds = existingCourses.map(c => c.id);
+
     const admissions = await prisma.admission.findMany({
       where: {
         createdAt: dateFilter,
+        courseId:{ in: validCourseIds },
         ...(filters.search && {
           OR: [
             { candidateName: { contains: filters.search, mode: 'insensitive' } },
@@ -913,8 +920,14 @@ export const getIncomeReport = executiveActionClient
 export const getPendingPaymentReport = executiveActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters }) => {
+    const existingCourses = await prisma.course.findMany({
+  select: { id: true },
+});
+
+const validCourseIds = existingCourses.map(c => c.id);
     const admissions = await prisma.admission.findMany({
       where: {
+        courseId:{ in: validCourseIds },
         ...(filters.search && {
           OR: [
             { candidateName: { contains: filters.search, mode: 'insensitive' } },
