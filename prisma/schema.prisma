@@ -261,8 +261,8 @@ model Enquiry {
   assignedToUserId String?
   assignedTo       User?   @relation("AssignedEnquiries", fields: [assignedToUserId], references: [id])
 
-  createdByUserId String
-  createdBy       User   @relation("CreatedEnquiries", fields: [createdByUserId], references: [id])
+  createdByUserId String?
+  createdBy       User?   @relation("CreatedEnquiries", fields: [createdByUserId], references: [id])
 
   // Child relationships
   followUps  FollowUp[]

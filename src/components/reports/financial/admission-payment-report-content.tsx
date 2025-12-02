@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -41,31 +41,38 @@ import { AdmissionPaymentReport, DateRangeFilter } from "@/types/reports";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { FinancialReportSkeleton } from "./financial-report-skeleton";
 
-interface AdmissionPaymentReportFilters {
-  dateRange?: DateRangeFilter;
-  search?: string;
-}
-
 export function AdmissionPaymentReportContent() {
   const [reportData, setReportData] = useState<AdmissionPaymentReport | null>(
     null
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [dateRange, setDateRange] = useState<DateRangeFilter | undefined>();
+  const [filters, setFilters] = useState({
+    dateRange: undefined as DateRangeFilter | undefined,
+    search: "",
+  });
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
+  const handleDateRangeChange = useCallback(
+    (dateRange: DateRangeFilter | undefined) => {
+      setFilters((prev) => ({ ...prev, dateRange }));
+    },
+    []
+  );
+
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"name" | "totalFees" | "outstanding">(
     "outstanding"
   );
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  const fetchReportData = useCallback(async (filters: AdmissionPaymentReportFilters) => {
+  const fetchReportData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const result = await getAdmissionPaymentReport(filters);
+      const result = await getAdmissionPaymentReport(filtersRef.current);
 
       if (result?.data) {
         setReportData(result.data);
@@ -78,18 +85,18 @@ export function AdmissionPaymentReportContent() {
     } finally {
       setLoading(false);
     }
-  }, []); // stays empty because no closures used
+  }, []);
 
   const handleExportCSV = async () => {
     try {
-      const filters = {
-        dateRange,
-        search: searchTerm || undefined,
+      const exportFilters = {
+        dateRange: filters.dateRange,
+        search: filters.search || undefined,
       };
 
       const result = await exportFinancialReportCSV({
         reportType: "admission-payment",
-        filters,
+        filters: exportFilters,
       });
 
       if (result?.data) {
@@ -122,19 +129,6 @@ export function AdmissionPaymentReportContent() {
       console.error("Error exporting CSV:", err);
     }
   };
-
-  useEffect(() => {
-    const filters = {
-      dateRange,
-      search: searchTerm || undefined,
-    };
-
-    const debounce = setTimeout(() => {
-      fetchReportData(filters);
-    }, 400);
-
-    return () => clearTimeout(debounce);
-  }, [dateRange, searchTerm]);
 
   // Filter and sort students
   const filteredAndSortedStudents = reportData?.students
@@ -169,6 +163,18 @@ export function AdmissionPaymentReportContent() {
       return sortOrder === "asc" ? valueA - valueB : valueB - valueA;
     });
 
+  useEffect(() => {
+    fetchReportData();
+  }, [fetchReportData]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      fetchReportData();
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [filters.search]);
+
   if (loading) {
     return <FinancialReportSkeleton />;
   }
@@ -183,7 +189,11 @@ export function AdmissionPaymentReportContent() {
               Error Loading Report
             </h3>
             <p className="text-sm mb-4">{error}</p>
-            <Button onClick={() => fetchReportData({ dateRange, search: searchTerm || undefined })} variant="outline" size="sm">
+            <Button
+              onClick={() => fetchReportData()}
+              variant="outline"
+              size="sm"
+            >
               <IconRefresh className="h-4 w-4 mr-2" />
               Retry
             </Button>
@@ -256,10 +266,11 @@ export function AdmissionPaymentReportContent() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => fetchReportData( { dateRange, search: searchTerm || undefined })} variant="outline" size="sm">
+          <Button onClick={fetchReportData} variant="outline" size="sm">
             <IconRefresh className="h-4 w-4 mr-2" />
             Refresh
           </Button>
+
           <Button onClick={handleExportCSV} size="sm">
             <IconDownload className="h-4 w-4 mr-2" />
             Export CSV
@@ -286,16 +297,29 @@ export function AdmissionPaymentReportContent() {
                 <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={filters.search}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, search: e.target.value }))
+                  }
                   className="pl-9"
                 />
               </div>
             </div>
-
             <div className="space-y-2">
               <label className="text-sm font-medium">Date Range</label>
-              <DatePickerWithRange value={dateRange} onChange={setDateRange} />
+              <div className="flex gap-2">
+                <DatePickerWithRange
+                  value={filters.dateRange}
+                  onChange={handleDateRangeChange}
+                />
+                <Button
+                  variant="default"
+                  onClick={fetchReportData}
+                  disabled={loading}
+                >
+                  Apply
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">

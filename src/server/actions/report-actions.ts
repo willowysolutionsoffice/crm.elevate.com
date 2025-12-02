@@ -1134,10 +1134,12 @@ export const exportFinancialReportCSV = executiveActionClient
   )
   .action(async ({ parsedInput: { reportType, filters } }) => {
     const dateFilter = await getDateRangeFilter(filters.dateRange);
+
     let csvData: CSVExportData;
 const existingCourses = await prisma.course.findMany({
   select: { id: true },
 });
+    console.log('type', reportType)
 
 const validCourseIds = existingCourses.map(c => c.id);
     switch (reportType) {
@@ -1303,6 +1305,7 @@ const validCourseIds = existingCourses.map(c => c.id);
         throw new Error('Invalid report type');
     }
 
+    console.log('csv data', csvData)
     return csvData;
   });
 
