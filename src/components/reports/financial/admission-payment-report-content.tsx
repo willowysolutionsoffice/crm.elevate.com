@@ -41,6 +41,11 @@ import { AdmissionPaymentReport, DateRangeFilter } from "@/types/reports";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { FinancialReportSkeleton } from "./financial-report-skeleton";
 
+interface AdmissionPaymentReportFilters {
+  dateRange?: DateRangeFilter;
+  search?: string;
+}
+
 export function AdmissionPaymentReportContent() {
   const [reportData, setReportData] = useState<AdmissionPaymentReport | null>(
     null
@@ -55,7 +60,7 @@ export function AdmissionPaymentReportContent() {
   );
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  const fetchReportData = useCallback(async (filters: any) => {
+  const fetchReportData = useCallback(async (filters: AdmissionPaymentReportFilters) => {
     try {
       setLoading(true);
       setError(null);
@@ -178,7 +183,7 @@ export function AdmissionPaymentReportContent() {
               Error Loading Report
             </h3>
             <p className="text-sm mb-4">{error}</p>
-            <Button onClick={fetchReportData} variant="outline" size="sm">
+            <Button onClick={() => fetchReportData({ dateRange, search: searchTerm || undefined })} variant="outline" size="sm">
               <IconRefresh className="h-4 w-4 mr-2" />
               Retry
             </Button>
@@ -251,7 +256,7 @@ export function AdmissionPaymentReportContent() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={fetchReportData} variant="outline" size="sm">
+          <Button onClick={() => fetchReportData( { dateRange, search: searchTerm || undefined })} variant="outline" size="sm">
             <IconRefresh className="h-4 w-4 mr-2" />
             Refresh
           </Button>
