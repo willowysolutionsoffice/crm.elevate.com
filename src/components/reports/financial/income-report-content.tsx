@@ -62,37 +62,47 @@ export function IncomeReportContent() {
     }
   }, [dateRange, searchTerm])
 
-  const handleExportCSV = async () => {
-    try {
-      const filters = {
-        dateRange,
-        search: searchTerm || undefined,
-      }
-
-      const result = await exportFinancialReportCSV({
-        reportType: 'income',
-        filters
-      })
-
-      if (result?.data) {
-        // Create and download CSV file
-        const csvContent = [
-          result.data.headers.join(','),
-          ...result.data.rows.map(row => row.join(','))
-        ].join('\n')
-
-        const blob = new Blob([csvContent], { type: 'text/csv' })
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = result.data.filename
-        a.click()
-        window.URL.revokeObjectURL(url)
-      }
-    } catch (err) {
-      console.error('Error exporting CSV:', err)
+const handleExportCSV = async () => {
+  try {
+    const filters = {
+      dateRange,
+      search: searchTerm || undefined,
     }
+
+    const result = await exportFinancialReportCSV({
+      reportType: 'income',
+      filters
+    })
+
+    if (result?.data) {
+      console.log("EXPORT CSV DATA:", result.data)
+
+      const csvContent = [
+        result.data.headers.map(h => `"${h}"`).join(','),       // <-- quote headers
+        ...result.data.rows.map(row =>
+          row.map(cell => {
+            // if cell is currency — strip ₹ and commas
+            if (typeof cell === 'string' && cell.startsWith('₹')) {
+              return `"${cell.replace(/₹|,/g, '')}"`
+            }
+            return `"${cell}"`
+          }).join(',')
+        )
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.data.filename
+      a.click()
+      window.URL.revokeObjectURL(url)
+    }
+  } catch (err) {
+    console.error('Error exporting CSV:', err)
   }
+}
+
 
   useEffect(() => {
     fetchReportData()

@@ -1,13 +1,25 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { DatePickerWithRange } from '@/components/ui/date-range-picker'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useState, useEffect, useCallback } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   IconCash,
   IconDownload,
@@ -18,118 +30,142 @@ import {
   IconTrendingUp,
   IconAlertTriangle,
   IconCircleCheck,
-  IconClock, IconMinus
-} from '@tabler/icons-react'
-import { getAdmissionPaymentReport, exportFinancialReportCSV } from '@/server/actions/report-actions'
-import { AdmissionPaymentReport, DateRangeFilter } from '@/types/reports'
-import { formatCurrency, formatDate } from '@/lib/utils'
-import { FinancialReportSkeleton } from './financial-report-skeleton'
+  IconClock,
+  IconMinus,
+} from "@tabler/icons-react";
+import {
+  getAdmissionPaymentReport,
+  exportFinancialReportCSV,
+} from "@/server/actions/report-actions";
+import { AdmissionPaymentReport, DateRangeFilter } from "@/types/reports";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { FinancialReportSkeleton } from "./financial-report-skeleton";
 
 export function AdmissionPaymentReportContent() {
-  const [reportData, setReportData] = useState<AdmissionPaymentReport | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [dateRange, setDateRange] = useState<DateRangeFilter | undefined>()
-  const [selectedStatus, setSelectedStatus] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<'name' | 'totalFees' | 'outstanding'>('outstanding')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [reportData, setReportData] = useState<AdmissionPaymentReport | null>(
+    null
+  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeFilter | undefined>();
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"name" | "totalFees" | "outstanding">(
+    "outstanding"
+  );
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  const fetchReportData = useCallback(async () => {
+  const fetchReportData = useCallback(async (filters: any) => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
-      const filters = {
-        dateRange,
-        search: searchTerm || undefined,
-      }
-
-      const result = await getAdmissionPaymentReport(filters)
+      const result = await getAdmissionPaymentReport(filters);
 
       if (result?.data) {
-        setReportData(result.data)
+        setReportData(result.data);
       } else {
-        setError('Failed to load admission payment report data')
+        setError("Failed to load admission payment report data");
       }
     } catch (err) {
-      setError('An error occurred while loading the report')
-      console.error('Error fetching admission payment report:', err)
+      setError("An error occurred while loading the report");
+      console.error("Error fetching admission payment report:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [dateRange, searchTerm])
+  }, []); // stays empty because no closures used
 
   const handleExportCSV = async () => {
     try {
       const filters = {
         dateRange,
         search: searchTerm || undefined,
-      }
+      };
 
       const result = await exportFinancialReportCSV({
-        reportType: 'admission-payment',
-        filters
-      })
+        reportType: "admission-payment",
+        filters,
+      });
 
       if (result?.data) {
+        console.log("report", result.data);
         // Create and download CSV file
         const csvContent = [
-          result.data.headers.join(','),
-          ...result.data.rows.map(row => row.join(','))
-        ].join('\n')
+          result.data.headers.map((h) => `"${h}"`).join(","),
+          ...result.data.rows.map((row) =>
+            row
+              .map((cell) => {
+                // remove currency formatting if present
+                if (typeof cell === "string" && cell.startsWith("₹")) {
+                  return `"${cell.replace(/₹|,/g, "")}"`; // becomes: 56000
+                }
+                return `"${cell}"`;
+              })
+              .join(",")
+          ),
+        ].join("\n");
 
-        const blob = new Blob([csvContent], { type: 'text/csv' })
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = result.data.filename
-        a.click()
-        window.URL.revokeObjectURL(url)
+        const blob = new Blob([csvContent], { type: "text/csv" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = result.data.filename;
+        a.click();
+        window.URL.revokeObjectURL(url);
       }
     } catch (err) {
-      console.error('Error exporting CSV:', err)
+      console.error("Error exporting CSV:", err);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchReportData()
-  }, [dateRange, searchTerm, fetchReportData])
+    const filters = {
+      dateRange,
+      search: searchTerm || undefined,
+    };
+
+    const debounce = setTimeout(() => {
+      fetchReportData(filters);
+    }, 400);
+
+    return () => clearTimeout(debounce);
+  }, [dateRange, searchTerm]);
 
   // Filter and sort students
   const filteredAndSortedStudents = reportData?.students
-    .filter(student => {
-      if (selectedStatus !== 'all' && student.status !== selectedStatus) return false
-      return true
+    .filter((student) => {
+      if (selectedStatus !== "all" && student.status !== selectedStatus)
+        return false;
+      return true;
     })
     .sort((a, b) => {
-      let valueA: number | string, valueB: number | string
+      let valueA: number | string, valueB: number | string;
 
       switch (sortBy) {
-        case 'name':
-          valueA = a.studentName.toLowerCase()
-          valueB = b.studentName.toLowerCase()
-          return sortOrder === 'asc'
+        case "name":
+          valueA = a.studentName.toLowerCase();
+          valueB = b.studentName.toLowerCase();
+          return sortOrder === "asc"
             ? valueA.localeCompare(valueB)
-            : valueB.localeCompare(valueA)
-        case 'totalFees':
-          valueA = a.totalFees
-          valueB = b.totalFees
-          break
-        case 'outstanding':
-          valueA = a.outstandingAmount
-          valueB = b.outstandingAmount
-          break
+            : valueB.localeCompare(valueA);
+        case "totalFees":
+          valueA = a.totalFees;
+          valueB = b.totalFees;
+          break;
+        case "outstanding":
+          valueA = a.outstandingAmount;
+          valueB = b.outstandingAmount;
+          break;
         default:
-          valueA = a.outstandingAmount
-          valueB = b.outstandingAmount
+          valueA = a.outstandingAmount;
+          valueB = b.outstandingAmount;
       }
 
-      return sortOrder === 'asc' ? valueA - valueB : valueB - valueA
-    })
+      return sortOrder === "asc" ? valueA - valueB : valueB - valueA;
+    });
 
   if (loading) {
-    return <FinancialReportSkeleton />
+    return <FinancialReportSkeleton />;
   }
 
   if (error) {
@@ -138,7 +174,9 @@ export function AdmissionPaymentReportContent() {
         <CardContent className="p-6">
           <div className="text-center text-muted-foreground">
             <IconCash className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold mb-2 text-destructive">Error Loading Report</h3>
+            <h3 className="text-lg font-semibold mb-2 text-destructive">
+              Error Loading Report
+            </h3>
             <p className="text-sm mb-4">{error}</p>
             <Button onClick={fetchReportData} variant="outline" size="sm">
               <IconRefresh className="h-4 w-4 mr-2" />
@@ -147,7 +185,7 @@ export function AdmissionPaymentReportContent() {
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   if (!reportData) {
@@ -157,53 +195,57 @@ export function AdmissionPaymentReportContent() {
           <div className="text-center text-muted-foreground">
             <IconCash className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
-            <p className="text-sm">No admission payment data found for the selected period.</p>
+            <p className="text-sm">
+              No admission payment data found for the selected period.
+            </p>
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'fully_paid':
-        return <IconCircleCheck className="h-4 w-4 text-green-600" />
-      case 'partially_paid':
-        return <IconClock className="h-4 w-4 text-yellow-600" />
-      case 'overdue':
-        return <IconAlertTriangle className="h-4 w-4 text-red-600" />
-      case 'pending':
-        return <IconMinus className="h-4 w-4 text-gray-600" />
+      case "fully_paid":
+        return <IconCircleCheck className="h-4 w-4 text-green-600" />;
+      case "partially_paid":
+        return <IconClock className="h-4 w-4 text-yellow-600" />;
+      case "overdue":
+        return <IconAlertTriangle className="h-4 w-4 text-red-600" />;
+      case "pending":
+        return <IconMinus className="h-4 w-4 text-gray-600" />;
       default:
-        return <IconMinus className="h-4 w-4 text-gray-600" />
+        return <IconMinus className="h-4 w-4 text-gray-600" />;
     }
-  }
+  };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'fully_paid':
-        return 'default'
-      case 'partially_paid':
-        return 'secondary'
-      case 'overdue':
-        return 'destructive'
-      case 'pending':
-        return 'outline'
+      case "fully_paid":
+        return "default";
+      case "partially_paid":
+        return "secondary";
+      case "overdue":
+        return "destructive";
+      case "pending":
+        return "outline";
       default:
-        return 'outline'
+        return "outline";
     }
-  }
+  };
 
   const formatStatus = (status: string) => {
-    return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-  }
+    return status.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Admission Payment Report</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Admission Payment Report
+          </h1>
           <p className="text-muted-foreground">
             Comprehensive payment tracking and fee collection analysis
           </p>
@@ -248,10 +290,7 @@ export function AdmissionPaymentReportContent() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Date Range</label>
-              <DatePickerWithRange
-                value={dateRange}
-                onChange={setDateRange}
-              />
+              <DatePickerWithRange value={dateRange} onChange={setDateRange} />
             </div>
 
             <div className="space-y-2">
@@ -272,12 +311,19 @@ export function AdmissionPaymentReportContent() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Sort By</label>
-              <Select value={sortBy} onValueChange={(value: 'name' | 'totalFees' | 'outstanding') => setSortBy(value)}>
+              <Select
+                value={sortBy}
+                onValueChange={(value: "name" | "totalFees" | "outstanding") =>
+                  setSortBy(value)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="outstanding">Outstanding Amount</SelectItem>
+                  <SelectItem value="outstanding">
+                    Outstanding Amount
+                  </SelectItem>
                   <SelectItem value="totalFees">Total Fees</SelectItem>
                   <SelectItem value="name">Student Name</SelectItem>
                 </SelectContent>
@@ -286,7 +332,10 @@ export function AdmissionPaymentReportContent() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Order</label>
-              <Select value={sortOrder} onValueChange={(value: 'asc' | 'desc') => setSortOrder(value)}>
+              <Select
+                value={sortOrder}
+                onValueChange={(value: "asc" | "desc") => setSortOrder(value)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -308,8 +357,12 @@ export function AdmissionPaymentReportContent() {
             <IconTrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(reportData.totalCollected)}</div>
-            <p className="text-xs text-muted-foreground">Total payments received</p>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(reportData.totalCollected)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Total payments received
+            </p>
           </CardContent>
         </Card>
 
@@ -319,7 +372,9 @@ export function AdmissionPaymentReportContent() {
             <IconAlertTriangle className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{formatCurrency(reportData.totalOutstanding)}</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {formatCurrency(reportData.totalOutstanding)}
+            </div>
             <p className="text-xs text-muted-foreground">Pending collections</p>
           </CardContent>
         </Card>
@@ -330,8 +385,12 @@ export function AdmissionPaymentReportContent() {
             <IconAlertTriangle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{formatCurrency(reportData.totalOverdue)}</div>
-            <p className="text-xs text-muted-foreground">Requires immediate attention</p>
+            <div className="text-2xl font-bold text-red-600">
+              {formatCurrency(reportData.totalOverdue)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Requires immediate attention
+            </p>
           </CardContent>
         </Card>
 
@@ -341,7 +400,9 @@ export function AdmissionPaymentReportContent() {
             <IconUsers className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{reportData.students.length}</div>
+            <div className="text-2xl font-bold">
+              {reportData.students.length}
+            </div>
             <p className="text-xs text-muted-foreground">Active admissions</p>
           </CardContent>
         </Card>
@@ -367,64 +428,108 @@ export function AdmissionPaymentReportContent() {
             <CardContent>
               <div className="space-y-4">
                 {filteredAndSortedStudents?.map((student, index) => (
-                  <div key={index} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div
+                    key={index}
+                    className="border rounded-lg p-6 hover:shadow-md transition-shadow"
+                  >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-4">
                         <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                           <IconUsers className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                          <h4 className="text-lg font-semibold">{student.studentName}</h4>
-                          <p className="text-sm text-muted-foreground">ID: {student.admissionId}</p>
+                          <h4 className="text-lg font-semibold">
+                            {student.studentName}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            ID: {student.admissionId}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={getStatusBadgeVariant(student.status)} className="flex items-center gap-1">
+                        <Badge
+                          variant={getStatusBadgeVariant(student.status)}
+                          className="flex items-center gap-1"
+                        >
                           {getStatusIcon(student.status)}
                           {formatStatus(student.status)}
                         </Badge>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">{formatCurrency(student.totalFees)}</div>
-                        <p className="text-sm text-muted-foreground">Total Fees</p>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {formatCurrency(student.totalFees)}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Total Fees
+                        </p>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">{formatCurrency(student.paidAmount)}</div>
-                        <p className="text-sm text-muted-foreground">Paid Amount</p>
+                        <div className="text-2xl font-bold text-green-600">
+                          {formatCurrency(student.paidAmount)}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Paid Amount
+                        </p>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-orange-600">{formatCurrency(student.outstandingAmount)}</div>
-                        <p className="text-sm text-muted-foreground">Outstanding</p>
+                        <div className="text-2xl font-bold text-orange-600">
+                          {formatCurrency(student.outstandingAmount)}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Outstanding
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {formatCurrency(student.agentDiscount)}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Agent Discount
+                        </p>
                       </div>
                       <div className="text-center">
                         <div className="text-2xl font-bold text-purple-600">
-                          {student.nextDueDate ? formatDate(student.nextDueDate) : 'N/A'}
+                          {student.nextDueDate
+                            ? formatDate(student.nextDueDate)
+                            : "N/A"}
                         </div>
-                        <p className="text-sm text-muted-foreground">Next Due Date</p>
+                        <p className="text-sm text-muted-foreground">
+                          Next Due Date
+                        </p>
                       </div>
                     </div>
 
                     {/* Payment History */}
                     {student.paymentHistory.length > 0 && (
                       <div className="mt-4 pt-4 border-t">
-                        <h5 className="text-sm font-semibold mb-2">Recent Payments</h5>
+                        <h5 className="text-sm font-semibold mb-2">
+                          Recent Payments
+                        </h5>
                         <div className="space-y-2">
-                          {student.paymentHistory.slice(0, 3).map((payment, paymentIndex) => (
-                            <div key={paymentIndex} className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">
-                                {formatDate(payment.paymentDate)} - {payment.receiptNumber}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{formatCurrency(payment.amount)}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {payment.paymentMode}
-                                </Badge>
+                          {student.paymentHistory
+                            .slice(0, 3)
+                            .map((payment, paymentIndex) => (
+                              <div
+                                key={paymentIndex}
+                                className="flex items-center justify-between text-sm"
+                              >
+                                <span className="text-muted-foreground">
+                                  {formatDate(payment.paymentDate)} -{" "}
+                                  {payment.receiptNumber}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">
+                                    {formatCurrency(payment.amount)}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {payment.paymentMode}
+                                  </Badge>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
                           {student.paymentHistory.length > 3 && (
                             <p className="text-xs text-muted-foreground">
                               +{student.paymentHistory.length - 3} more payments
@@ -456,17 +561,21 @@ export function AdmissionPaymentReportContent() {
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-lg font-semibold">{mode.mode}</h4>
                       <Badge variant="outline">
-                        {mode.count} transaction{mode.count !== 1 ? 's' : ''}
+                        {mode.count} transaction{mode.count !== 1 ? "s" : ""}
                       </Badge>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="text-center p-4 rounded-lg bg-blue-50 border border-blue-200">
-                        <div className="text-2xl font-bold text-blue-600">{formatCurrency(mode.amount)}</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {formatCurrency(mode.amount)}
+                        </div>
                         <p className="text-sm text-blue-700">Total Amount</p>
                       </div>
                       <div className="text-center p-4 rounded-lg bg-green-50 border border-green-200">
-                        <div className="text-2xl font-bold text-green-600">{mode.count}</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {mode.count}
+                        </div>
                         <p className="text-sm text-green-700">Transactions</p>
                       </div>
                     </div>
@@ -492,11 +601,20 @@ export function AdmissionPaymentReportContent() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-4 font-semibold">Student</th>
-                      <th className="text-center p-4 font-semibold">Total Fees</th>
+                      <th className="text-center p-4 font-semibold">
+                        Total Fees
+                      </th>
                       <th className="text-center p-4 font-semibold">Paid</th>
-                      <th className="text-center p-4 font-semibold">Outstanding</th>
+                      <th className="text-center p-4 font-semibold">
+                        Outstanding
+                      </th>
+                      <th className="text-center p-4 font-semibold">
+                        Agent Discount
+                      </th>
                       <th className="text-center p-4 font-semibold">Status</th>
-                      <th className="text-center p-4 font-semibold">Next Due</th>
+                      <th className="text-center p-4 font-semibold">
+                        Next Due
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -508,22 +626,40 @@ export function AdmissionPaymentReportContent() {
                               <IconUsers className="h-4 w-4 text-primary" />
                             </div>
                             <div>
-                              <div className="font-medium">{student.studentName}</div>
-                              <div className="text-sm text-muted-foreground">{student.admissionId}</div>
+                              <div className="font-medium">
+                                {student.studentName}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {student.admissionId}
+                              </div>
                             </div>
                           </div>
                         </td>
-                        <td className="text-center p-4 font-medium">{formatCurrency(student.totalFees)}</td>
-                        <td className="text-center p-4 font-medium text-green-600">{formatCurrency(student.paidAmount)}</td>
-                        <td className="text-center p-4 font-medium text-orange-600">{formatCurrency(student.outstandingAmount)}</td>
+                        <td className="text-center p-4 font-medium">
+                          {formatCurrency(student.totalFees)}
+                        </td>
+                        <td className="text-center p-4 font-medium text-green-600">
+                          {formatCurrency(student.paidAmount)}
+                        </td>
+                        <td className="text-center p-4 font-medium text-orange-600">
+                          {formatCurrency(student.outstandingAmount)}
+                        </td>
+                        <td className="text-center p-4 font-medium text-blue-600">
+                          {formatCurrency(student.agentDiscount)}
+                        </td>
                         <td className="text-center p-4">
-                          <Badge variant={getStatusBadgeVariant(student.status)} className="flex items-center gap-1 w-fit mx-auto">
+                          <Badge
+                            variant={getStatusBadgeVariant(student.status)}
+                            className="flex items-center gap-1 w-fit mx-auto"
+                          >
                             {getStatusIcon(student.status)}
                             {formatStatus(student.status)}
                           </Badge>
                         </td>
                         <td className="text-center p-4 font-medium">
-                          {student.nextDueDate ? formatDate(student.nextDueDate) : 'N/A'}
+                          {student.nextDueDate
+                            ? formatDate(student.nextDueDate)
+                            : "N/A"}
                         </td>
                       </tr>
                     ))}
@@ -535,5 +671,5 @@ export function AdmissionPaymentReportContent() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

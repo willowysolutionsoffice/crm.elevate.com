@@ -62,37 +62,55 @@ export function PendingPaymentReportContent() {
     }
   }, [dateRange, searchTerm])
 
-  const handleExportCSV = async () => {
-    try {
-      const filters = {
-        dateRange,
-        search: searchTerm || undefined,
-      }
-
-      const result = await exportFinancialReportCSV({
-        reportType: 'pending-payment',
-        filters
-      })
-
-      if (result?.data) {
-        // Create and download CSV file
-        const csvContent = [
-          result.data.headers.join(','),
-          ...result.data.rows.map(row => row.join(','))
-        ].join('\n')
-
-        const blob = new Blob([csvContent], { type: 'text/csv' })
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = result.data.filename
-        a.click()
-        window.URL.revokeObjectURL(url)
-      }
-    } catch (err) {
-      console.error('Error exporting CSV:', err)
+const handleExportCSV = async () => {
+  try {
+    const filters = {
+      dateRange,
+      search: searchTerm || undefined,
     }
+
+    const result = await exportFinancialReportCSV({
+      reportType: 'pending-payment',
+      filters
+    })
+
+    if (result?.data) {
+      console.log("CSV DATA:", result.data)
+
+      const csvContent = [
+        // quote headers
+        result.data.headers.map(h => `"${h}"`).join(','),
+        
+        // process each row
+        ...result.data.rows.map(row => 
+          row.map(cell => {
+            if (typeof cell === 'string') {
+              // if formatted currency → strip ₹ and commas
+              if (cell.startsWith('₹')) {
+                return `"${cell.replace(/₹|,/g, '')}"`
+              }
+              // quote all strings
+              return `"${cell}"`
+            }
+            // quote numeric or other values too
+            return `"${cell}"`
+          }).join(',')
+        )
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.data.filename
+      a.click()
+      window.URL.revokeObjectURL(url)
+    }
+  } catch (err) {
+    console.error('Error exporting CSV:', err)
   }
+}
+
 
   useEffect(() => {
     fetchReportData()
@@ -394,10 +412,14 @@ export function PendingPaymentReportContent() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="grid grid-cols-4 gap-4 text-center">
                       <div className="p-3 rounded-lg bg-red-50 border border-red-200">
                         <div className="text-lg font-bold text-red-600">{formatCurrency(student.outstandingAmount)}</div>
                         <p className="text-sm text-red-700">Outstanding</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+                        <div className="text-lg font-bold text-yellow-600">{formatCurrency(student.agentDiscount)}</div>
+                        <p className="text-sm text-yellow-700">Agent Discount</p>
                       </div>
                       <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
                         <div className="text-lg font-bold text-orange-600">{student.daysOverdue}</div>
@@ -585,6 +607,7 @@ export function PendingPaymentReportContent() {
                       <th className="text-left p-4 font-semibold">Student</th>
                       <th className="text-left p-4 font-semibold">Course</th>
                       <th className="text-center p-4 font-semibold">Outstanding</th>
+                      <th className="text-center p-4 font-semibold">Agent Discount</th>
                       <th className="text-center p-4 font-semibold">Days Overdue</th>
                       <th className="text-center p-4 font-semibold">Priority</th>
                       <th className="text-center p-4 font-semibold">Last Payment</th>
@@ -611,6 +634,9 @@ export function PendingPaymentReportContent() {
                         </td>
                         <td className="text-center p-4 font-medium text-red-600">
                           {formatCurrency(student.outstandingAmount)}
+                        </td>
+                        <td className="text-center p-4 font-medium text-yellow-600">
+                          {formatCurrency(student.agentDiscount)}
                         </td>
                         <td className="text-center p-4">
                           <Badge variant="outline" className={

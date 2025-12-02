@@ -77,43 +77,55 @@ export function InvoiceReportContent() {
     handleFilterChange('search', e.target.value)
   }, [handleFilterChange])
 
-  const handleExportCSV = () => {
-    if (!reportData) return
+const handleExportCSV = () => {
+  if (!reportData) return
 
-    const csvData = [
-      ['Invoice Report', '', '', ''],
-      ['Generated At', new Date().toLocaleString(), '', ''],
-      ['Date Range', `${format(filters.dateRange?.from || new Date(), 'MMM dd, yyyy')} - ${format(filters.dateRange?.to || new Date(), 'MMM dd, yyyy')}`, '', ''],
-      ['', '', '', ''],
-      ['Status Breakdown', '', '', ''],
-      ['Status', 'Count', 'Amount', 'Percentage'],
-      ...reportData.statusBreakdown.map(status => [
-        status.status,
-        status.count.toString(),
-        `₹${status.totalAmount.toLocaleString()}`,
-        `${status.percentage}%`
-      ]),
-      ['', '', '', ''],
-      ['Aging Analysis', '', '', ''],
-      ['Range', 'Count', 'Amount', ''],
-      ...reportData.agingAnalysis.map(aging => [
-        aging.range,
-        aging.count.toString(),
-        `₹${aging.amount.toLocaleString()}`,
-        ''
-      ])
-    ]
+  const csvData = [
+    ['Invoice Report', '', '', ''],
+    ['Generated At', new Date().toLocaleString(), '', ''],
+    ['Date Range', `${format(filters.dateRange?.from || new Date(), 'MMM dd, yyyy')} - ${format(filters.dateRange?.to || new Date(), 'MMM dd, yyyy')}`, '', ''],
+    ['', '', '', ''],
+    ['Status Breakdown', '', '', ''],
+    ['Status', 'Count', 'Amount', 'Percentage'],
+    ...reportData.statusBreakdown.map(status => [
+      status.status,
+      status.count.toString(),
+      status.totalAmount,      // numeric
+      status.percentage
+    ]),
+    ['', '', '', ''],
+    ['Aging Analysis', '', '', ''],
+    ['Range', 'Count', 'Amount', ''],
+    ...reportData.agingAnalysis.map(aging => [
+      aging.range,
+      aging.count.toString(),
+      aging.amount,            // numeric
+      ''
+    ])
+  ]
 
-    const csvContent = csvData.map(row => row.join(',')).join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `invoice-report-${format(new Date(), 'yyyy-MM-dd')}.csv`
-    a.click()
-    window.URL.revokeObjectURL(url)
-    toast.success('Report exported successfully')
-  }
+  const csvContent = csvData
+    .map(row =>
+      row
+        .map(cell => {
+          if (typeof cell === 'string' && cell.startsWith('₹')) {
+            return `"${cell.replace(/₹|,/g, '')}"`
+          }
+          return `"${cell}"`
+        })
+        .join(',')
+    )
+    .join('\n')
+
+  const blob = new Blob([csvContent], { type: 'text/csv' })
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `invoice-report-${format(new Date(), 'yyyy-MM-dd')}.csv`
+  a.click()
+  window.URL.revokeObjectURL(url)
+  toast.success('Report exported successfully')
+}
 
   const getStatusColor = (status: string) => {
     switch (status) {

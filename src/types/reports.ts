@@ -158,6 +158,7 @@ export interface AdmissionPaymentDetails {
   admissionId: string;
   totalFees: number;
   paidAmount: number;
+  agentDiscount: number;
   outstandingAmount: number;
   nextDueDate: Date | null;
   paymentHistory: {
@@ -273,6 +274,7 @@ export interface PendingPaymentDetails {
   contactNumber: string;
   course: string;
   outstandingAmount: number;
+  agentDiscount: number;
   daysOverdue: number;
   lastPaymentDate: Date | null;
   nextDueDate: Date;

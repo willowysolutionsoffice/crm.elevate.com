@@ -460,7 +460,16 @@ export const getAdmissionPaymentReport = executiveActionClient
   select: { id: true },
 });
 
+console.log('filters',dateFilter)
+
 const validCourseIds = existingCourses.map(c => c.id);
+
+const allAdmissions = await prisma.admission.findMany({
+  where: {
+    courseId: { in: validCourseIds },
+  },
+});
+
 
     const admissions = await prisma.admission.findMany({
       where: {
@@ -481,6 +490,7 @@ const validCourseIds = existingCourses.map(c => c.id);
     });
 
     const students = admissions.map((admission) => {
+      const agentDiscount = admission.agentCommission || 0;
       const totalPaid = admission.receipts.reduce(
         (sum: number, receipt) => sum + receipt.amountCollected,
         0
@@ -490,7 +500,7 @@ const validCourseIds = existingCourses.map(c => c.id);
         (admission.course.courseFee || 0) +
         (admission.course.admissionFee || 0) +
         (admission.course.semesterFee || 0);
-      const outstanding = totalFees - totalPaid;
+      const outstanding = totalFees - totalPaid - agentDiscount;
 
       let status: 'fully_paid' | 'partially_paid' | 'overdue' | 'pending';
       if (outstanding <= 0) {
@@ -508,6 +518,7 @@ const validCourseIds = existingCourses.map(c => c.id);
         studentName: admission.candidateName,
         admissionId: admission.id,
         totalFees,
+        agentDiscount,
         paidAmount: totalPaid,
         outstandingAmount: outstanding,
         nextDueDate: admission.nextDueDate,
@@ -554,6 +565,8 @@ const validCourseIds = existingCourses.map(c => c.id);
       filters,
     };
 
+    console.log("all",allAdmissions)
+    console.log("students",students)
     return report;
   });
 
@@ -920,6 +933,7 @@ export const getIncomeReport = executiveActionClient
 export const getPendingPaymentReport = executiveActionClient
   .schema(reportFiltersSchema)
   .action(async ({ parsedInput: filters }) => {
+
     const existingCourses = await prisma.course.findMany({
   select: { id: true },
 });
@@ -950,12 +964,13 @@ const validCourseIds = existingCourses.map(c => c.id);
           (sum, receipt) => sum + receipt.amountCollected,
           0
         );
+        const agentDiscount = admission.agentCommission || 0;
         // Calculate total fees from course instead of non-existent totalFees field
         const totalFees =
           (admission.course.courseFee || 0) +
           (admission.course.admissionFee || 0) +
           (admission.course.semesterFee || 0);
-        const outstanding = totalFees - totalPaid;
+        const outstanding = totalFees - totalPaid - agentDiscount;
         const lastPayment = admission.receipts[0];
 
         if (outstanding <= 0) return null; // Fully paid
@@ -981,6 +996,7 @@ const validCourseIds = existingCourses.map(c => c.id);
           contactNumber: admission.enquiry?.candidateName || 'N/A', // Use candidateName as contact info isn't available in enquiry
           course: admission.course.name,
           outstandingAmount: outstanding,
+          agentDiscount,
           daysOverdue,
           lastPaymentDate: lastPayment?.createdAt || null,
           nextDueDate: admission.nextDueDate || new Date(),
@@ -1119,11 +1135,16 @@ export const exportFinancialReportCSV = executiveActionClient
   .action(async ({ parsedInput: { reportType, filters } }) => {
     const dateFilter = await getDateRangeFilter(filters.dateRange);
     let csvData: CSVExportData;
+const existingCourses = await prisma.course.findMany({
+  select: { id: true },
+});
 
+const validCourseIds = existingCourses.map(c => c.id);
     switch (reportType) {
       case 'admission-payment':
         const admissions = await prisma.admission.findMany({
           where: {
+            courseId:{in:validCourseIds},
             createdAt: dateFilter,
             ...(filters.search && {
               OR: [
@@ -1146,6 +1167,7 @@ export const exportFinancialReportCSV = executiveActionClient
             'Total Fees',
             'Paid Amount',
             'Outstanding',
+            'Agent Discount',
             'Status',
           ],
           rows: admissions.map((admission) => {
@@ -1153,11 +1175,12 @@ export const exportFinancialReportCSV = executiveActionClient
               (sum, receipt) => sum + receipt.amountCollected,
               0
             );
+            const agentDiscount = admission.agentCommission || 0;
             const totalFees =
               (admission.course.courseFee || 0) +
               (admission.course.admissionFee || 0) +
               (admission.course.semesterFee || 0);
-            const outstanding = totalFees - totalPaid;
+            const outstanding = totalFees - totalPaid - agentDiscount;
 
             let status: string;
             if (outstanding <= 0) status = 'fully_paid';
@@ -1172,6 +1195,7 @@ export const exportFinancialReportCSV = executiveActionClient
               formatCurrency(totalFees),
               formatCurrency(totalPaid),
               formatCurrency(outstanding),
+              formatCurrency(agentDiscount),
               status,
             ];
           }),
@@ -1213,6 +1237,7 @@ export const exportFinancialReportCSV = executiveActionClient
       case 'pending-payment':
         const pendingAdmissions = await prisma.admission.findMany({
           where: {
+            courseId:{ in:validCourseIds },
             ...(filters.search && {
               OR: [
                 { candidateName: { contains: filters.search, mode: 'insensitive' } },
@@ -1236,7 +1261,8 @@ export const exportFinancialReportCSV = executiveActionClient
               (admission.course.courseFee || 0) +
               (admission.course.admissionFee || 0) +
               (admission.course.semesterFee || 0);
-            const outstanding = totalFees - totalPaid;
+              const agentDiscount = admission.agentCommission || 0;
+              const outstanding = totalFees - totalPaid - agentDiscount;
 
             if (outstanding <= 0) return null;
 
@@ -1259,6 +1285,7 @@ export const exportFinancialReportCSV = executiveActionClient
               admission.candidateName,
               admission.course.name,
               formatCurrency(outstanding),
+              formatCurrency(agentDiscount),
               daysOverdue.toString(),
               priority,
             ];
@@ -1267,7 +1294,7 @@ export const exportFinancialReportCSV = executiveActionClient
 
         csvData = {
           filename: `pending-payment-report-${formatDate(new Date())}.csv`,
-          headers: ['Student Name', 'Course', 'Outstanding Amount', 'Days Overdue', 'Priority'],
+          headers: ['Student Name', 'Course', 'Outstanding Amount', 'Agent Discount', 'Days Overdue', 'Priority'],
           rows: pendingStudents,
         };
         break;
