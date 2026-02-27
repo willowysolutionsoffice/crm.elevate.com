@@ -6,6 +6,7 @@ A modern, scalable Customer Relationship Management (CRM) dashboard built with N
 
 This project follows a well-structured, maintainable architecture with clear separation of concerns:
 
+
 ```
 src/
 ├── app/                    # Next.js App Router
