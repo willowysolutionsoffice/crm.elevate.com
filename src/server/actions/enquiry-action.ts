@@ -32,7 +32,7 @@ const createEnquirySchema = z.object({
   email: z.string().email('Valid email is required').optional().or(z.literal('')),
   address: z.string().optional(),
   enquirySourceId: z.string().min(1, 'Please select an enquiry source'),
-  branchId: z.string().min(1, 'Please select a branch'),
+  branchId: z.string().optional(),
   preferredCourseId: z.string().optional(),
   requiredServiceId: z.string().optional(),
   notes: z.string().optional(),
@@ -65,6 +65,18 @@ export const createEnquiry = action.schema(createEnquirySchema).action(async ({ 
   try {
     const user = await getCurrentUser();
 
+    // Resolve branchId from current user session if user is a telecaller or executive
+    let branchId = parsedInput.branchId;
+    if (user.role === 'telecaller' || user.role === 'executive') {
+      if (user.branch) {
+        branchId = user.branch;
+      }
+    }
+
+    if (!branchId) {
+      throw new Error('Branch is required');
+    }
+
     const enquiry = await prisma.enquiry.create({
       data: {
         candidateName: parsedInput.candidateName,
@@ -74,7 +86,7 @@ export const createEnquiry = action.schema(createEnquirySchema).action(async ({ 
         address: parsedInput.address,
         notes: parsedInput.notes,
         status: EnquiryStatus.NEW,
-        branch: parsedInput.branchId ? { connect: { id: parsedInput.branchId } } : undefined,
+        branch: { connect: { id: branchId } },
         preferredCourse: parsedInput.preferredCourseId
           ? { connect: { id: parsedInput.preferredCourseId } }
           : undefined,
@@ -84,8 +96,8 @@ export const createEnquiry = action.schema(createEnquirySchema).action(async ({ 
         requiredService: parsedInput.requiredServiceId
           ? { connect: { id: parsedInput.requiredServiceId } }
           : undefined,
-        // Auto-assign to current user - REMOVED per request
-        // assignedTo: { connect: { id: user.id } },
+        // Auto-assign to current user if telecaller
+        assignedTo: user.role === 'telecaller' ? { connect: { id: user.id } } : undefined,
         createdBy: { connect: { id: user.id } },
       },
       include: {

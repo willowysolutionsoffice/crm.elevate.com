@@ -69,7 +69,7 @@ const createEnquiryFormSchema = (userHasBranch: boolean) =>
     notes: z.string().optional(),
     feedback: z.string().optional(),
     enquirySourceId: z.string().min(1, "Please select an enquiry source"),
-    branchId: z.string().min(1, "Please select a branch"),
+    branchId: userHasBranch ? z.string().optional() : z.string().min(1, "Please select a branch"),
 
     preferredCourseId: z.string().optional(),
     requiredServiceId: z.string().optional(),
@@ -97,6 +97,7 @@ export function EnquiryFormDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [currentUser, setCurrentUser] = useState<{
+    role?: string | null;
     branch?: string | null;
   } | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
@@ -108,6 +109,8 @@ export function EnquiryFormDialog({
   const isEditMode = mode === "edit" && enquiry;
   const userBranch = currentUser?.branch;
   const userHasBranch = Boolean(userBranch);
+  const isTelecallerOrExecutive =
+    currentUser?.role === "telecaller" || currentUser?.role === "executive";
 
   // Get current user session
   useEffect(() => {
@@ -174,7 +177,7 @@ export function EnquiryFormDialog({
   // Update form values when enquiry changes (for edit mode) or when user data loads
   useEffect(() => {
     const shouldReset = enquiry && isEditMode;
-    const defaultBranchId = enquiry?.branchId || "";
+    const defaultBranchId = enquiry?.branchId || userBranch || "";
 
     if (shouldReset || (!enquiry && userBranch)) {
       form.reset({
@@ -243,7 +246,7 @@ export function EnquiryFormDialog({
     setIsProcessingAction(true);
 
     // Use user's branch if they have one and no branch is selected
-    const finalBranchId = data.branchId;
+    const finalBranchId = data.branchId || userBranch || undefined;
 
     // Ensure branchId is always a string for create action
     if (isEditMode && !finalBranchId) {
@@ -263,7 +266,7 @@ export function EnquiryFormDialog({
         phone: data.phone,
         status: data.status || EnquiryStatus.NEW,
         enquirySourceId: data.enquirySourceId,
-        branchId: finalBranchId || undefined,
+        branchId: finalBranchId,
         contact2: data.contact2 || undefined,
         email: data.email || undefined,
         address: data.address || undefined,
@@ -512,33 +515,48 @@ export function EnquiryFormDialog({
                   />
 
                   {/* Branch */}
-                  <FormField
-                    control={form.control}
-                    name="branchId"
-                    render={({ field }) => (
+                  {!isTelecallerOrExecutive ? (
+                    <FormField
+                      control={form.control}
+                      name="branchId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Branch *</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select branch" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {branches.map((branch) => (
+                                <SelectItem key={branch.id} value={branch.id}>
+                                  {branch.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
+                    userBranchName && (
                       <FormItem>
-                        <FormLabel>Branch *</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select branch" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {branches.map((branch) => (
-                              <SelectItem key={branch.id} value={branch.id}>
-                                {branch.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
+                        <FormLabel>Branch</FormLabel>
+                        <FormControl>
+                          <Input
+                            value={userBranchName}
+                            disabled
+                            className="bg-muted text-muted-foreground cursor-not-allowed"
+                          />
+                        </FormControl>
                       </FormItem>
-                    )}
-                  />
+                    )
+                  )}
 
                   {/* Preferred Course */}
                   <FormField
