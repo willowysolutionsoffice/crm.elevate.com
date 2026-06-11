@@ -113,8 +113,12 @@ export function EnquiryFormDialog({
   const isEditMode = mode === "edit" && enquiry;
   const userBranch = currentUser?.branch;
   const userHasBranch = Boolean(userBranch);
-  const isTelecallerOrExecutive =
-    currentUser?.role === "telecaller" || currentUser?.role === "executive";
+  const roleLower = (currentUser?.role || '').toLowerCase();
+  const isBranchScoped =
+    roleLower === "telecaller" ||
+    roleLower === "executive" ||
+    roleLower === "manager" ||
+    roleLower === "branch manager";
 
   // Get current user session
   useEffect(() => {
@@ -529,7 +533,7 @@ export function EnquiryFormDialog({
                   />
 
                   {/* Branch */}
-                  {!isTelecallerOrExecutive ? (
+                  {!isBranchScoped ? (
                     <FormField
                       control={form.control}
                       name="branchId"

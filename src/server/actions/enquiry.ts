@@ -181,9 +181,9 @@ export async function getEnquiries(filters: EnquiryFilters = {}): Promise<Action
 
     if (filters.isAssigned !== undefined) {
       if (filters.isAssigned) {
-        where.jobLeads = { some: {} };
+        where.assignedToUserId = { not: null };
       } else {
-        where.jobLeads = { none: {} };
+        where.assignedToUserId = null;
       }
     }
 
@@ -755,7 +755,8 @@ export async function assignEnquiry(
         where: { id },
         data: { 
           assignedToUserId,
-          assignedByUserId: user.id
+          assignedByUserId: user.id,
+          branchId
         },
       });
 
@@ -928,7 +929,8 @@ export async function bulkAssignEnquiries(
         },
         data: { 
           assignedToUserId,
-          assignedByUserId: user.id
+          assignedByUserId: user.id,
+          branchId
         },
       });
 

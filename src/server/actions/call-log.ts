@@ -131,14 +131,12 @@ export async function getCallLogs(filters: CallLogFilters = {}): Promise<ActionR
     } = {};
 
     // Role-based filtering
-    if (user.role === 'telecaller') {
+    const role = (user.role || '').toLowerCase();
+    if (role === 'telecaller') {
       where.enquiry = {
         assignedToUserId: user.id,
       };
-    }
-
-    // For executives, only show data from their assigned branch
-    if (user.role === 'executive' && user.branch) {
+    } else if ((role === 'executive' || role === 'manager' || role === 'branch manager') && user.branch) {
       where.enquiry = {
         ...where.enquiry,
         branchId: user.branch,

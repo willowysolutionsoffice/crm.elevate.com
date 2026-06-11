@@ -102,7 +102,7 @@ export default function EnquiriesPage() {
   const [selectedEnquiryIds, setSelectedEnquiryIds] = useState<string[]>([]);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
   const [bulkAssignBranchId, setBulkAssignBranchId] = useState<string | null>(null);
-  const [bulkBranchDialogOpen, setBulkBranchDialogOpen] = useState(false);
+
 
   // Filter states
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -179,29 +179,11 @@ export default function EnquiriesPage() {
       setSelectedEnquiryIds([]);
       setBulkAssignBranchId(null);
       setFilterAssigned(prevFilterAssigned);
-      if (filterBranchId === bulkAssignBranchId) {
-        setFilterBranchId('all');
-      }
     } else {
       setPrevFilterAssigned(filterAssigned);
-      if (userRole === 'admin' && filterBranchId === 'all') {
-        setBulkBranchDialogOpen(true);
-      } else {
-        if (filterBranchId !== 'all') {
-          setBulkAssignBranchId(filterBranchId);
-        }
-        setFilterAssigned('unassigned');
-        setIsBulkSelectionEnabled(true);
-      }
+      setFilterAssigned('unassigned');
+      setIsBulkSelectionEnabled(true);
     }
-  };
-
-  const handleBulkBranchSelect = (branchId: string) => {
-    setFilterBranchId(branchId);
-    setFilterAssigned('unassigned');
-    setBulkAssignBranchId(branchId);
-    setIsBulkSelectionEnabled(true);
-    setBulkBranchDialogOpen(false);
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -364,33 +346,7 @@ export default function EnquiriesPage() {
                   {isBulkSelectionEnabled ? 'Cancel Selection' : 'Bulk Assign'}
                 </Button>
 
-                {/* Branch Selection Dialog for Bulk Assign */}
-                <Dialog open={bulkBranchDialogOpen} onOpenChange={setBulkBranchDialogOpen}>
-                  <DialogContent className="sm:max-w-106.25">
-                    <DialogHeader>
-                      <DialogTitle>Select Branch</DialogTitle>
-                      <DialogDescription>
-                        Please select a branch to proceed with bulk assignment. All enquiries must belong to the same branch.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <Select
-                        onValueChange={handleBulkBranchSelect}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a branch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branches.map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id}>
-                              {branch.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+
 
                 {isBulkSelectionEnabled && selectedEnquiryIds.length > 0 && (
                   <Button onClick={handleBulkAssign}>

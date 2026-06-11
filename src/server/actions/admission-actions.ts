@@ -378,6 +378,18 @@ export const getAdmissions = actionClient
       // Build where clause
       const where: Prisma.AdmissionWhereInput = {};
 
+      const user = await getCurrentUser();
+      const role = (user.role || '').toLowerCase();
+
+      if (role === 'telecaller') {
+        where.createdByUserId = user.id;
+      } else if ((role === 'manager' || role === 'executive' || role === 'branch manager') && user.branch) {
+        where.OR = [
+          { enquiry: { branchId: user.branch } },
+          { createdBy: { branch: user.branch } }
+        ];
+      }
+
       // Add status filter (exclude cancelled by default)
       if (status) {
         where.status = status;

@@ -203,15 +203,13 @@ export const getExpensesAction = authActionClient
         select: { role: true, branch: true },
       });
 
-      if (user?.role === 'telecaller') {
+      const role = (user?.role || '').toLowerCase();
+      if (role === 'telecaller') {
         where.createdById = ctx.userId;
-      }
-
-      // For executives, only show expenses from their assigned branch
-      if (user?.role === 'executive' && user.branch) {
-        // Note: Expenses don't have direct branch relationship,
-        // but executives can see all expenses in their branch
-        // This would need to be implemented based on business logic
+      } else if ((role === 'executive' || role === 'manager' || role === 'branch manager') && user?.branch) {
+        where.createdBy = {
+          branch: user.branch,
+        };
       }
 
       const [expenses, total] = await Promise.all([
@@ -373,10 +371,17 @@ export const getExpensesByDateRangeAction = authActionClient
       // Role-based filtering
       const user = await prisma.user.findUnique({
         where: { id: ctx.userId },
-        select: { role: true },
+        select: { role: true, branch: true },
       });
 
-      if (user?.role !== 'admin') {
+      const role = (user?.role || '').toLowerCase();
+      if (role === 'admin') {
+        // Admin sees all
+      } else if ((role === 'executive' || role === 'manager' || role === 'branch manager') && user?.branch) {
+        where.createdBy = {
+          branch: user.branch,
+        };
+      } else {
         where.createdById = ctx.userId;
       }
 
@@ -425,10 +430,17 @@ export const getExpensesByCategoryAction = authActionClient
       // Role-based filtering
       const user = await prisma.user.findUnique({
         where: { id: ctx.userId },
-        select: { role: true },
+        select: { role: true, branch: true },
       });
 
-      if (user?.role !== 'admin') {
+      const role = (user?.role || '').toLowerCase();
+      if (role === 'admin') {
+        // Admin sees all
+      } else if ((role === 'executive' || role === 'manager' || role === 'branch manager') && user?.branch) {
+        where.createdBy = {
+          branch: user.branch,
+        };
+      } else {
         where.createdById = ctx.userId;
       }
 

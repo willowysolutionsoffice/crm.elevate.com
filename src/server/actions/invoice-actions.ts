@@ -281,6 +281,17 @@ export const getInvoices = action.schema(getInvoicesSchema).action(async ({ pars
     // Build where clause
     const where: Prisma.InvoiceWhereInput = {};
 
+    const user = await getCurrentUser();
+    const role = (user.role || '').toLowerCase();
+
+    if (role === 'telecaller') {
+      where.createdByUserId = user.id;
+    } else if ((role === 'manager' || role === 'executive' || role === 'branch manager') && user.branch) {
+      where.createdBy = {
+        branch: user.branch,
+      };
+    }
+
     if (parsedInput.search) {
       where.OR = [
         { invoiceNumber: { contains: parsedInput.search, mode: 'insensitive' } },

@@ -68,9 +68,10 @@ export const createEnquiry = action.schema(createEnquirySchema).action(async ({ 
   try {
     const user = await getCurrentUser();
 
-    // Resolve branchId from current user session if user is a telecaller or executive
+    // Resolve branchId from current user session if user is a telecaller, executive, manager, or branch manager
     let branchId = parsedInput.branchId;
-    if (user.role === 'telecaller' || user.role === 'executive') {
+    const userRole = (user.role || '').toLowerCase();
+    if (userRole === 'telecaller' || userRole === 'executive' || userRole === 'manager' || userRole === 'branch manager') {
       if (user.branch) {
         branchId = user.branch;
       }

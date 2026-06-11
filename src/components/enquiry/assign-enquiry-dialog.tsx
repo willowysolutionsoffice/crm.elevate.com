@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { authClient } from '@/lib/auth-client';
 import {
   Dialog,
   DialogContent,
@@ -55,6 +56,13 @@ export function AssignEnquiryDialog({
 }: AssignEnquiryDialogProps) {
   type AssignableUser = User & { branch?: string | null };
 
+  const [currentUser, setCurrentUser] = useState<{
+    id?: string | null;
+    role?: string | null;
+    branch?: string | null;
+  } | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
@@ -65,6 +73,28 @@ export function AssignEnquiryDialog({
   const [description, setDescription] = useState('');
   const [remarks, setRemarks] = useState('');
 
+  const isAdmin = (currentUser?.role || '').toLowerCase() === 'admin';
+
+  // Get current user session and branches
+  useEffect(() => {
+    const fetchSessionAndBranches = async () => {
+      try {
+        const session = await authClient.getSession();
+        setCurrentUser(session.data?.user || null);
+
+        const result = await getAllBranches();
+        if (result.success) {
+          setBranches((result.data as Branch[]) || []);
+        }
+      } catch (error) {
+        console.error('Error initializing dialog details:', error);
+      }
+    };
+    if (open) {
+      fetchSessionAndBranches();
+    }
+  }, [open]);
+
   useEffect(() => {
     if (open) {
       initializeDialog();
@@ -72,14 +102,26 @@ export function AssignEnquiryDialog({
   }, [open]);
 
   useEffect(() => {
-    if (open && fixedBranchId) {
-      fetchUsers(fixedBranchId);
+    if (open) {
+      if (fixedBranchId) {
+        setSelectedBranchId(fixedBranchId);
+      } else if (currentUser && currentUser.role !== 'admin' && currentUser.branch) {
+        setSelectedBranchId(currentUser.branch);
+      }
     }
-    console.log(fixedBranchId)
-  }, [open, fixedBranchId]);
+  }, [open, fixedBranchId, currentUser]);
+
+  useEffect(() => {
+    if (open && selectedBranchId) {
+      fetchUsers(selectedBranchId);
+    } else {
+      setUsers([]);
+    }
+  }, [open, selectedBranchId]);
 
   const initializeDialog = async () => {
     setSelectedUserId(null);
+    setSelectedBranchId(null);
     setStartDate(undefined);
     setEndDate(undefined);
     setJobName('');
@@ -128,8 +170,8 @@ export function AssignEnquiryDialog({
   });
 
   const handleAssignUser = async () => {
-    if (!fixedBranchId) {
-      toast.error('Branch context missing. Cannot assign.');
+    if (!selectedBranchId) {
+      toast.error('Branch selection is required');
       return;
     }
 
@@ -178,7 +220,7 @@ export function AssignEnquiryDialog({
           selectedUserId,
           startDate,
           endDate,
-          fixedBranchId, // Use prop directly
+          selectedBranchId,
           jobName.trim(),
           description || null,
           remarks || null
@@ -190,7 +232,7 @@ export function AssignEnquiryDialog({
           selectedUserId,
           startDate,
           endDate,
-          fixedBranchId, // Use prop directly
+          selectedBranchId,
           jobName.trim(),
           description || null,
           remarks || null
@@ -258,15 +300,41 @@ export function AssignEnquiryDialog({
             </div>
           </div>
 
-          {/* Branch - Read Only View */}
+          {/* Branch Selector */}
           <div className="space-y-2">
-            <Label htmlFor="branch">Branch</Label>
-            <Input
-              id="branch"
-              value={fixedBranchName}
-              disabled
-              className="bg-muted text-muted-foreground"
-            />
+            <Label htmlFor="branch">Branch *</Label>
+            {isAdmin ? (
+              <Select
+                value={selectedBranchId ?? ''}
+                onValueChange={(value) => {
+                  setSelectedBranchId(value);
+                  setSelectedUserId(null); // Reset user when branch changes
+                }}
+                disabled={isAssigning}
+              >
+                <SelectTrigger id="branch">
+                  <SelectValue placeholder="Select branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                id="branch"
+                value={
+                  fixedBranchName ||
+                  branches.find((b) => b.id === selectedBranchId)?.name ||
+                  'Your Branch'
+                }
+                disabled
+                className="bg-muted text-muted-foreground"
+              />
+            )}
           </div>
 
           {/* User */}
@@ -278,7 +346,7 @@ export function AssignEnquiryDialog({
               disabled={
                 isAssigning ||
                 isLoadingUsers ||
-                !fixedBranchId ||
+                !selectedBranchId ||
                 availableUsers.length === 0
               }
             >
@@ -287,10 +355,10 @@ export function AssignEnquiryDialog({
                   placeholder={
                     isLoadingUsers
                       ? 'Loading...'
-                      : !fixedBranchId
-                        ? 'Missing branch context'
+                      : !selectedBranchId
+                        ? 'Select a branch first'
                         : availableUsers.length === 0
-                          ? 'No users'
+                          ? 'No users in this branch'
                           : 'Select user'
                   }
                 />
@@ -401,7 +469,7 @@ export function AssignEnquiryDialog({
               !selectedUserId ||
               !startDate ||
               !endDate ||
-              !fixedBranchId ||
+              !selectedBranchId ||
               !jobName.trim()
             }
           >
