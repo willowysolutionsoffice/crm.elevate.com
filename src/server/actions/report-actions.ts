@@ -48,8 +48,8 @@ async function getUserAccessibleData(userId: string, userRole: string, userBranc
     baseFilter.assignedToUserId = userId;
   }
 
-  // For executives, only show data from their assigned branch
-  if (userRole === 'executive' && userBranch) {
+  // For executives and managers, only show data from their assigned branch
+  if (['executive', 'manager', 'branch manager'].includes(userRole) && userBranch) {
     baseFilter.branchId = userBranch;
   }
 

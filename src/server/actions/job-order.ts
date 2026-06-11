@@ -253,7 +253,7 @@ export async function getJobOrders(filters?: {
       if (filters?.managerId && filters.managerId !== 'all') {
         where.managerId = filters.managerId;
       }
-    } else if (user.role === 'manager') {
+    } else if (user.role === 'manager' || user.role === 'executive' || user.role === 'branch manager') {
       if (user.branch) {
         where.branchId = user.branch;
       } else {
@@ -448,7 +448,7 @@ export async function getJobOrder(id: string): Promise<ActionResponse> {
     // Role-based access control
     if (user.role === 'admin') {
       // Admin has full access
-    } else if (user.role === 'manager') {
+    } else if (user.role === 'manager' || user.role === 'executive' || user.role === 'branch manager') {
       // Manager has access if job is in their branch OR they manage it
       if (user.branch && jobOrder.branchId !== user.branch) {
         if (jobOrder.managerId !== user.id) {
@@ -773,7 +773,7 @@ export async function getJobLead(id: string): Promise<ActionResponse> {
 
     if (user.role === 'admin') {
       // Allowed
-    } else if (user.role === 'manager') {
+    } else if (user.role === 'manager' || user.role === 'executive' || user.role === 'branch manager') {
       if (user.branch && jobOrder.branchId !== user.branch) {
         if (jobOrder.managerId !== user.id) {
           return { success: false, message: 'Access denied' };

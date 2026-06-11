@@ -136,7 +136,7 @@ export async function getEnquiries(filters: EnquiryFilters = {}): Promise<Action
     
     if (role === 'admin') {
       // Admin sees everything (no default filter).
-    } else if (role === 'manager') {
+    } else if (role === 'manager' || role === 'executive' || role === 'branch manager') {
       // Managers see everything in their branch.
       if (user.branch) {
         where.branchId = user.branch;
@@ -322,7 +322,13 @@ export async function getEnquiry(id: string): Promise<ActionResponse> {
 
     // Check access permissions
     const role = (user.role || '').toLowerCase();
-    if (role !== 'admin' && role !== 'manager' && enquiry.assignedToUserId !== user.id) {
+    if (
+      role !== 'admin' &&
+      role !== 'manager' &&
+      role !== 'executive' &&
+      role !== 'branch manager' &&
+      enquiry.assignedToUserId !== user.id
+    ) {
       return {
         success: false,
         message: 'Access denied',
@@ -357,7 +363,13 @@ export async function updateEnquiry(data: UpdateEnquiryInput): Promise<ActionRes
     }
 
     const role = (user.role || '').toLowerCase();
-    if (role !== 'admin' && role !== 'manager' && existingEnquiry.assignedToUserId !== user.id) {
+    if (
+      role !== 'admin' &&
+      role !== 'manager' &&
+      role !== 'executive' &&
+      role !== 'branch manager' &&
+      existingEnquiry.assignedToUserId !== user.id
+    ) {
       return {
         success: false,
         message: 'Access denied',
@@ -423,7 +435,13 @@ export async function updateEnquiryStatus(
     }
 
     const role = (user.role || '').toLowerCase();
-    if (role !== 'admin' && role !== 'manager' && existingEnquiry.assignedToUserId !== user.id) {
+    if (
+      role !== 'admin' &&
+      role !== 'manager' &&
+      role !== 'executive' &&
+      role !== 'branch manager' &&
+      existingEnquiry.assignedToUserId !== user.id
+    ) {
       return {
         success: false,
         message: 'Access denied',
@@ -473,7 +491,13 @@ export async function updateEnquiryStatusWithActivity(
 
     // Role-based access control
     const role = (user.role || '').toLowerCase();
-    if (role !== 'admin' && role !== 'manager' && existingEnquiry.assignedToUserId !== user.id) {
+    if (
+      role !== 'admin' &&
+      role !== 'manager' &&
+      role !== 'executive' &&
+      role !== 'branch manager' &&
+      existingEnquiry.assignedToUserId !== user.id
+    ) {
       return {
         success: false,
         message: 'Access denied',
@@ -560,7 +584,13 @@ export async function updateEnquiryStatusDirectToEnrolled(
 
     // Role-based access control
     const role = (user.role || '').toLowerCase();
-    if (role !== 'admin' && role !== 'manager' && existingEnquiry.assignedToUserId !== user.id) {
+    if (
+      role !== 'admin' &&
+      role !== 'manager' &&
+      role !== 'executive' &&
+      role !== 'branch manager' &&
+      existingEnquiry.assignedToUserId !== user.id
+    ) {
       return {
         success: false,
         message: 'Access denied',
@@ -639,7 +669,7 @@ export async function assignEnquiry(
     const user = await getCurrentUser();
 
     // Only admins and managers can assign enquiries
-    if (!['admin', 'manager'].includes((user.role || '').toLowerCase())) {
+    if (!['admin', 'manager', 'executive', 'branch manager'].includes((user.role || '').toLowerCase())) {
       return {
         success: false,
         message: 'Access denied',
@@ -803,7 +833,7 @@ export async function bulkAssignEnquiries(
     const user = await getCurrentUser();
 
     // Only admins and managers can assign enquiries
-    if (!['admin', 'manager'].includes((user.role || '').toLowerCase())) {
+    if (!['admin', 'manager', 'executive', 'branch manager'].includes((user.role || '').toLowerCase())) {
       return {
         success: false,
         message: 'Access denied',

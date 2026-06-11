@@ -130,7 +130,7 @@ export async function getFollowUps(filters: FollowUpFilters = {}): Promise<Actio
     // Role-based filtering
     if (user.role === 'admin') {
       // Admin sees all, no filter needed unless provided
-    } else if (user.role === 'manager') {
+    } else if (user.role === 'manager' || user.role === 'executive' || user.role === 'branch manager') {
       // Manager sees follow-ups for their branch
       if (user.branch) {
         where.enquiry = {
@@ -156,12 +156,7 @@ export async function getFollowUps(filters: FollowUpFilters = {}): Promise<Actio
     // However, seed says Executive has "access to management features".
     // I already updated logic above. To be safe, if role is 'executive', I will treat similarly to manager IF they have a branch.
 
-    if (user.role === 'executive' && user.branch) {
-      // Override the 'else' block for executive with branch
-      where.enquiry = {
-        branchId: user.branch
-      };
-    }
+
 
     if (status && status.length > 0) {
       where.status = { in: status };
