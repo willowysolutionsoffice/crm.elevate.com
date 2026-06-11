@@ -57,7 +57,7 @@ export default function EnquiriesPage() {
   const { data: session } = authClient.useSession();
   const userRole = session?.user?.role?.toLowerCase();
   const canAssign = userRole === 'admin' || userRole === 'manager';
-  
+
   // Debug: Log role for troubleshooting (remove in production)
   useEffect(() => {
     if (session?.user?.role) {
@@ -306,7 +306,7 @@ export default function EnquiriesPage() {
                 onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
-            
+
             {/* Branch Filter (Admin Only) */}
             {userRole === 'admin' && (
               <div className="w-45">
@@ -356,14 +356,14 @@ export default function EnquiriesPage() {
 
             {canAssign && (
               <>
-                <Button 
+                <Button
                   variant={isBulkSelectionEnabled ? "secondary" : "outline"}
                   onClick={toggleBulkSelection}
                 >
                   <ListTodo className="mr-2 h-4 w-4" />
                   {isBulkSelectionEnabled ? 'Cancel Selection' : 'Bulk Assign'}
                 </Button>
-                
+
                 {/* Branch Selection Dialog for Bulk Assign */}
                 <Dialog open={bulkBranchDialogOpen} onOpenChange={setBulkBranchDialogOpen}>
                   <DialogContent className="sm:max-w-106.25">
@@ -444,26 +444,27 @@ export default function EnquiriesPage() {
                 </div>
               ) : (
                 // Desktop Table View
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {isBulkSelectionEnabled && (
-                          <TableHead className="w-12.5">
-                            <Checkbox
-                              checked={
-                                enquiries.length > 0 &&
-                                selectedEnquiryIds.length === enquiries.length
-                              }
-                              onCheckedChange={handleSelectAll}
-                            />
-                          </TableHead>
-                        )}
-                        <TableHead className="w-50">Candidate</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {isBulkSelectionEnabled && (
+                        <TableHead className="w-12.5">
+                          <Checkbox
+                            checked={
+                              enquiries.length > 0 &&
+                              selectedEnquiryIds.length === enquiries.length
+                            }
+                            onCheckedChange={handleSelectAll}
+                          />
+                        </TableHead>
+                      )}
+                      <TableHead className="w-50">Candidate</TableHead>
                       <TableHead className="w-30">Contact</TableHead>
                       <TableHead className="w-37.5">Course</TableHead>
                       <TableHead className="w-25">Status</TableHead>
                       <TableHead className="w-30">Source</TableHead>
                       <TableHead className="w-30">Assigned To</TableHead>
+                      <TableHead className="w-30">Assigned By</TableHead>
                       <TableHead className="w-25">Date</TableHead>
                       <TableHead className="w-20 text-right">Actions</TableHead>
                     </TableRow>
@@ -515,8 +516,23 @@ export default function EnquiriesPage() {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            {enquiry.assignedTo?.name || (
-                              <span className="text-muted-foreground italic">Unassigned</span>
+                            {enquiry.assignedTo?.id === session?.user?.id ? (
+                              <span className="font-medium text-blue-600 dark:text-blue-400">Yourself</span>
+                            ) : (
+                              enquiry.assignedTo?.name || (
+                                <span className="text-muted-foreground italic">Unassigned</span>
+                              )
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {enquiry.assignedBy?.id === session?.user?.id ? (
+                              <span className="font-medium text-blue-600 dark:text-blue-400">Yourself</span>
+                            ) : (
+                              enquiry.assignedBy?.name || (
+                                <span className="text-muted-foreground italic">N/A</span>
+                              )
                             )}
                           </div>
                         </TableCell>
@@ -539,20 +555,20 @@ export default function EnquiriesPage() {
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className="cursor-pointer"
-                                    onClick={() => handleEditEnquiry(enquiry)}
-                                >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className="cursor-pointer"
-                                    onClick={() => router.push(`/proposals/create?enquiryId=${enquiry.id}`)}
-                                >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Create Proposal
-                                </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() => handleEditEnquiry(enquiry)}
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() => router.push(`/proposals/create?enquiryId=${enquiry.id}`)}
+                              >
+                                <FileText className="mr-2 h-4 w-4" />
+                                Create Proposal
+                              </DropdownMenuItem>
                               {canAssign && (
                                 <DropdownMenuItem
                                   className="cursor-pointer"

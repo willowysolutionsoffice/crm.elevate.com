@@ -43,6 +43,7 @@ import {
   getCourses,
   getEnquirySources,
   getRequiredServices,
+  getUsers,
 } from "@/server/actions/enquiry-action";
 import { EnquiryStatus, Enquiry } from "@/types/enquiry";
 import {
@@ -73,6 +74,8 @@ const createEnquiryFormSchema = (userHasBranch: boolean) =>
 
     preferredCourseId: z.string().optional(),
     requiredServiceId: z.string().optional(),
+    assignedToUserId: z.string().optional(),
+    createdByUserId: z.string().optional(),
   });
 
 type EnquiryFormData = z.infer<ReturnType<typeof createEnquiryFormSchema>>;
@@ -97,6 +100,7 @@ export function EnquiryFormDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [currentUser, setCurrentUser] = useState<{
+    id?: string | null;
     role?: string | null;
     branch?: string | null;
   } | null>(null);
@@ -150,6 +154,8 @@ export function EnquiryFormDialog({
     useAction(getEnquirySources);
   const { execute: fetchServices, result: servicesResult } =
     useAction(getRequiredServices);
+  const { execute: fetchUsers, result: usersResult } =
+    useAction(getUsers);
 
   const isExecuting = isCreating || isUpdating;
   const actionResult = isEditMode ? updateResult : createResult;
@@ -171,6 +177,8 @@ export function EnquiryFormDialog({
 
       preferredCourseId: enquiry?.preferredCourseId || "",
       requiredServiceId: enquiry?.requiredServiceId || "",
+      assignedToUserId: enquiry?.assignedToUserId || currentUser?.id || "",
+      createdByUserId: enquiry?.createdByUserId || currentUser?.id || "",
     },
   });
 
@@ -193,9 +201,11 @@ export function EnquiryFormDialog({
         branchId: defaultBranchId,
         preferredCourseId: enquiry?.preferredCourseId || "",
         requiredServiceId: enquiry?.requiredServiceId || "",
+        assignedToUserId: enquiry?.assignedToUserId || currentUser?.id || "",
+        createdByUserId: enquiry?.createdByUserId || currentUser?.id || "",
       });
     }
-  }, [enquiry, isEditMode, form, userBranch]);
+  }, [enquiry, isEditMode, form, userBranch, currentUser]);
 
   // Monitor action results - only when actively processing
   useEffect(() => {
@@ -239,8 +249,9 @@ export function EnquiryFormDialog({
       fetchCourses({});
       fetchSources({});
       fetchServices({});
+      fetchUsers({});
     }
-  }, [open, fetchBranches, fetchCourses, fetchSources, fetchServices]);
+  }, [open, fetchBranches, fetchCourses, fetchSources, fetchServices, fetchUsers]);
 
   const onSubmit = async (data: EnquiryFormData) => {
     setIsProcessingAction(true);
@@ -289,6 +300,8 @@ export function EnquiryFormDialog({
         preferredCourseId: data.preferredCourseId || undefined,
         requiredServiceId: data.requiredServiceId || undefined,
         notes: data.notes || undefined,
+        assignedToUserId: data.assignedToUserId || undefined,
+        createdByUserId: data.createdByUserId || undefined,
       };
       await createEnquiryAction(payload);
     }
@@ -298,6 +311,7 @@ export function EnquiryFormDialog({
   const courses = (coursesResult?.data?.data as Course[]) || [];
   const sources = (sourcesResult?.data?.data as EnquirySource[]) || [];
   const services = (servicesResult?.data?.data as RequiredService[]) || [];
+  const users = (usersResult?.data?.data as any[]) || [];
 
   // Find user's branch name for display
   const userBranchName = userBranch
@@ -620,6 +634,68 @@ export function EnquiryFormDialog({
                       </FormItem>
                     )}
                   />
+
+                  {/* Created By */}
+                  {mode !== "create" && currentUser?.role !== "telecaller" && (
+                    <FormField
+                      control={form.control}
+                      name="createdByUserId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Created By</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value || ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select creator" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {users.map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.name} ({u.role})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* Assigned To */}
+                  {mode !== "create" && currentUser?.role !== "telecaller" && (
+                    <FormField
+                      control={form.control}
+                      name="assignedToUserId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assigned To</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value || ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select assignee" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {users.map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.name} ({u.role})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
 
                 {/* Full-width fields */}

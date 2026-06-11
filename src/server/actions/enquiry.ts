@@ -214,6 +214,14 @@ export async function getEnquiries(filters: EnquiryFilters = {}): Promise<Action
               role: true,
             },
           },
+          assignedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
         },
       }),
       prisma.enquiry.count({ where }),
@@ -261,6 +269,14 @@ export async function getEnquiry(id: string): Promise<ActionResponse> {
           },
         },
         createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+        assignedBy: {
           select: {
             id: true,
             name: true,
@@ -707,7 +723,10 @@ export async function assignEnquiry(
       // Update enquiry assignment
       const enquiry = await tx.enquiry.update({
         where: { id },
-        data: { assignedToUserId },
+        data: { 
+          assignedToUserId,
+          assignedByUserId: user.id
+        },
       });
 
       // Create job order
@@ -877,7 +896,10 @@ export async function bulkAssignEnquiries(
         where: {
           id: { in: ids },
         },
-        data: { assignedToUserId },
+        data: { 
+          assignedToUserId,
+          assignedByUserId: user.id
+        },
       });
 
       // Create job order

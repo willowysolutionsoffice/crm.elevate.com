@@ -42,8 +42,10 @@ export interface Enquiry {
   requiredService?: RequiredService;
   assignedToUserId?: string;
   assignedTo?: User;
-  createdByUserId: string;
-  createdBy: User;
+  createdByUserId?: string;
+  createdBy?: User;
+  assignedByUserId?: string;
+  assignedBy?: User;
 
   // Child relationships
   followUps?: FollowUp[];
@@ -100,6 +102,8 @@ export interface CreateEnquiryInput {
   preferredCourseId?: string;
   enquirySourceId?: string;
   requiredServiceId?: string;
+  assignedToUserId?: string;
+  createdByUserId?: string;
 }
 
 export interface UpdateEnquiryInput {

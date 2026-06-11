@@ -1140,6 +1140,42 @@ export default function EnquiryDetailPage() {
                       </div>
                     </div>
                   )}
+
+                  {enquiry.createdBy && (
+                    <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-full bg-indigo-100 p-1 dark:bg-indigo-900">
+                          <UserIcon className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Created By
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {enquiry.createdBy.name}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {enquiry.assignedBy && (
+                    <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-full bg-indigo-100 p-1 dark:bg-indigo-900">
+                          <UserIcon className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Assigned By
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {enquiry.assignedBy.name}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -34,6 +34,7 @@ model User {
   // CRM Relations
   assignedEnquiries        Enquiry[]         @relation("AssignedEnquiries")
   createdEnquiries         Enquiry[]         @relation("CreatedEnquiries")
+  assignedByEnquiries      Enquiry[]         @relation("AssignedByEnquiries")
   createdFollowUps         FollowUp[]        @relation("CreatedFollowUps")
   createdCallLogs          CallLog[]         @relation("CreatedCallLogs")
   createdInvoices          Invoice[]         @relation("CreatedInvoices")
@@ -274,6 +275,9 @@ model Enquiry {
 
   createdByUserId String?
   createdBy       User?   @relation("CreatedEnquiries", fields: [createdByUserId], references: [id])
+
+  assignedByUserId String?
+  assignedBy       User?   @relation("AssignedByEnquiries", fields: [assignedByUserId], references: [id])
 
   // Child relationships
   followUps  FollowUp[]

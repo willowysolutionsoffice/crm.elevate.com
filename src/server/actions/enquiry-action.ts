@@ -7,6 +7,7 @@ import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { EnquiryStatus } from '@/types/enquiry';
+import { Prisma } from '@prisma/client';
 
 // Helper function to get current user
 async function getCurrentUser() {
@@ -36,6 +37,8 @@ const createEnquirySchema = z.object({
   preferredCourseId: z.string().optional(),
   requiredServiceId: z.string().optional(),
   notes: z.string().optional(),
+  assignedToUserId: z.string().optional(),
+  createdByUserId: z.string().optional(),
 });
 
 // Schema for updating enquiry
@@ -96,9 +99,15 @@ export const createEnquiry = action.schema(createEnquirySchema).action(async ({ 
         requiredService: parsedInput.requiredServiceId
           ? { connect: { id: parsedInput.requiredServiceId } }
           : undefined,
-        // Auto-assign to current user if telecaller
-        assignedTo: user.role === 'telecaller' ? { connect: { id: user.id } } : undefined,
-        createdBy: { connect: { id: user.id } },
+        // Use provided assignee, or auto-assign to current user if telecaller
+        assignedTo: parsedInput.assignedToUserId
+          ? { connect: { id: parsedInput.assignedToUserId } }
+          : (user.role === 'telecaller' ? { connect: { id: user.id } } : undefined),
+        createdBy: { connect: { id: parsedInput.createdByUserId || user.id } },
+        // Set assignedBy if assignedTo is set
+        assignedBy: parsedInput.assignedToUserId
+          ? { connect: { id: user.id } }
+          : (user.role === 'telecaller' ? { connect: { id: user.id } } : undefined),
       },
       include: {
         branch: true,
@@ -114,6 +123,14 @@ export const createEnquiry = action.schema(createEnquirySchema).action(async ({ 
           },
         },
         createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+        assignedBy: {
           select: {
             id: true,
             name: true,
@@ -200,6 +217,14 @@ export const updateEnquiry = action.schema(updateEnquirySchema).action(async ({ 
             role: true,
           },
         },
+        assignedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
       },
     });
 
@@ -262,6 +287,29 @@ export const getRequiredServices = action.schema(z.object({})).action(async () =
   } catch (error) {
     console.error('Error fetching required services:', error);
     throw new Error('Failed to fetch required services');
+  }
+});
+
+export const getUsers = action.schema(z.object({ branchId: z.string().optional() })).action(async ({ parsedInput }) => {
+  try {
+    const where: Prisma.UserWhereInput = {};
+    if (parsedInput.branchId) {
+      where.branch = parsedInput.branchId;
+    }
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        branch: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+    return { success: true, data: users };
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    throw new Error('Failed to fetch users');
   }
 });
 

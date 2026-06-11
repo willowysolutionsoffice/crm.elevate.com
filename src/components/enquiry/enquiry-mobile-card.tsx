@@ -17,6 +17,7 @@ import {
 import { Enquiry } from '@/types/enquiry';
 import { ENQUIRY_STATUS_OPTIONS } from '@/constants/enquiry';
 import { IconBrandWhatsapp } from '@tabler/icons-react';
+import { authClient } from '@/lib/auth-client';
 
 interface EnquiryMobileCardProps {
   enquiry: Enquiry;
@@ -28,6 +29,9 @@ interface EnquiryMobileCardProps {
 import { memo } from 'react';
 
 export const EnquiryMobileCard = memo(function EnquiryMobileCard({ enquiry, onView, onEdit, onDelete }: EnquiryMobileCardProps) {
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id;
+
   const getStatusColor = (status: string) => {
     const statusOption = ENQUIRY_STATUS_OPTIONS.find((option) => option.value === status);
     return statusOption
@@ -134,29 +138,35 @@ export const EnquiryMobileCard = memo(function EnquiryMobileCard({ enquiry, onVi
           {enquiry.assignedTo && (
             <div className="flex items-center gap-1.5 col-span-2">
               <User className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Assigned to: <span className="font-medium text-gray-700">{enquiry.assignedTo.name}</span></span>
+              <span className="truncate">Assigned to: <span className="font-medium text-gray-700">{enquiry.assignedTo.id === currentUserId ? "Yourself" : enquiry.assignedTo.name}</span></span>
             </div>
           )}
-          
+          {enquiry.assignedBy && (
+            <div className="flex items-center gap-1.5 col-span-2">
+              <User className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Assigned by: <span className="font-medium text-gray-700">{enquiry.assignedBy.id === currentUserId ? "Yourself" : enquiry.assignedBy.name}</span></span>
+            </div>
+          )}
+
           {enquiry.preferredCourse && (
             <div className="flex items-center gap-1.5 col-span-2">
               <GraduationCap className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{enquiry.preferredCourse.name}</span>
             </div>
           )}
-          
+
           {enquiry.contact2 && (
-             <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5">
               <Phone className="h-3.5 w-3.5 shrink-0" />
               <span className="font-mono">{enquiry.contact2}</span>
             </div>
           )}
 
           <div className="flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 shrink-0" />
-              <span>{formatDate(enquiry.createdAt)}</span>
+            <Calendar className="h-3.5 w-3.5 shrink-0" />
+            <span>{formatDate(enquiry.createdAt)}</span>
           </div>
-          
+
           {enquiry.enquirySource && (
             <div className="flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -167,4 +177,4 @@ export const EnquiryMobileCard = memo(function EnquiryMobileCard({ enquiry, onVi
       </CardContent>
     </Card>
   );
-});
+});
