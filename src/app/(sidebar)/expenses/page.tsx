@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -28,24 +28,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Filter, Eye, Edit, Trash2, MoreVertical, Plus, Copy } from 'lucide-react';
+import { Search, Eye, Edit, Trash2, MoreVertical, Plus, Copy, RotateCw, WalletCards } from 'lucide-react';
 import { getExpensesAction } from '@/server/actions/expense-actions';
 import { ExpenseFormDialog } from '@/components/expense/expense-form-dialog';
 import { DeleteExpenseDialog } from '@/components/expense/delete-expense-dialog';
 import { toast } from 'sonner';
-import {
-  ExpenseWithRelations,
-  ExpenseCategory,
-  ExpenseCategoryLabels,
-  ExpenseCategoryColors
-} from '@/types/expense';
+import { ExpenseWithRelations, ExpenseCategory, ExpenseCategoryLabels } from '@/types/expense';
 import { formatCurrency, formatDate, truncateText } from '@/lib/utils';
+import { TableSkeletonRows } from '@/components/ui/table-skeleton';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export default function ExpensesPage() {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [expenses, setExpenses] = useState<ExpenseWithRelations[]>([]);
   const [pagination, setPagination] = useState<{
     page: number;
@@ -64,7 +64,7 @@ export default function ExpensesPage() {
     title: string;
   } | null>(null);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Fetch expenses data
   const fetchExpensesData = useCallback(async () => {
@@ -72,7 +72,7 @@ export default function ExpensesPage() {
     try {
       const result = await getExpensesAction({
         page: currentPage,
-        limit: 10,
+        limit: pageSize,
         search: search || undefined,
         category: categoryFilter !== 'all' ? categoryFilter : undefined,
       });
@@ -81,9 +81,9 @@ export default function ExpensesPage() {
         setExpenses(result.data.data || []);
         setPagination({
           page: currentPage,
-          limit: 10,
+          limit: pageSize,
           total: result.data.total || 0,
-          pages: Math.ceil((result.data.total || 0) / 10),
+          pages: Math.ceil((result.data.total || 0) / pageSize),
         });
       } else {
         toast.error('Failed to fetch expenses');
@@ -94,19 +94,16 @@ export default function ExpensesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, search, categoryFilter]);
+  }, [currentPage, pageSize, search, categoryFilter]);
 
-  // Fetch expenses on component mount and when filters change
   useEffect(() => {
     fetchExpensesData();
   }, [fetchExpensesData]);
 
-  // Refresh function to be called after successful operations
   const refreshExpenses = useCallback(() => {
     fetchExpensesData();
   }, [fetchExpensesData]);
 
-  // Action handlers
   const handleViewExpense = (expenseId: string) => {
     router.push(`/expenses/${expenseId}`);
   };
@@ -124,26 +121,21 @@ export default function ExpensesPage() {
   const handleDuplicateExpense = (expense: ExpenseWithRelations) => {
     setSelectedExpense({
       ...expense,
-      id: '', // Clear ID for new expense
+      id: '',
       title: `${expense.title} (Copy)`,
       expenseDate: new Date(),
     });
     setCreateDialogOpen(true);
   };
 
-  // Handle search with debouncing
   const handleSearchChange = (value: string) => {
     setSearch(value);
-    setCurrentPage(1); // Reset to first page when searching
+    setCurrentPage(1);
   };
 
   const handleCategoryFilterChange = (value: string) => {
     setCategoryFilter(value as ExpenseCategory | 'all');
-    setCurrentPage(1); // Reset to first page when filtering
-  };
-
-  const getCategoryBadgeClass = (category: ExpenseCategory) => {
-    return ExpenseCategoryColors[category] || 'bg-gray-100 text-gray-800';
+    setCurrentPage(1);
   };
 
   const handleCreateDialogClose = () => {
@@ -157,147 +149,202 @@ export default function ExpensesPage() {
   };
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Expenses</h1>
-          <p className="text-gray-600">Track and manage all business expenses</p>
-        </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Expense
-        </Button>
-      </div>
-
-      {/* Filters and Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-          <CardDescription>
-            Filter expenses by category or search by title, description
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by title, description, notes..."
-                className="pl-8"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {Object.entries(ExpenseCategoryLabels).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline">
-              <Filter className="mr-2 h-4 w-4" />
-              More Filters
+    <PageContainer>
+      {/* Header */}
+      <PageHeader
+        title="Expense Tracker"
+        description="Monitor operational expenditures, branch costs, and supplier payments."
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={refreshExpenses}
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 text-xs font-medium"
+            >
+              <RotateCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button
+              onClick={() => setCreateDialogOpen(true)}
+              size="sm"
+              className="h-9 gap-1.5 text-xs font-medium"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Expense
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        }
+      />
+
+      {/* Filters Toolbar */}
+      <div className="flex flex-col sm:flex-row items-center gap-3 rounded-xl border border-border/80 bg-card p-3 shadow-sm">
+        <div className="relative w-full sm:flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by title, vendor, or notes..."
+            className="pl-9 h-9 text-xs bg-background"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+        </div>
+
+        <div className="flex w-full sm:w-auto items-center gap-2">
+          <Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
+            <SelectTrigger className="w-full sm:w-[180px] h-9 text-xs">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {Object.entries(ExpenseCategoryLabels).map(([key, label]) => (
+                <SelectItem key={key} value={key}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(search || categoryFilter !== 'all') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearch('');
+                setCategoryFilter('all');
+                setCurrentPage(1);
+              }}
+              className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Reset
+            </Button>
+          )}
+        </div>
+      </div>
 
       {/* Expenses Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Expenses</CardTitle>
-          <CardDescription>
-            A list of all expenses with their details and amounts
-          </CardDescription>
+      <Card className="border-border/80 shadow-sm overflow-hidden">
+        <CardHeader className="py-3 px-4 border-b border-border/60 bg-muted/20 flex flex-row items-center justify-between">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Expense Records {pagination?.total ? `(${pagination.total})` : ''}
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="text-sm text-muted-foreground">Loading expenses...</div>
-            </div>
-          ) : expenses.length === 0 ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-4">No expenses found</p>
-                <Button onClick={() => setCreateDialogOpen(true)} variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create your first expense
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <>
+        <CardContent className="p-0">
+          {isLoading && expenses.length === 0 ? (
+            <div className="p-4">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Created By</TableHead>
-                    <TableHead className="w-12"></TableHead>
+                    <TableHead className="w-[120px] text-right">Amount</TableHead>
+                    <TableHead className="w-[140px]">Category</TableHead>
+                    <TableHead className="w-[120px]">Date</TableHead>
+                    <TableHead className="w-[130px]">Created By</TableHead>
+                    <TableHead className="w-[60px] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableSkeletonRows rowCount={5} columnCount={7} />
+                </TableBody>
+              </Table>
+            </div>
+          ) : expenses.length === 0 ? (
+            <EmptyState
+              icon={WalletCards}
+              title="No expenses recorded"
+              description="Record a new business expense or adjust your filter parameters."
+              action={
+                <Button onClick={() => setCreateDialogOpen(true)} size="sm" className="text-xs">
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Add Expense
+                </Button>
+              }
+            />
+          ) : (
+            <div className="relative overflow-x-auto">
+              {isLoading && (
+                <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex items-center justify-center z-10">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Expense Title</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="w-[130px] text-right">Amount</TableHead>
+                    <TableHead className="w-[140px]">Category</TableHead>
+                    <TableHead className="w-[120px]">Date</TableHead>
+                    <TableHead className="w-[130px]">Created By</TableHead>
+                    <TableHead className="w-[60px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {expenses.map((expense) => (
-                    <TableRow key={expense.id}>
-                      <TableCell className="font-medium">
-                        {truncateText(expense.title, 30)}
+                    <TableRow
+                      key={expense.id}
+                      className="hover:bg-muted/40 transition-colors cursor-pointer"
+                      onClick={() => handleViewExpense(expense.id)}
+                    >
+                      <TableCell className="font-medium text-xs text-foreground">
+                        {truncateText(expense.title, 32)}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {expense.description
-                          ? truncateText(expense.description, 40)
-                          : '—'
-                        }
+                      <TableCell className="text-xs text-muted-foreground max-w-[220px] truncate">
+                        {expense.description ? truncateText(expense.description, 40) : '—'}
                       </TableCell>
-                      <TableCell className="font-semibold">
+                      <TableCell className="text-right font-mono text-xs font-semibold text-foreground">
                         {formatCurrency(expense.amount)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={getCategoryBadgeClass(expense.category)}>
-                          {ExpenseCategoryLabels[expense.category]}
+                        <Badge
+                          variant="secondary"
+                          className="bg-muted text-muted-foreground font-medium text-[11px] border border-border/70"
+                        >
+                          {ExpenseCategoryLabels[expense.category] || expense.category}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
                         {formatDate(expense.expenseDate)}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-xs text-muted-foreground">
                         {expense.createdBy.name}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewExpense(expense.id)}>
-                              <Eye className="mr-2 h-4 w-4" />
+                            <DropdownMenuItem
+                              onClick={() => handleViewExpense(expense.id)}
+                              className="text-xs"
+                            >
+                              <Eye className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditExpense(expense)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
+                            <DropdownMenuItem
+                              onClick={() => handleEditExpense(expense)}
+                              className="text-xs"
+                            >
+                              <Edit className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                              Edit Expense
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDuplicateExpense(expense)}>
-                              <Copy className="mr-2 h-4 w-4" />
+                            <DropdownMenuItem
+                              onClick={() => handleDuplicateExpense(expense)}
+                              className="text-xs"
+                            >
+                              <Copy className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
                               Duplicate
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => handleDeleteExpense(expense.id, expense.title)}
-                              className="text-red-600"
+                              className="text-xs text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
                             >
-                              <Trash2 className="mr-2 h-4 w-4" />
+                              <Trash2 className="mr-2 h-3.5 w-3.5" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -309,33 +356,19 @@ export default function ExpensesPage() {
               </Table>
 
               {/* Pagination */}
-              {pagination && pagination.pages > 1 && (
-                <div className="flex items-center justify-between px-2 py-4">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {(currentPage - 1) * 10 + 1} to{' '}
-                    {Math.min(currentPage * 10, pagination.total)} of {pagination.total} expenses
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage === pagination.pages}
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
+              {pagination && (
+                <div className="p-3 border-t border-border/60 bg-muted/10">
+                  <DataTablePagination
+                    currentPage={pagination.page}
+                    totalPages={pagination.pages || 1}
+                    pageSize={pageSize}
+                    totalRecords={pagination.total}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={setPageSize}
+                  />
                 </div>
               )}
-            </>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -368,6 +401,6 @@ export default function ExpensesPage() {
           expense={expenseToDelete}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

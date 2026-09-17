@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -40,7 +39,10 @@ import {
   Edit,
   Trash2,
   MoreVertical,
-  Download,
+  GraduationCap,
+  RotateCw,
+  BookOpen,
+  UserCheck,
 } from "lucide-react";
 import {
   getAdmissions,
@@ -49,9 +51,19 @@ import {
   deleteAdmission,
 } from "@/server/actions/admission-actions";
 import { getEnquiry } from "@/server/actions/enquiry";
-import { AdmissionFormDialog } from "@/components/admission-form-dialog";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { AdmissionWithRelations, AdmissionStatus } from "@/types/admission";
+import { useDebounce } from "@/hooks/use-debounce";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { PageContainer, PageHeader } from "@/components/ui/page-header";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { EmptyState } from "@/components/ui/empty-state";
+
+const AdmissionFormDialog = dynamic(
+  () => import("@/components/admission-form-dialog").then((mod) => mod.AdmissionFormDialog),
+  { ssr: false }
+);
 
 import { EnquirySource } from "@prisma/client";
 import {
@@ -92,11 +104,13 @@ export default function AdmissionsPage() {
   const isAdmin = session?.user?.role === "admin";
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState<AdmissionStatus | "ALL">(
     "ALL"
   );
   const [courseFilter, setCourseFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const [admissions, setAdmissions] = useState<AdmissionWithRelations[]>([]);
   const [courses, setCourses] = useState<SimpleCourse[]>([]);
@@ -107,7 +121,12 @@ export default function AdmissionsPage() {
     total: number;
     pages: number;
   } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Reset page to 1 when filters or debounced search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter, courseFilter, pageSize]);
 
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -135,9 +154,7 @@ export default function AdmissionsPage() {
         const result = await getEnquiry(enquiryId);
         if (result.success) {
           setEnquiryData(result.data as Enquiry);
-          // Auto-open the create dialog
           setCreateDialogOpen(true);
-          // Clear the URL parameter after opening
           const newUrl = new URL(window.location.href);
           newUrl.searchParams.delete("enquiryId");
           router.replace(newUrl.pathname, { scroll: false });
@@ -159,21 +176,17 @@ export default function AdmissionsPage() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        // Fetch courses
         const coursesResult = await getCoursesForAdmission();
-        console.log(coursesResult);
         if (coursesResult.data?.success) {
           setCourses(coursesResult.data.data || []);
         }
 
-        // Fetch enquiry sources using direct prisma call
         const enquirySourcesResult = await getEnquirySourcesForAdmission();
         if (enquirySourcesResult.data?.success) {
           setEnquirySources(enquirySourcesResult.data.data || []);
         }
       } catch (error) {
         console.error("Error fetching initial data:", error);
-        // Set empty arrays as fallback
         setCourses([]);
         setEnquirySources([]);
       }
@@ -194,10 +207,10 @@ export default function AdmissionsPage() {
         courseId?: string;
       } = {
         page: currentPage,
-        limit: 10,
+        limit: pageSize,
       };
 
-      if (search) filters.search = search;
+      if (debouncedSearch.trim()) filters.search = debouncedSearch.trim();
       if (statusFilter !== "ALL") filters.status = statusFilter;
       if (courseFilter !== "ALL") filters.courseId = courseFilter;
 
@@ -208,7 +221,7 @@ export default function AdmissionsPage() {
         setAdmissions(data.admissions || []);
         setPagination({
           page: data.currentPage,
-          limit: 10,
+          limit: pageSize,
           total: data.totalCount,
           pages: data.totalPages,
         });
@@ -221,22 +234,16 @@ export default function AdmissionsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, search, statusFilter, courseFilter]);
+  }, [currentPage, pageSize, debouncedSearch, statusFilter, courseFilter]);
 
-  // Fetch admissions on component mount and when filters change
   useEffect(() => {
-    if (courses.length > 0) {
-      // Only fetch when courses are loaded
-      fetchAdmissionsData();
-    }
-  }, [fetchAdmissionsData, courses.length]);
+    fetchAdmissionsData();
+  }, [fetchAdmissionsData]);
 
-  // Refresh function to be called after successful admission creation
   const refreshAdmissions = useCallback(() => {
     fetchAdmissionsData();
   }, [fetchAdmissionsData]);
 
-  // Action handlers for dropdown menu
   const handleViewAdmission = (admissionId: string) => {
     router.push(`/admissions/${admissionId}`);
   };
@@ -249,8 +256,6 @@ export default function AdmissionsPage() {
     setSelectedAdmission(admission);
     setEditDialogOpen(true);
   };
-
-  // Receipt generation functionality removed - fee management no longer supported
 
   const handleDeleteAdmission = (admission: AdmissionWithRelations) => {
     if (!isAdmin) {
@@ -292,14 +297,13 @@ export default function AdmissionsPage() {
     });
   };
 
-  // Handle search with debouncing
   const handleSearchChange = (value: string) => {
     setSearch(value);
-    setCurrentPage(1); // Reset to first page when searching
+    setCurrentPage(1);
   };
 
   const handleFilterChange = () => {
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
@@ -309,7 +313,6 @@ export default function AdmissionsPage() {
     setCurrentPage(1);
   };
 
-  // Handle successful admission creation from enquiry
   const handleCreateSuccess = () => {
     refreshAdmissions();
     setCreateDialogOpen(false);
@@ -322,284 +325,248 @@ export default function AdmissionsPage() {
   };
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Admissions</h1>
-          <p className="text-gray-600">
-            Manage and track all admissions
-            {enquiryData && (
-              <span className="ml-2 text-blue-600">
-                • Creating admission for {enquiryData.candidateName}
-              </span>
-            )}
-          </p>
-        </div>
-        <AdmissionFormDialog
-          courses={courses}
-          enquirySources={enquirySources}
-          onSuccess={refreshAdmissions}
-        />
-      </div>
+    <PageContainer>
+      {/* Header */}
+      <PageHeader
+        title="Admissions"
+        description="Manage enrolled students, academic course assignments, and admission profiles."
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={refreshAdmissions}
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 text-xs font-medium"
+            >
+              <RotateCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <AdmissionFormDialog
+              courses={courses}
+              enquirySources={enquirySources}
+              onSuccess={refreshAdmissions}
+            />
+          </div>
+        }
+      />
 
-      {/* Loading indicator for enquiry */}
-      {isLoadingEnquiry && (
-        <Card>
-          <CardContent className="p-6 flex items-center justify-center space-x-2">
-            <span>Loading enquiry data...</span>
-          </CardContent>
-        </Card>
+      {/* Enquiry Banner if prefilled */}
+      {enquiryData && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-primary">
+          <UserCheck className="h-4 w-4 shrink-0" />
+          <span>
+            Converting candidate enquiry: <strong>{enquiryData.candidateName}</strong> ({enquiryData.phone}) into an admission profile.
+          </span>
+        </div>
       )}
 
       {/* Filters and Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-          <CardDescription>
-            Filter admissions by course, status or search by name, mobile,
-            admission number
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center space-x-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name, mobile, admission number..."
-                  className="pl-8"
-                  value={search}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                />
-              </div>
-              <Button variant="outline" onClick={clearFilters}>
-                Clear Filters
-              </Button>
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-            </div>
+      <div className="flex flex-col sm:flex-row items-center gap-3 rounded-xl border border-border/80 bg-card p-3 shadow-sm">
+        <div className="relative w-full sm:flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by candidate name, mobile number, or admission no..."
+            className="pl-9 h-9 text-xs bg-background"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+        </div>
 
-            <div className="flex items-center space-x-4">
-              <Select
-                value={courseFilter}
-                onValueChange={(value) => {
-                  setCourseFilter(value);
-                  handleFilterChange();
-                }}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by course" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Courses</SelectItem>
-                  {courses.map((course) => (
-                    <SelectItem key={course.id} value={course.id}>
-                      {course.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={statusFilter}
-                onValueChange={(value: AdmissionStatus | "ALL") => {
-                  setStatusFilter(value);
-                  handleFilterChange();
-                }}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Status</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="CONFIRMED">Confirmed</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="flex w-full sm:w-auto items-center gap-2">
+          <Select
+            value={courseFilter}
+            onValueChange={(value) => {
+              setCourseFilter(value);
+              handleFilterChange();
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[170px] h-9 text-xs">
+              <SelectValue placeholder="All Courses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Courses</SelectItem>
+              {courses.map((course) => (
+                <SelectItem key={course.id} value={course.id}>
+                  {course.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={statusFilter}
+            onValueChange={(value: AdmissionStatus | "ALL") => {
+              setStatusFilter(value);
+              handleFilterChange();
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[150px] h-9 text-xs">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Status</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+              <SelectItem value="CANCELLED">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {(search || statusFilter !== "ALL" || courseFilter !== "ALL") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Reset
+            </Button>
+          )}
+        </div>
+      </div>
 
       {/* Admissions Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Admissions</CardTitle>
-          <CardDescription>
-            A list of all admissions with their current status and course
-            details
-          </CardDescription>
+      <Card className="border-border/80 shadow-sm overflow-hidden">
+        <CardHeader className="py-3 px-4 border-b border-border/60 bg-muted/20 flex flex-row items-center justify-between">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Admission Records {pagination?.total ? `(${pagination.total})` : ""}
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <p className="text-muted-foreground">Loading...</p>
+        <CardContent className="p-0">
+          {isLoading && admissions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent mb-3" />
+              <p className="text-xs font-medium text-muted-foreground">Loading admissions...</p>
             </div>
+          ) : admissions.length === 0 ? (
+            <EmptyState
+              icon={GraduationCap}
+              title="No admissions found"
+              description="Create a new student admission or adjust your filter query."
+              action={
+                <AdmissionFormDialog
+                  courses={courses}
+                  enquirySources={enquirySources}
+                  onSuccess={refreshAdmissions}
+                />
+              }
+            />
           ) : (
-            <>
+            <div className="relative overflow-x-auto">
+              {isLoading && (
+                <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex items-center justify-center z-10">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Admission No.</TableHead>
+                    <TableHead className="w-[140px]">Admission No.</TableHead>
                     <TableHead>Candidate</TableHead>
                     <TableHead>Mobile</TableHead>
                     <TableHead>Course</TableHead>
-                    <TableHead>Created Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-[120px]">Status</TableHead>
+                    <TableHead className="w-[130px]">Enrolled Date</TableHead>
+                    <TableHead className="w-[60px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {admissions.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="text-center text-muted-foreground h-64"
-                      >
-                        No admissions found. Create your first admission to get
-                        started.
+                  {admissions.map((admission) => (
+                    <TableRow
+                      key={admission.id}
+                      className="hover:bg-muted/40 transition-colors cursor-pointer"
+                      onClick={() => handleViewAdmission(admission.id)}
+                    >
+                      <TableCell className="font-mono text-xs font-semibold text-primary">
+                        {admission.admissionNumber}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-xs text-foreground">
+                            {admission.candidateName}
+                          </span>
+                          {admission.email && (
+                            <span className="text-[11px] text-muted-foreground">
+                              {admission.email}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {admission.mobileNumber}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <BookOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-xs font-medium text-foreground">
+                            {admission.course.name}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={admission.status || "CONFIRMED"} />
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {formatDate(admission.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => handleViewAdmission(admission.id)}
+                              className="text-xs"
+                            >
+                              <Eye className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                              View Profile
+                            </DropdownMenuItem>
+                            {isAdmin && (
+                              <DropdownMenuItem
+                                onClick={() => handleEditAdmission(admission)}
+                                className="text-xs"
+                              >
+                                <Edit className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                                Edit Admission
+                              </DropdownMenuItem>
+                            )}
+                            {isAdmin && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteAdmission(admission)}
+                                  className="text-xs text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
+                                >
+                                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                  Delete Admission
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    admissions.map((admission) => (
-                      <TableRow key={admission.id}>
-                        <TableCell className="font-medium">
-                          {admission.admissionNumber}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">
-                              {admission.candidateName}
-                            </div>
-                            {admission.email && (
-                              <div className="text-sm text-muted-foreground">
-                                {admission.email}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{admission.mobileNumber}</TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">
-                              {admission.course.name}
-                            </div>
-                            {admission.course.description && (
-                              <div className="text-sm text-muted-foreground">
-                                {admission.course.description}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{formatDate(admission.createdAt)}</TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleViewAdmission(admission.id)
-                                }
-                              >
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </DropdownMenuItem>
-                              {isAdmin && (
-                                <DropdownMenuItem
-                                  onClick={() => handleEditAdmission(admission)}
-                                >
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit Admission
-                                </DropdownMenuItem>
-                              )}
-                              {/* Receipt generation removed - fee management no longer supported */}
-                              {isAdmin && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      handleDeleteAdmission(admission)
-                                    }
-                                    className="text-red-600 focus:text-red-600"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete Admission
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+                  ))}
                 </TableBody>
               </Table>
 
               {/* Pagination */}
-              {pagination && pagination.pages > 1 && (
-                <div className="flex items-center justify-between space-x-2 py-4">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-                    {Math.min(
-                      pagination.page * pagination.limit,
-                      pagination.total
-                    )}{" "}
-                    of {pagination.total} results
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setCurrentPage(Math.max(1, currentPage - 1))
-                      }
-                      disabled={currentPage <= 1}
-                    >
-                      Previous
-                    </Button>
-                    <div className="flex items-center space-x-1">
-                      {Array.from(
-                        { length: Math.min(5, pagination.pages) },
-                        (_, i) => {
-                          const pageNum = i + 1;
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={
-                                currentPage === pageNum ? "default" : "outline"
-                              }
-                              size="sm"
-                              onClick={() => setCurrentPage(pageNum)}
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        }
-                      )}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setCurrentPage(
-                          Math.min(pagination.pages, currentPage + 1)
-                        )
-                      }
-                      disabled={currentPage >= pagination.pages}
-                    >
-                      Next
-                    </Button>
-                  </div>
+              {pagination && (
+                <div className="p-3 border-t border-border/60 bg-muted/10">
+                  <DataTablePagination
+                    currentPage={pagination.page}
+                    totalPages={pagination.pages || 1}
+                    pageSize={pageSize}
+                    totalRecords={pagination.total}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={setPageSize}
+                  />
                 </div>
               )}
-            </>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -652,28 +619,29 @@ export default function AdmissionsPage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                Are you sure you want to delete this admission?
+                Delete Admission Record?
               </AlertDialogTitle>
               <AlertDialogDescription>
                 This action cannot be undone. This will permanently delete the
-                admission record for:{" "}
-                <span className="font-bold">
+                admission record for{" "}
+                <span className="font-semibold text-foreground">
                   {admissionToDelete.candidateName}
                 </span>
+                .
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>
+              <AlertDialogCancel disabled={isDeleting} className="text-xs">
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirmDelete}
                 disabled={isDeleting}
-                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600 text-xs text-white"
               >
                 {isDeleting ? (
                   <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    <div className="mr-2 h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     Deleting...
                   </>
                 ) : (
@@ -684,6 +652,6 @@ export default function AdmissionsPage() {
           </AlertDialogContent>
         </AlertDialog>
       )}
-    </div>
+    </PageContainer>
   );
 }

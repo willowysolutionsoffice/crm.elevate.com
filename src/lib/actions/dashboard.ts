@@ -1,33 +1,46 @@
 import prisma from '@/lib/prisma';
 import { EnquiryStatus, FollowUpStatus } from '@prisma/client';
 import { DashboardData } from '@/types/dashboard';
+import { cacheService } from '@/lib/cache/cache-service';
+import { CACHE_KEYS, CACHE_TTL } from '@/lib/cache/cache-keys';
 
 export async function getDashboardData(
   userId?: string,
   userRole?: string,
   userBranch?: string
 ): Promise<DashboardData> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  // Get the date 7 days ago for recent activity
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-  // Base filter for user-specific data
-  let userFilter: Record<string, string> = {};
-
-  // For telecallers, filter by assigned enquiries
+  // Determine isolated cache scope
+  let scope = 'admin';
   if (userRole === 'telecaller' && userId) {
-    userFilter = { assignedToUserId: userId };
+    scope = `telecaller:${userId}`;
+  } else if (userRole === 'executive' && userBranch) {
+    scope = `executive:${userBranch}`;
   }
 
-  // For executives, filter by branch
-  if (userRole === 'executive' && userBranch) {
-    userFilter = { branchId: userBranch };
-  }
+  const cacheKey = CACHE_KEYS.dashboardSummary(scope);
+
+  return await cacheService.getOrSet(cacheKey, CACHE_TTL.DASHBOARD, async () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Get the date 7 days ago for recent activity
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    // Base filter for user-specific data
+    let userFilter: Record<string, string> = {};
+
+    // For telecallers, filter by assigned enquiries
+    if (userRole === 'telecaller' && userId) {
+      userFilter = { assignedToUserId: userId };
+    }
+
+    // For executives, filter by branch
+    if (userRole === 'executive' && userBranch) {
+      userFilter = { branchId: userBranch };
+    }
 
   // For admins, no filtering (see all data)
 
@@ -113,37 +126,38 @@ export async function getDashboardData(
   const interestRate = totalEnquiries > 0 ? (interestedLeads / totalEnquiries) * 100 : 0;
   const conversionRate = totalEnquiries > 0 ? (enrolledEnquiries / totalEnquiries) * 100 : 0;
 
-  return {
-    stats: {
-      totalEnquiries,
-      newEnquiries: newEnquiriesCount,
-      pendingFollowUps: overdueFollowUps + todayFollowUps,
-      totalCalls,
-    },
-    followUpStats: {
-      overdueCount: overdueFollowUps,
-      todayCount: todayFollowUps,
-      interestedLeadsCount: interestedLeads,
-    },
-    recentActivity: {
-      newEnquiries: {
-        count: newEnquiriesCount,
-        description: `${newEnquiriesCount} new leads`,
+    return {
+      stats: {
+        totalEnquiries,
+        newEnquiries: newEnquiriesCount,
+        pendingFollowUps: overdueFollowUps + todayFollowUps,
+        totalCalls,
       },
-      callsMade: {
-        count: recentCallLogs,
-        description: `${recentCallLogs} calls completed`,
+      followUpStats: {
+        overdueCount: overdueFollowUps,
+        todayCount: todayFollowUps,
+        interestedLeadsCount: interestedLeads,
       },
-      enrollments: {
-        count: enrolledEnquiries,
-        description: `${enrolledEnquiries} successful conversions`,
+      recentActivity: {
+        newEnquiries: {
+          count: newEnquiriesCount,
+          description: `${newEnquiriesCount} new leads`,
+        },
+        callsMade: {
+          count: recentCallLogs,
+          description: `${recentCallLogs} calls completed`,
+        },
+        enrollments: {
+          count: enrolledEnquiries,
+          description: `${enrolledEnquiries} successful conversions`,
+        },
       },
-    },
-    performanceMetrics: {
-      totalEnquiries,
-      interestRate: Math.round(interestRate),
-      conversionRate: Math.round(conversionRate),
-      totalCalls,
-    },
-  };
+      performanceMetrics: {
+        totalEnquiries,
+        interestRate: Math.round(interestRate),
+        conversionRate: Math.round(conversionRate),
+        totalCalls,
+      },
+    };
+  });
 }

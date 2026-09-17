@@ -51,14 +51,19 @@ export function AppSidebar({ user, counts, ...props }: AppSidebarProps) {
   });
 
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+    <Sidebar collapsible="icon" className="border-r border-border/70" {...props}>
+      <SidebarHeader className="border-b border-border/60 py-3">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
-              <Link href="/">
-                <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">{COMPANY_INFO.name}</span>
+            <SidebarMenuButton asChild size="lg" className="hover:bg-transparent">
+              <Link href="/dashboard" className="flex items-center gap-2.5">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
+                  <IconInnerShadowTop className="size-5" />
+                </div>
+                <div className="flex flex-col gap-0.5 leading-none">
+                  <span className="text-sm font-bold tracking-tight text-foreground">{COMPANY_INFO.name}</span>
+                  <span className="text-[11px] text-muted-foreground font-normal">CRM Workspace</span>
+                </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

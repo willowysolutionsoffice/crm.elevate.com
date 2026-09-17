@@ -215,12 +215,23 @@ export async function createJobOrder(input: CreateJobOrderInput): Promise<Action
   }
 }
 
+import {
+  normalizePagination,
+  validateSortField,
+  validateSortOrder,
+  buildPaginationResult,
+} from '@/lib/pagination-utils';
+
+const JOB_ORDER_SORT_FIELDS = ['createdAt', 'startDate', 'endDate', 'name', 'jobCode'];
+
 // Get all job orders
 export async function getJobOrders(filters?: {
   managerId?: string;
   branchId?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   pendingOnly?: boolean;
   completedOnly?: boolean;
   dueOnly?: boolean;
@@ -228,15 +239,19 @@ export async function getJobOrders(filters?: {
 }): Promise<ActionResponse> {
   try {
     const user = await getCurrentUser();
-    const page = filters?.page || 1;
-    const limit = filters?.limit || 10;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination({
+      page: filters?.page,
+      limit: filters?.limit,
+    });
+
+    const sortBy = validateSortField(filters?.sortBy, JOB_ORDER_SORT_FIELDS, 'createdAt');
+    const sortOrder = validateSortOrder(filters?.sortOrder, 'desc');
 
     const where: Prisma.JobOrderWhereInput = {};
 
     // Base Search (if search term provided)
-    if (filters?.search) {
-      const searchTerm = filters.search;
+    if (filters?.search && filters.search.trim()) {
+      const searchTerm = filters.search.trim();
       where.OR = [
         { name: { contains: searchTerm, mode: 'insensitive' } },
         { jobCode: { contains: searchTerm, mode: 'insensitive' } },
@@ -294,7 +309,7 @@ export async function getJobOrders(filters?: {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [sortBy]: sortOrder },
         include: {
           manager: {
             select: {
@@ -340,15 +355,17 @@ export async function getJobOrders(filters?: {
       };
     });
 
+    const pagination = buildPaginationResult(total, page, limit);
+
     return {
       success: true,
       data: jobOrdersWithProgress,
       message: 'Job orders fetched successfully',
       pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
+        page: pagination.page,
+        limit: pagination.limit,
+        total: pagination.total,
+        pages: pagination.totalPages,
       },
     };
   } catch (error) {
@@ -400,19 +417,14 @@ export async function getJobOrder(id: string): Promise<ActionResponse> {
                 feedback: true,
                 createdAt: true,
                 lastContactDate: true,
+                source: true,
                 preferredCourse: {
                   select: {
                     id: true,
                     name: true,
                   },
                 },
-                enquirySource: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-                requiredService: {
+                service: {
                   select: {
                     id: true,
                     name: true,
@@ -745,8 +757,7 @@ export async function getJobLead(id: string): Promise<ActionResponse> {
         lead: {
           include: {
             preferredCourse: true,
-            enquirySource: true,
-            requiredService: true,
+            service: true,
             assignedTo: {
               select: {
                 id: true,

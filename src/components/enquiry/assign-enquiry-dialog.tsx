@@ -41,6 +41,7 @@ interface AssignEnquiryDialogProps {
   candidateName?: string;
   fixedBranchId?: string;
   fixedBranchName?: string;
+  branches?: Branch[];
 }
 
 export function AssignEnquiryDialog({
@@ -53,6 +54,7 @@ export function AssignEnquiryDialog({
   candidateName,
   fixedBranchId,
   fixedBranchName,
+  branches: passedBranches,
 }: AssignEnquiryDialogProps) {
   type AssignableUser = User & { branch?: string | null };
 
@@ -61,7 +63,8 @@ export function AssignEnquiryDialog({
     role?: string | null;
     branch?: string | null;
   } | null>(null);
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const [localBranches, setLocalBranches] = useState<Branch[]>([]);
+  const branches = passedBranches && passedBranches.length > 0 ? passedBranches : localBranches;
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
@@ -82,9 +85,11 @@ export function AssignEnquiryDialog({
         const session = await authClient.getSession();
         setCurrentUser(session.data?.user || null);
 
-        const result = await getAllBranches();
-        if (result.success) {
-          setBranches((result.data as Branch[]) || []);
+        if (!passedBranches || passedBranches.length === 0) {
+          const result = await getAllBranches();
+          if (result.success) {
+            setLocalBranches((result.data as Branch[]) || []);
+          }
         }
       } catch (error) {
         console.error('Error initializing dialog details:', error);
@@ -93,7 +98,7 @@ export function AssignEnquiryDialog({
     if (open) {
       fetchSessionAndBranches();
     }
-  }, [open]);
+  }, [open, passedBranches]);
 
   useEffect(() => {
     if (open) {

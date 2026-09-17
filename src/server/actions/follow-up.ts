@@ -11,6 +11,7 @@ import {
   FollowUpFilters,
 } from '@/types/enquiry';
 import { ActivityType } from '@/types/enquiry-activity';
+import { invalidateDashboardCache } from '@/lib/cache/cache-invalidation';
 
 // Generic response type
 interface ActionResponse<T = unknown> {
@@ -75,7 +76,6 @@ export async function createFollowUp(data: CreateFollowUpInput): Promise<ActionR
             include: {
               branch: true,
               preferredCourse: true,
-              enquirySource: true,
             },
           },
           createdBy: {
@@ -89,23 +89,10 @@ export async function createFollowUp(data: CreateFollowUpInput): Promise<ActionR
         },
       });
 
-      // Create activity entry
-      await tx.enquiryActivity.create({
-        data: {
-          type: ActivityType.FOLLOW_UP,
-          title: 'Follow-up scheduled',
-          description:
-            data.notes ||
-            `Follow-up scheduled for ${new Date(data.scheduledAt).toLocaleDateString()}`,
-          enquiryId: data.enquiryId,
-          followUpId: followUp.id,
-          createdByUserId: user.id,
-        },
-      });
-
       return followUp;
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/follow-ups');
     revalidatePath(`/enquiries/${data.enquiryId}`);
     return { success: true, data: result, message: 'Follow-up scheduled successfully' };
@@ -118,45 +105,60 @@ export async function createFollowUp(data: CreateFollowUpInput): Promise<ActionR
   }
 }
 
+import {
+  normalizePagination,
+  validateSortField,
+  validateSortOrder,
+  buildPaginationResult,
+} from '@/lib/pagination-utils';
+
+const FOLLOW_UP_SORT_FIELDS = ['scheduledAt', 'createdAt', 'status'];
+
 export async function getFollowUps(filters: FollowUpFilters = {}): Promise<ActionResponse> {
   try {
     const user = await getCurrentUser();
-    const { page = 1, limit = 50, status, overdue, dateFrom, dateTo } = filters;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination({
+      page: filters.page,
+      limit: filters.limit,
+    });
+
+    const sortBy = validateSortField(filters.sortBy, FOLLOW_UP_SORT_FIELDS, 'scheduledAt');
+    const sortOrder = validateSortOrder(filters.sortOrder, 'asc');
+
+    const { status, overdue, dateFrom, dateTo, search, branchId, assignedToUserId } = filters;
 
     // Build where clause
     const where: Record<string, unknown> = {};
+    const enquiryWhere: Record<string, unknown> = {};
 
     // Role-based filtering
     if (user.role === 'admin') {
-      // Admin sees all, no filter needed unless provided
+      // Admin sees all, filter by branch/user if provided
+      if (branchId) enquiryWhere.branchId = branchId;
+      if (assignedToUserId) enquiryWhere.assignedToUserId = assignedToUserId;
     } else if (user.role === 'manager' || user.role === 'executive' || user.role === 'branch manager') {
       // Manager sees follow-ups for their branch
       if (user.branch) {
-        where.enquiry = {
-          branchId: user.branch,
-        };
+        enquiryWhere.branchId = user.branch;
       } else {
-        // Fallback: if no branch, assume they can only see their own created
         where.createdByUserId = user.id;
       }
+      if (assignedToUserId) enquiryWhere.assignedToUserId = assignedToUserId;
     } else {
-      // Others (telecaller, executive, etc.) see only their assigned follow-ups
-      // Assuming 'assigned' means the enquiry is assigned to them
-      where.enquiry = {
-        assignedToUserId: user.id,
-      };
+      // Telecaller sees only their assigned follow-ups
+      enquiryWhere.assignedToUserId = user.id;
     }
 
-    // Previous specific filters (merge if needed)
-    // Removing the old 'telecaller' and 'executive' blocks as they are covered by the 'else' above
-    // or need to be merged.
-    // The previous 'executive' block used branchId. If executive is considered 'managerial' in this context?
-    // User said "other user role their only". I will treat Executive as 'other' -> assigned only, unless User Schema implies otherwise.
-    // However, seed says Executive has "access to management features".
-    // I already updated logic above. To be safe, if role is 'executive', I will treat similarly to manager IF they have a branch.
+    if (search && search.trim()) {
+      enquiryWhere.OR = [
+        { candidateName: { contains: search.trim(), mode: 'insensitive' } },
+        { phone: { contains: search.trim(), mode: 'insensitive' } },
+      ];
+    }
 
-
+    if (Object.keys(enquiryWhere).length > 0) {
+      where.enquiry = enquiryWhere;
+    }
 
     if (status && status.length > 0) {
       where.status = { in: status };
@@ -178,13 +180,24 @@ export async function getFollowUps(filters: FollowUpFilters = {}): Promise<Actio
         where,
         skip,
         take: limit,
-        orderBy: { scheduledAt: 'asc' },
-        include: {
+        orderBy: { [sortBy]: sortOrder },
+        select: {
+          id: true,
+          scheduledAt: true,
+          status: true,
+          outcome: true,
+          notes: true,
+          enquiryId: true,
+          createdAt: true,
           enquiry: {
-            include: {
-              branch: true,
-              preferredCourse: true,
-              enquirySource: true,
+            select: {
+              id: true,
+              candidateName: true,
+              phone: true,
+              status: true,
+              branch: { select: { id: true, name: true } },
+              preferredCourse: { select: { id: true, name: true } },
+              assignedTo: { select: { id: true, name: true } },
             },
           },
           createdBy: {
@@ -200,17 +213,17 @@ export async function getFollowUps(filters: FollowUpFilters = {}): Promise<Actio
       prisma.followUp.count({ where }),
     ]);
 
-    const pagination = {
-      page,
-      limit,
-      total,
-      pages: Math.ceil(total / limit),
-    };
+    const pagination = buildPaginationResult(total, page, limit);
 
     return {
       success: true,
       data: followUps,
-      pagination,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total: pagination.total,
+        pages: pagination.totalPages,
+      },
       message: 'Follow-ups fetched successfully',
     };
   } catch (error) {
@@ -221,6 +234,7 @@ export async function getFollowUps(filters: FollowUpFilters = {}): Promise<Actio
     };
   }
 }
+
 
 export async function updateFollowUp(data: UpdateFollowUpInput): Promise<ActionResponse> {
   try {
@@ -273,7 +287,6 @@ export async function updateFollowUp(data: UpdateFollowUpInput): Promise<ActionR
           include: {
             branch: true,
             preferredCourse: true,
-            enquirySource: true,
           },
         },
         createdBy: {
@@ -287,6 +300,7 @@ export async function updateFollowUp(data: UpdateFollowUpInput): Promise<ActionR
       },
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/follow-ups');
     revalidatePath(`/enquiries/${existingFollowUp.enquiryId}`);
 
@@ -335,6 +349,7 @@ export async function deleteFollowUp(id: string): Promise<ActionResponse> {
       where: { id },
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/follow-ups');
     revalidatePath(`/enquiries/${existingFollowUp.enquiryId}`);
     return { success: true, message: 'Follow-up deleted successfully' };

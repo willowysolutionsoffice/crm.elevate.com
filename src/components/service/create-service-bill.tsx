@@ -123,10 +123,10 @@ export default function CreateServiceBillModal({
     listServices(),
    ]);
 
-   if (studentsResult.success) {
+   if (studentsResult.success && studentsResult.data) {
     setStudents(studentsResult.data);
    }
-   if (servicesResult.success) {
+   if (servicesResult.success && servicesResult.data) {
     setServices(servicesResult.data);
    }
   } catch (error) {
@@ -221,7 +221,7 @@ export default function CreateServiceBillModal({
 
  return (
   <Dialog open={open} onOpenChange={handleClose}>
-   <DialogContent className="max-w-2xl">
+   <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
     <DialogHeader>
      <DialogTitle>Create Service Bill</DialogTitle>
      <DialogDescription>

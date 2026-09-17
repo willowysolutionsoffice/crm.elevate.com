@@ -93,8 +93,7 @@ export const updateEnquiryStatusWithActivity = action
           include: {
             branch: true,
             preferredCourse: true,
-            enquirySource: true,
-            requiredService: true,
+            service: true,
             assignedTo: {
               select: { id: true, name: true, email: true, role: true },
             },
@@ -170,8 +169,7 @@ export const updateEnquiryStatusDirectToEnrolled = action
           include: {
             branch: true,
             preferredCourse: true,
-            enquirySource: true,
-            requiredService: true,
+            service: true,
             assignedTo: {
               select: { id: true, name: true, email: true, role: true },
             },

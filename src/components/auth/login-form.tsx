@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { useAction } from 'next-safe-action/hooks';
-import { loginAction } from '@/lib/actions/auth';
 import { loginSchema } from '@/schema/user-schema';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,7 +24,8 @@ type LoginFormData = LoginData;
 
 export function LoginForm() {
   const router = useRouter();
-  const { execute, result, isExecuting } = useAction(loginAction);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -36,12 +35,49 @@ export function LoginForm() {
     },
   });
 
-  useEffect(() => {
-    if (result?.data?.success) {
-      localStorage.setItem('user', JSON.stringify(result.data.data));
+  const onSubmit = async (data: LoginFormData) => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+      const res = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        setErrorMessage(json.error?.message || json.message || 'Invalid email or password');
+        setIsLoading(false);
+        return;
+      }
+
+      const { user, token } = json.data;
+
+      // Save token & user in localStorage & browser cookies
+      if (token) {
+        localStorage.setItem('token', token);
+        document.cookie = `token=${token}; path=/; max-age=604800; SameSite=Lax`;
+      }
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+        document.cookie = `user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=604800; SameSite=Lax`;
+      }
+
       router.push('/dashboard');
+      router.refresh();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'An unexpected error occurred connecting to backend');
+      setIsLoading(false);
     }
-  }, [result, router]);
+  };
 
   return (
     <Card className="w-full max-w-md">
@@ -53,7 +89,7 @@ export function LoginForm() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(execute)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="email"
@@ -65,7 +101,7 @@ export function LoginForm() {
                       placeholder="Enter your email"
                       type="email"
                       autoComplete="email"
-                      disabled={isExecuting}
+                      disabled={isLoading}
                       {...field}
                     />
                   </FormControl>
@@ -84,7 +120,7 @@ export function LoginForm() {
                       placeholder="Enter your password"
                       type="password"
                       autoComplete="current-password"
-                      disabled={isExecuting}
+                      disabled={isLoading}
                       {...field}
                     />
                   </FormControl>
@@ -93,11 +129,10 @@ export function LoginForm() {
               )}
             />
 
-            <ErrorMessage message={result?.serverError} />
-            <ErrorMessage message={result?.validationErrors?._errors} />
+            <ErrorMessage message={errorMessage} />
 
-            <Button type="submit" className="w-full" disabled={isExecuting}>
-              {isExecuting ? 'Signing in...' : 'Sign in'}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
         </Form>

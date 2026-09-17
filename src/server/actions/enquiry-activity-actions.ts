@@ -5,7 +5,7 @@ import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { ActivityType } from '@/types/enquiry-activity';
+import { ActivityType, type EnquiryActivity } from '@/types/enquiry-activity';
 
 // Helper function to get current user
 async function getCurrentUser() {
@@ -61,59 +61,91 @@ export const getEnquiryActivities = action
         }
       }
 
-      const [activities, total] = await Promise.all([
-        prisma.enquiryActivity.findMany({
-          where,
-          skip,
-          take: limit,
+      const [followUps, callLogs] = await Promise.all([
+        prisma.followUp.findMany({
+          where: { enquiryId },
           orderBy: { createdAt: 'desc' },
+          take: limit,
           include: {
-            enquiry: {
-              select: {
-                id: true,
-                candidateName: true,
-                status: true,
-              },
-            },
             createdBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-              },
+              select: { id: true, name: true, email: true, role: true },
             },
-            followUp: {
-              select: {
-                id: true,
-                scheduledAt: true,
-                status: true,
-                outcome: true,
-              },
-            },
-            callLog: {
-              select: {
-                id: true,
-                callDate: true,
-                duration: true,
-                outcome: true,
-              },
+            enquiry: {
+              select: { id: true, candidateName: true, status: true },
             },
           },
         }),
-        prisma.enquiryActivity.count({ where }),
+        prisma.callLog.findMany({
+          where: { enquiryId },
+          orderBy: { callDate: 'desc' },
+          take: limit,
+          include: {
+            createdBy: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+            enquiry: {
+              select: { id: true, candidateName: true, status: true },
+            },
+          },
+        }),
       ]);
+
+      const activities: EnquiryActivity[] = [
+        ...followUps.map((f) => ({
+          id: f.id,
+          type: ActivityType.FOLLOW_UP,
+          title: `Follow-up scheduled (${f.status})`,
+          description: f.notes || f.outcome || 'Follow-up created',
+          enquiryId: f.enquiryId,
+          followUpId: f.id,
+          callLogId: null,
+          createdByUserId: f.createdByUserId,
+          createdAt: f.createdAt,
+          createdBy: f.createdBy,
+          enquiry: f.enquiry,
+          followUp: {
+            id: f.id,
+            scheduledAt: f.scheduledAt,
+            status: f.status,
+            outcome: f.outcome,
+          },
+          callLog: null,
+        })),
+        ...callLogs.map((c) => ({
+          id: c.id,
+          type: ActivityType.CALL_LOG,
+          title: `Call logged - ${c.outcome || 'Completed'}`,
+          description: c.notes || `Duration: ${c.duration || 0}s`,
+          enquiryId: c.enquiryId,
+          followUpId: null,
+          callLogId: c.id,
+          createdByUserId: c.createdByUserId,
+          createdAt: c.createdAt,
+          createdBy: c.createdBy,
+          enquiry: c.enquiry,
+          followUp: null,
+          callLog: {
+            id: c.id,
+            callDate: c.callDate,
+            duration: c.duration,
+            outcome: c.outcome,
+          },
+        })),
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      const total = activities.length;
+      const paginatedActivities = activities.slice(skip, skip + limit);
 
       const pagination = {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit),
+        pages: Math.ceil(total / limit) || 1,
       };
 
       return {
         success: true,
-        data: activities,
+        data: paginatedActivities,
         pagination,
         message: 'Activities fetched successfully',
       };

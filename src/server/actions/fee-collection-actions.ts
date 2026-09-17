@@ -29,49 +29,72 @@ export async function createReceipt(data: CreateReceiptInput) {
       return { error: "Unauthorized" };
     }
 
-    const { nextDueDate, ...rest } = data;
-    const receipt = await prisma.receipt.create({
-      data: {
-        ...rest,
-        createdById: session.user.id,
-      },
-    });
-
-    // Update admission balance
-    const admission = (await prisma.admission.findUnique({
-      where: { id: data.admissionId },
-      include: {
-        course: true,
-        receipts: {
-          include: {
-            createdBy: true,
-          },
-        },
-      },
-    })) as unknown as AdmissionWithReceiptsAndCourse;
-
-    if (admission) {
-      // Calculate new balance
-      const totalPaid = calculateTotalPaid(admission);
-      const totalFee = calculateTotalFee(admission.course);
-
-      const balance = totalFee - totalPaid;
-
-      // Update admission with new balance
-      await prisma.admission.update({
-        where: { id: data.admissionId },
-        data: {
-          balance: balance > 0 ? balance : 0,
-          nextDueDate: balance <= 0 ? null : nextDueDate,
-        },
-      });
+    if (!data.amountCollected || data.amountCollected <= 0 || !Number.isFinite(data.amountCollected)) {
+      return { error: "Payment amount must be a valid positive number" };
     }
 
+    const { nextDueDate, ...rest } = data;
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Acquire pessimistic row lock on the admission to prevent concurrent double-payment races
+      await tx.$queryRaw`SELECT id FROM "admission" WHERE id = ${data.admissionId} FOR UPDATE`;
+
+      // 2. Fetch fresh admission state and receipts within transaction
+      const admission = (await tx.admission.findUnique({
+        where: { id: data.admissionId },
+        include: {
+          course: true,
+          receipts: {
+            include: {
+              createdBy: true,
+            },
+          },
+        },
+      })) as unknown as AdmissionWithReceiptsAndCourse;
+
+      if (!admission) {
+        throw new Error("Admission not found");
+      }
+
+      // 3. Compute remaining balance before adding this receipt
+      const totalPaid = calculateTotalPaid(admission);
+      const totalFee = calculateTotalFee(admission.course);
+      const remainingBalance = totalFee - totalPaid;
+
+      if (data.amountCollected > remainingBalance) {
+        throw new Error(
+          `Payment of ₹${data.amountCollected.toLocaleString()} exceeds the remaining balance of ₹${remainingBalance.toLocaleString()}`
+        );
+      }
+
+      // 4. Create the receipt atomically
+      const receipt = await tx.receipt.create({
+        data: {
+          ...rest,
+          createdById: session.user.id,
+        },
+      });
+
+      // 5. Update admission with verified new balance
+      const newBalance = remainingBalance - data.amountCollected;
+      await tx.admission.update({
+        where: { id: data.admissionId },
+        data: {
+          balance: newBalance > 0 ? newBalance : 0,
+          nextDueDate: newBalance <= 0 ? null : nextDueDate,
+          status: newBalance <= 0 ? "CONFIRMED" : admission.status,
+        },
+      });
+
+      return receipt;
+    });
+
     revalidatePath(`/admissions/${data.admissionId}/payments`);
-    return { success: true, data: receipt };
+    return { success: true, data: result };
   } catch (error) {
     console.error("Error creating receipt:", error);
-    return { error: "Failed to create receipt" };
+    const message = error instanceof Error ? error.message : "Failed to create receipt";
+    return { error: message };
   }
 }
 

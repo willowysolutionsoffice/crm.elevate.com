@@ -2,6 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { cacheService } from "@/lib/cache/cache-service";
+import { CACHE_KEYS, CACHE_TTL } from "@/lib/cache/cache-keys";
+import {
+  invalidateMasterDataCache,
+  invalidateUserPermissionCache,
+} from "@/lib/cache/cache-invalidation";
 import {
   CreateRoleInput,
   UpdateRoleInput,
@@ -28,9 +34,14 @@ interface ActionResponse<T = unknown> {
 // Role Actions
 export async function getAllRoles(): Promise<ActionResponse> {
   try {
-    const roles = await prisma.role.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const roles = await cacheService.getOrSet(
+      "crm:master-data:roles",
+      CACHE_TTL.MASTER_DATA,
+      async () =>
+        await prisma.role.findMany({
+          orderBy: { createdAt: "desc" },
+        })
+    );
 
     return {
       success: true,
@@ -63,9 +74,15 @@ export async function createRole(
     }
 
     const role = await prisma.role.create({
-      data: input,
+      data: {
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
+        ...input,
+      },
     });
 
+    await invalidateMasterDataCache('roles');
+    await invalidateUserPermissionCache();
     revalidatePath("/admin/data-management");
 
     return {
@@ -109,6 +126,8 @@ export async function updateRole(
       },
     });
 
+    await invalidateMasterDataCache('roles');
+    await invalidateUserPermissionCache();
     revalidatePath("/admin/data-management");
 
     return {
@@ -131,6 +150,8 @@ export async function deleteRole(input: DeleteInput): Promise<ActionResponse> {
       where: { id: input.id },
     });
 
+    await invalidateMasterDataCache('roles');
+    await invalidateUserPermissionCache();
     revalidatePath("/admin/data-management");
 
     return {
@@ -149,9 +170,14 @@ export async function deleteRole(input: DeleteInput): Promise<ActionResponse> {
 // Course Actions
 export async function getAllCourses(): Promise<ActionResponse> {
   try {
-    const courses = await prisma.course.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const courses = await cacheService.getOrSet(
+      CACHE_KEYS.courses,
+      CACHE_TTL.MASTER_DATA,
+      async () =>
+        await prisma.course.findMany({
+          orderBy: { createdAt: "desc" },
+        })
+    );
 
     return {
       success: true,
@@ -182,6 +208,7 @@ export async function createCourse(
       },
     });
 
+    await invalidateMasterDataCache('courses');
     revalidatePath("/admin/data-management");
 
     return {
@@ -214,6 +241,7 @@ export async function updateCourse(
       },
     });
 
+    await invalidateMasterDataCache('courses');
     revalidatePath("/admin/data-management");
 
     return {
@@ -236,7 +264,6 @@ export async function deleteCourse(
   try {
     console.log("Deleting course with ID:", input.id);
 
-
     await prisma.admission.deleteMany({
       where: {
         courseId: input.id,
@@ -247,6 +274,7 @@ export async function deleteCourse(
       where: { id: input.id },
     });
 
+    await invalidateMasterDataCache('courses');
     revalidatePath("/admin/data-management");
 
     return {
@@ -282,6 +310,7 @@ export async function toggleCourseStatus(
       data: { isActive: !course.isActive },
     });
 
+    await invalidateMasterDataCache('courses');
     revalidatePath("/admin/data-management");
 
     return {
@@ -303,9 +332,14 @@ export async function toggleCourseStatus(
 // Branch Actions
 export async function getAllBranches(): Promise<ActionResponse> {
   try {
-    const branches = await prisma.branch.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const branches = await cacheService.getOrSet(
+      CACHE_KEYS.branches,
+      CACHE_TTL.MASTER_DATA,
+      async () =>
+        await prisma.branch.findMany({
+          orderBy: { createdAt: "desc" },
+        })
+    );
 
     return {
       success: true,
@@ -329,6 +363,8 @@ export async function createBranch(
       data: input,
     });
 
+    await invalidateMasterDataCache('branches');
+    await invalidateDashboardCache();
     revalidatePath("/admin/data-management");
 
     return {
@@ -359,6 +395,8 @@ export async function updateBranch(
       },
     });
 
+    await invalidateMasterDataCache('branches');
+    await invalidateDashboardCache();
     revalidatePath("/admin/data-management");
 
     return {
@@ -383,6 +421,8 @@ export async function deleteBranch(
       where: { id: input.id },
     });
 
+    await invalidateMasterDataCache('branches');
+    await invalidateDashboardCache();
     revalidatePath("/admin/data-management");
 
     return {
@@ -418,6 +458,8 @@ export async function toggleBranchStatus(
       data: { isActive: !branch.isActive },
     });
 
+    await invalidateMasterDataCache('branches');
+    await invalidateDashboardCache();
     revalidatePath("/admin/data-management");
 
     return {
@@ -439,9 +481,14 @@ export async function toggleBranchStatus(
 // Enquiry Source Actions
 export async function getAllEnquirySources(): Promise<ActionResponse> {
   try {
-    const sources = await prisma.enquirySource.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const sources = await cacheService.getOrSet(
+      CACHE_KEYS.sources,
+      CACHE_TTL.MASTER_DATA,
+      async () =>
+        await prisma.enquirySource.findMany({
+          orderBy: { createdAt: "desc" },
+        })
+    );
 
     return {
       success: true,
@@ -462,9 +509,14 @@ export async function createEnquirySource(
 ): Promise<ActionResponse> {
   try {
     const source = await prisma.enquirySource.create({
-      data: input,
+      data: {
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
+        ...input,
+      },
     });
 
+    await invalidateMasterDataCache('sources');
     revalidatePath("/admin/data-management");
 
     return {
@@ -498,6 +550,7 @@ export async function updateEnquirySource(
       },
     });
 
+    await invalidateMasterDataCache('sources');
     revalidatePath("/admin/data-management");
 
     return {
@@ -528,6 +581,7 @@ export async function deleteEnquirySource(
       where: { id: input.id },
     });
 
+    await invalidateMasterDataCache('sources');
     revalidatePath("/admin/data-management");
 
     return {
@@ -563,6 +617,7 @@ export async function toggleEnquirySourceStatus(
       data: { isActive: !source.isActive },
     });
 
+    await invalidateMasterDataCache('sources');
     revalidatePath("/admin/data-management");
 
     return {
@@ -603,7 +658,11 @@ export async function getAllRequiredServices(): Promise<ActionResponse> {
 
 export async function getAllServices(){
   try{
-    const services = await prisma.service.findMany({});
+    const services = await cacheService.getOrSet(
+      CACHE_KEYS.services,
+      CACHE_TTL.MASTER_DATA,
+      async () => await prisma.service.findMany({})
+    );
     return {
       success: true,
       message: "Services fetched successfully",
@@ -629,6 +688,7 @@ export async function createService(input: CreateServiceInput){
         message: "Failed to create service",
       };
     }
+    await invalidateMasterDataCache('services');
     revalidatePath("/admin/data-management");
     return {
       success: true,
@@ -665,6 +725,7 @@ export async function updateService(input: UpdateServiceInput){
         message: "Failed to update service",
       };
     }
+    await invalidateMasterDataCache('services');
     revalidatePath("/admin/data-management");
     return {
       success: true,
@@ -686,6 +747,7 @@ export async function deleteService(input: DeleteInput){
       where: { id: input.id },
     });
 
+    await invalidateMasterDataCache('services');
     revalidatePath("/admin/data-management");
     return {
       success: true,

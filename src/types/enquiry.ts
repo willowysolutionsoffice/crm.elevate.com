@@ -148,6 +148,8 @@ export interface EnquiryFilters {
   page?: number;
   limit?: number;
   search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   status?: EnquiryStatus[];
   branchId?: string;
   enquirySourceId?: string;
@@ -160,7 +162,12 @@ export interface EnquiryFilters {
 export interface FollowUpFilters {
   page?: number;
   limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   status?: FollowUpStatus[];
+  branchId?: string;
+  assignedToUserId?: string;
   overdue?: boolean;
   dateFrom?: Date;
   dateTo?: Date;
@@ -169,7 +176,14 @@ export interface FollowUpFilters {
 export interface CallLogFilters {
   page?: number;
   limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   outcome?: string;
+  enquiryId?: string;
+  assignedToUserId?: string;
+  branchId?: string;
   dateFrom?: Date;
   dateTo?: Date;
 }
+

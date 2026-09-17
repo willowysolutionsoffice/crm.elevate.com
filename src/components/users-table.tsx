@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconSearch, IconDotsVertical, IconTrash } from '@tabler/icons-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,8 +40,7 @@ import {
 import { formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { UsersTableProps } from '@/types/user';
-import { authClient } from '@/lib/auth-client';
-import { updateUserBranchAction } from '@/lib/actions/auth';
+import { updateUserBranchAction, updateUserRoleAction, deleteUserAction } from '@/lib/actions/auth';
 import { useAction } from 'next-safe-action/hooks';
 import { User } from '@prisma/client';
 
@@ -69,6 +68,38 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
     },
   });
 
+  const { execute: updateRole } = useAction(updateUserRoleAction, {
+    onSuccess: ({ data }) => {
+      if (data?.success) {
+        toast.success(data.message);
+        router.refresh();
+      }
+    },
+    onError: () => {
+      toast.error('Failed to update user role. Please try again.');
+    },
+    onSettled: () => {
+      setUpdatingRoleUserId(null);
+    },
+  });
+
+  const { execute: deleteUser } = useAction(deleteUserAction, {
+    onSuccess: ({ data }) => {
+      if (data?.success) {
+        toast.success(data.message);
+        setShowDeleteDialog(false);
+        setUserToDelete(null);
+        router.refresh();
+      }
+    },
+    onError: () => {
+      toast.error('Failed to delete user. Please try again.');
+    },
+    onSettled: () => {
+      setIsDeleting(false);
+    },
+  });
+
   const filteredUsers = useMemo(() => {
     if (!searchQuery) return users;
 
@@ -93,25 +124,8 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
 
   const handleDeleteConfirm = async () => {
     if (!userToDelete) return;
-
     setIsDeleting(true);
-    try {
-      await authClient.admin.removeUser({
-        userId: userToDelete.id,
-      });
-
-      toast.success(`User ${userToDelete.name} deleted successfully`);
-      setShowDeleteDialog(false);
-      setUserToDelete(null);
-
-      // Refresh the page to update the user list
-      router.refresh();
-    } catch (error) {
-      console.error('Delete user error:', error);
-      toast.error('Failed to delete user. Please try again.');
-    } finally {
-      setIsDeleting(false);
-    }
+    deleteUser({ userId: userToDelete.id });
   };
 
   const handleDeleteCancel = () => {
@@ -120,25 +134,9 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
   };
 
   const handleRoleUpdate = async (userId: string, newRole: string, currentRole: string) => {
-    if (newRole === currentRole) return; // No change needed
-
+    if (newRole === currentRole) return;
     setUpdatingRoleUserId(userId);
-    try {
-      await authClient.admin.setRole({
-        userId,
-        role: newRole as 'admin' | 'user',
-      });
-
-      toast.success(`User role updated to ${newRole.toUpperCase()}`);
-
-      // Refresh the page to update the user list
-      router.refresh();
-    } catch (error) {
-      console.error('Update role error:', error);
-      toast.error('Failed to update user role. Please try again.');
-    } finally {
-      setUpdatingRoleUserId(null);
-    }
+    updateRole({ userId, role: newRole });
   };
 
   const handleBranchUpdate = async (
@@ -165,39 +163,39 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
       if (!role) return 'text-muted-foreground';
       switch (role.toLowerCase()) {
         case 'admin':
-          return 'text-red-600 dark:text-red-400';
+          return 'text-rose-600 dark:text-rose-400 font-semibold';
         case 'executive':
-          return 'text-blue-600 dark:text-blue-400';
+          return 'text-blue-600 dark:text-blue-400 font-medium';
         case 'telecaller':
-          return 'text-green-600 dark:text-green-400';
+          return 'text-emerald-600 dark:text-emerald-400 font-medium';
         default:
-          return 'text-gray-600 dark:text-gray-400';
+          return 'text-slate-600 dark:text-slate-400 font-medium';
       }
     };
 
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <Select
           value={currentRole}
           onValueChange={(newRole) => handleRoleUpdate(user.id, newRole, currentRole)}
           disabled={isUpdating}
         >
-          <SelectTrigger className="w-32 h-8 border-none shadow-none p-2 hover:bg-muted/50 focus:ring-1 focus:ring-ring">
+          <SelectTrigger className="w-32 h-7 text-xs border border-border/60 shadow-none px-2 focus:ring-1 focus:ring-ring bg-background">
             <SelectValue>
-              <span className={`text-sm font-medium ${getRoleColor(currentRole)}`}>
+              <span className={`text-xs ${getRoleColor(currentRole)}`}>
                 {getRoleDisplayText(currentRole)}
               </span>
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {roles.map((role) => (
-              <SelectItem key={role.id} value={role.name} className="cursor-pointer">
+              <SelectItem key={role.id} value={role.name} className="cursor-pointer text-xs">
                 <div className="flex flex-col">
-                  <span className={`font-medium text-sm ${getRoleColor(role.name)}`}>
+                  <span className={`font-medium ${getRoleColor(role.name)}`}>
                     {getRoleDisplayText(role.name)}
                   </span>
                   {role.description && (
-                    <span className="text-xs text-muted-foreground">{role.description}</span>
+                    <span className="text-[10px] text-muted-foreground">{role.description}</span>
                   )}
                 </div>
               </SelectItem>
@@ -205,7 +203,7 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
           </SelectContent>
         </Select>
         {isUpdating && (
-          <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         )}
       </div>
     );
@@ -218,32 +216,32 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
     const getBranchDisplayText = (branchId: string | null) => {
       if (!branchId) return 'No Branch';
       const branch = branches.find((b) => b.id === branchId);
-      return branch ? branch.name : 'Unknown Branch';
+      return branch ? branch.name : 'Unknown';
     };
 
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <Select
           value={currentBranchId}
           onValueChange={(newBranchId) => handleBranchUpdate(user.id, newBranchId, currentBranchId)}
           disabled={isUpdating}
         >
-          <SelectTrigger className="w-32 h-8 border-none shadow-none p-2 hover:bg-muted/50 focus:ring-1 focus:ring-ring">
+          <SelectTrigger className="w-32 h-7 text-xs border border-border/60 shadow-none px-2 focus:ring-1 focus:ring-ring bg-background">
             <SelectValue>
-              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              <span className="text-xs text-foreground font-medium">
                 {getBranchDisplayText(currentBranchId)}
               </span>
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {branches.map((branch) => (
-              <SelectItem key={branch.id} value={branch.id} className="cursor-pointer">
+              <SelectItem key={branch.id} value={branch.id} className="cursor-pointer text-xs">
                 <div className="flex flex-col">
-                  <span className="font-medium text-sm text-blue-600 dark:text-blue-400">
+                  <span className="font-medium text-foreground">
                     {branch.name}
                   </span>
                   {branch.address && (
-                    <span className="text-xs text-muted-foreground">{branch.address}</span>
+                    <span className="text-[10px] text-muted-foreground">{branch.address}</span>
                   )}
                 </div>
               </SelectItem>
@@ -251,89 +249,111 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
           </SelectContent>
         </Select>
         {isUpdating && (
-          <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         )}
       </div>
     );
   };
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle>System Users</CardTitle>
-          <CardDescription>
-            Manage user accounts and permissions. Total users: {users.length}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <IconSearch className="h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="max-w-sm"
-              />
-            </div>
+    <div className="space-y-4">
+      {/* Search Toolbar */}
+      <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-card p-3 shadow-sm">
+        <div className="relative flex-1 max-w-sm">
+          <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, email, or role..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 text-xs bg-background"
+          />
+        </div>
+        {searchQuery && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSearchQuery('')}
+            className="h-9 px-2.5 text-xs text-muted-foreground"
+          >
+            Clear
+          </Button>
+        )}
+      </div>
 
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
+      {/* Users Table Card */}
+      <Card className="border-border/80 shadow-sm overflow-hidden">
+        <CardHeader className="py-3 px-4 border-b border-border/60 bg-muted/20 flex flex-row items-center justify-between">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Active Accounts ({filteredUsers.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="relative overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Team Member</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead className="w-[160px]">Assigned Role</TableHead>
+                  <TableHead className="w-[160px]">Assigned Branch</TableHead>
+                  <TableHead className="w-[130px]">Created Date</TableHead>
+                  <TableHead className="w-[60px] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Branch</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableCell colSpan={6} className="text-center py-12 text-xs text-muted-foreground">
+                      No matching user accounts found.
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4">
-                        No users found
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id} className="hover:bg-muted/40 transition-colors">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-xs shrink-0">
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-medium text-xs text-foreground">{user.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {user.email}
+                      </TableCell>
+                      <TableCell>
+                        <RoleSelect user={user} />
+                      </TableCell>
+                      <TableCell>
+                        <BranchSelect user={user} />
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {formatDate(user.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <IconDotsVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-xs text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
+                              onClick={() => handleDeleteClick(user)}
+                            >
+                              <IconTrash className="mr-2 h-3.5 w-3.5" />
+                              Delete Account
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.name}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          <RoleSelect user={user} />
-                        </TableCell>
-                        <TableCell>
-                          <BranchSelect user={user} />
-                        </TableCell>
-                        <TableCell>{formatDate(user.createdAt)}</TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <IconDotsVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => handleDeleteClick(user)}
-                              >
-                                <IconTrash className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
@@ -342,25 +362,24 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete User Account?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the user{' '}
-              <span className="font-semibold">{userToDelete?.name}</span> and remove their data from
-              our servers.
+              This action cannot be undone. This will permanently remove access for{' '}
+              <span className="font-semibold text-foreground">{userToDelete?.name}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleDeleteCancel} disabled={isDeleting}>
+            <AlertDialogCancel onClick={handleDeleteCancel} disabled={isDeleting} className="text-xs">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-rose-600 hover:bg-rose-700 text-xs text-white"
             >
               {isDeleting ? (
                 <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                  <div className="mr-2 h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                   Deleting...
                 </>
               ) : (
@@ -370,6 +389,6 @@ export function UsersTable({ users, roles, branches }: UsersTableProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

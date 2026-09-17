@@ -1,34 +1,32 @@
 // src/middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { betterFetch } from '@better-fetch/fetch';
-import { SessionResponse } from '@/types/auth';
 
 export async function middleware(request: NextRequest) {
-  const { data: session } = await betterFetch<SessionResponse>('/api/auth/get-session', {
-    baseURL: request.nextUrl.origin,
-    headers: {
-      cookie: request.headers.get('cookie') || '', // Forward the cookies from the request
-    },
-  });
-
+  const token = request.cookies.get('token')?.value;
+  const userCookie = request.cookies.get('user')?.value;
   const pathname = request.nextUrl.pathname;
 
-  // If no session exists, redirect to login for all protected routes
-  if (!session) {
+  let userRole: string | null = null;
+
+  if (userCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(userCookie));
+      userRole = parsed?.role || null;
+    } catch (e) {}
+  }
+
+  // If no token or user cookie exists, redirect to login
+  if (!token && !userCookie) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  const { user } = session;
-
   // Check if user is trying to access admin routes
-  if (pathname.startsWith('/admin')|| pathname.startsWith('/report')) {
-    // Only allow admin users to access admin routes
-    if (user.role !== 'admin') {
+  if (pathname.startsWith('/admin') || pathname.startsWith('/report')) {
+    if (userRole && userRole !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
-  // For all other protected routes, just being logged in is sufficient
   return NextResponse.next();
 }
 

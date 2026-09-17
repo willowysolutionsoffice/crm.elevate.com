@@ -13,6 +13,9 @@ import {
 } from "@/types/admission";
 import { Prisma } from "@prisma/client";
 import { calculateBalance, calculateTotalFee } from "@/lib/fee-utils";
+import { cacheService } from "@/lib/cache/cache-service";
+import { CACHE_KEYS, CACHE_TTL } from "@/lib/cache/cache-keys";
+import { invalidateDashboardCache } from "@/lib/cache/cache-invalidation";
 
 // Helper function to get current user
 export async function getCurrentUser() {
@@ -92,7 +95,10 @@ const getAdmissionsSchema = z.object({
   page: z.number().optional(),
   limit: z.number().optional(),
   search: z.string().optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
   status: z.nativeEnum(AdmissionStatus).optional(),
+  branchId: z.string().optional(),
   courseId: z.string().optional(),
   dateFrom: z.date().optional(),
   dateTo: z.date().optional(),
@@ -212,6 +218,7 @@ export const createAdmission = actionClient
         },
       });
 
+      await invalidateDashboardCache();
       revalidatePath("/admissions");
       return {
         success: true,
@@ -313,6 +320,7 @@ export const updateAdmission = adminActionClient
         },
       });
 
+      await invalidateDashboardCache();
       revalidatePath("/admissions");
       revalidatePath(`/admissions/${id}`);
       return {
@@ -350,6 +358,7 @@ export const deleteAdmission = adminActionClient
         },
       });
 
+      await invalidateDashboardCache();
       revalidatePath("/admissions");
       return { success: true, message: "Admission deleted successfully" };
     } catch (error) {
@@ -358,52 +367,93 @@ export const deleteAdmission = adminActionClient
     }
   });
 
+import {
+  normalizePagination,
+  validateSortField,
+  validateSortOrder,
+  buildPaginationResult,
+} from "@/lib/pagination-utils";
+
+const ADMISSION_SORT_FIELDS = [
+  "createdAt",
+  "candidateName",
+  "admissionNumber",
+  "status",
+  "balance",
+  "updatedAt",
+];
+
 // Safe action for getting admissions with filters and pagination
 export const getAdmissions = actionClient
   .schema(getAdmissionsSchema)
   .action(async ({ parsedInput }) => {
     try {
       const {
-        page = 1,
-        limit = 10,
         search,
         status,
         courseId,
+        branchId,
         dateFrom,
         dateTo,
       } = parsedInput;
 
-      const skip = (page - 1) * limit;
+      const { page, limit, skip } = normalizePagination({
+        page: parsedInput.page,
+        limit: parsedInput.limit,
+      });
+
+      const sortBy = validateSortField(
+        parsedInput.sortBy,
+        ADMISSION_SORT_FIELDS,
+        "createdAt"
+      );
+      const sortOrder = validateSortOrder(parsedInput.sortOrder, "desc");
 
       // Build where clause
       const where: Prisma.AdmissionWhereInput = {};
 
       const user = await getCurrentUser();
-      const role = (user.role || '').toLowerCase();
+      const role = (user.role || "").toLowerCase();
 
-      if (role === 'telecaller') {
+      if (role === "telecaller") {
         where.createdByUserId = user.id;
-      } else if ((role === 'manager' || role === 'executive' || role === 'branch manager') && user.branch) {
+      } else if (
+        (role === "manager" || role === "executive" || role === "branch manager") &&
+        user.branch
+      ) {
         where.OR = [
           { enquiry: { branchId: user.branch } },
-          { createdBy: { branch: user.branch } }
+          { createdBy: { branch: user.branch } },
+        ];
+      } else if (branchId) {
+        where.OR = [
+          { enquiry: { branchId } },
+          { createdBy: { branch: branchId } },
         ];
       }
 
-      // Add status filter (exclude cancelled by default)
+      // Add status filter
       if (status) {
         where.status = status;
       }
 
       // Add search filter
-      if (search) {
-        where.OR = [
-          { candidateName: { contains: search, mode: "insensitive" } },
-          { mobileNumber: { contains: search, mode: "insensitive" } },
-          { email: { contains: search, mode: "insensitive" } },
-          { admissionNumber: { contains: search, mode: "insensitive" } },
-          { course: { name: { contains: search, mode: "insensitive" } } },
+      if (search && search.trim()) {
+        const query = search.trim();
+        const searchConditions: Prisma.AdmissionWhereInput[] = [
+          { candidateName: { contains: query, mode: "insensitive" } },
+          { mobileNumber: { contains: query, mode: "insensitive" } },
+          { email: { contains: query, mode: "insensitive" } },
+          { admissionNumber: { contains: query, mode: "insensitive" } },
+          { course: { name: { contains: query, mode: "insensitive" } } },
         ];
+
+        if (where.OR) {
+          where.AND = [{ OR: where.OR }, { OR: searchConditions }];
+          delete where.OR;
+        } else {
+          where.OR = searchConditions;
+        }
       }
 
       // Add other filters
@@ -416,22 +466,12 @@ export const getAdmissions = actionClient
         if (dateTo) where.createdAt.lte = dateTo;
       }
 
-      const existingCourses = await prisma.course.findMany({
-  select: { id: true },
-});
-
-      const validCourseIds = existingCourses.map(c => c.id);
-
-
       const [admissions, totalCount] = await Promise.all([
         prisma.admission.findMany({
-          where:{
-            ...where,
-            courseId:{in:validCourseIds}
-          },
+          where,
           skip,
           take: limit,
-          orderBy: { createdAt: "desc" },
+          orderBy: { [sortBy]: sortOrder },
           include: {
             course: {
               select: {
@@ -451,7 +491,7 @@ export const getAdmissions = actionClient
         prisma.admission.count({ where }),
       ]);
 
-      const totalPages = Math.ceil(totalCount / limit);
+      const pagination = buildPaginationResult(totalCount, page, limit);
 
       return {
         success: true,
@@ -459,7 +499,13 @@ export const getAdmissions = actionClient
           admissions,
           totalCount,
           currentPage: page,
-          totalPages,
+          totalPages: pagination.totalPages,
+          pagination: {
+            page: pagination.page,
+            limit: pagination.limit,
+            total: pagination.total,
+            totalPages: pagination.totalPages,
+          },
         },
       };
     } catch (error) {
@@ -492,11 +538,7 @@ export const getAdmissionById = actionClient
               candidateName: true,
               phone: true,
               email: true,
-              enquirySource: {
-                select: {
-                  name: true,
-                },
-              },
+              source: true,
             },
           },
           createdBy: {
@@ -553,7 +595,11 @@ export const getAdmissionsByEnquiry = actionClient
 // Safe action for getting enquiry sources for admission form
 export const getEnquirySourcesForAdmission = actionClient.action(async () => {
   try {
-    const enquirySources = await prisma.enquirySource.findMany();
+    const enquirySources = await cacheService.getOrSet(
+      CACHE_KEYS.sources,
+      CACHE_TTL.MASTER_DATA,
+      async () => await prisma.enquirySource.findMany()
+    );
     return { success: true, data: enquirySources };
   } catch (error) {
     console.error("Error fetching enquiry sources:", error);
@@ -564,19 +610,24 @@ export const getEnquirySourcesForAdmission = actionClient.action(async () => {
 // Helper action to get active courses for admission form
 export const getCoursesForAdmission = actionClient.action(async () => {
   try {
-    const courses = await prisma.course.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        name: true,
-        admissionFee: true,
-        semesterFee: true,
-        courseFee: true,
-        description: true,
-        duration: true,
-      },
-      orderBy: { name: "asc" },
-    });
+    const courses = await cacheService.getOrSet(
+      `${CACHE_KEYS.courses}:active`,
+      CACHE_TTL.MASTER_DATA,
+      async () =>
+        await prisma.course.findMany({
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            admissionFee: true,
+            semesterFee: true,
+            courseFee: true,
+            description: true,
+            duration: true,
+          },
+          orderBy: { name: "asc" },
+        })
+    );
 
     return { success: true, data: courses };
   } catch (error) {

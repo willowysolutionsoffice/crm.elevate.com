@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,7 +41,6 @@ import {
   updateEnquiry,
   getBranches,
   getCourses,
-  getEnquirySources,
   getRequiredServices,
   getUsers,
 } from "@/server/actions/enquiry-action";
@@ -49,7 +48,6 @@ import { EnquiryStatus, Enquiry } from "@/types/enquiry";
 import {
   Branch,
   Course,
-  EnquirySource,
   RequiredService,
 } from "@/types/data-management";
 import { authClient } from "@/lib/auth-client";
@@ -69,7 +67,7 @@ const createEnquiryFormSchema = (userHasBranch: boolean) =>
     status: z.nativeEnum(EnquiryStatus).optional(),
     notes: z.string().optional(),
     feedback: z.string().optional(),
-    enquirySourceId: z.string().min(1, "Please select an enquiry source"),
+    enquirySourceId: z.string().optional(),
     branchId: userHasBranch ? z.string().optional() : z.string().min(1, "Please select a branch"),
 
     preferredCourseId: z.string().optional(),
@@ -87,6 +85,7 @@ interface EnquiryFormDialogProps {
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  branches?: Branch[];
 }
 
 export function EnquiryFormDialog({
@@ -96,6 +95,7 @@ export function EnquiryFormDialog({
   trigger,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
+  branches: passedBranches,
 }: EnquiryFormDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
@@ -120,8 +120,9 @@ export function EnquiryFormDialog({
     roleLower === "manager" ||
     roleLower === "branch manager";
 
-  // Get current user session
+  // Get current user session only when dialog opens
   useEffect(() => {
+    if (!open) return;
     const fetchCurrentUser = async () => {
       try {
         setIsLoadingUser(true);
@@ -135,7 +136,7 @@ export function EnquiryFormDialog({
     };
 
     fetchCurrentUser();
-  }, []);
+  }, [open]);
 
   // Actions
   const {
@@ -154,12 +155,12 @@ export function EnquiryFormDialog({
     useAction(getBranches);
   const { execute: fetchCourses, result: coursesResult } =
     useAction(getCourses);
-  const { execute: fetchSources, result: sourcesResult } =
-    useAction(getEnquirySources);
   const { execute: fetchServices, result: servicesResult } =
     useAction(getRequiredServices);
   const { execute: fetchUsers, result: usersResult } =
     useAction(getUsers);
+
+  const hasFetchedRef = useRef(false);
 
   const isExecuting = isCreating || isUpdating;
   const actionResult = isEditMode ? updateResult : createResult;
@@ -246,16 +247,20 @@ export function EnquiryFormDialog({
     }
   }, [actionResult, isEditMode, form, onSuccess, setOpen, isProcessingAction]);
 
-  // Fetch dropdown data when dialog opens
+  // Fetch dropdown data ONLY when dialog actually opens
   useEffect(() => {
-    if (open) {
-      fetchBranches({});
+    if (open && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      if (!passedBranches || passedBranches.length === 0) {
+        fetchBranches({});
+      }
       fetchCourses({});
-      fetchSources({});
       fetchServices({});
       fetchUsers({});
+    } else if (!open) {
+      hasFetchedRef.current = false;
     }
-  }, [open, fetchBranches, fetchCourses, fetchSources, fetchServices, fetchUsers]);
+  }, [open, passedBranches]);
 
   const onSubmit = async (data: EnquiryFormData) => {
     setIsProcessingAction(true);
@@ -273,47 +278,71 @@ export function EnquiryFormDialog({
       return;
     }
 
-    if (isEditMode) {
-      // Update existing enquiry
-      const payload = {
-        id: enquiry.id,
-        candidateName: data.candidateName,
-        phone: data.phone,
-        status: data.status || EnquiryStatus.NEW,
-        enquirySourceId: data.enquirySourceId,
-        branchId: finalBranchId,
-        contact2: data.contact2 || undefined,
-        email: data.email || undefined,
-        address: data.address || undefined,
-        notes: data.notes || undefined,
-        feedback: data.feedback || undefined,
-        preferredCourseId: data.preferredCourseId || undefined,
-        requiredServiceId: data.requiredServiceId || undefined,
-      };
-      await updateEnquiryAction(payload);
-    } else {
-      // Create new enquiry
-      const payload = {
-        candidateName: data.candidateName,
-        phone: data.phone,
-        enquirySourceId: data.enquirySourceId,
-        branchId: finalBranchId!,
-        contact2: data.contact2 || undefined,
-        email: data.email || undefined,
-        address: data.address || undefined,
-        preferredCourseId: data.preferredCourseId || undefined,
-        requiredServiceId: data.requiredServiceId || undefined,
-        notes: data.notes || undefined,
-        assignedToUserId: data.assignedToUserId || undefined,
-        createdByUserId: data.createdByUserId || undefined,
-      };
-      await createEnquiryAction(payload);
+    try {
+      if (isEditMode) {
+        // Update existing enquiry
+        const payload = {
+          id: enquiry.id,
+          candidateName: data.candidateName,
+          phone: data.phone,
+          status: data.status || EnquiryStatus.NEW,
+          enquirySourceId: data.enquirySourceId || undefined,
+          branchId: finalBranchId,
+          contact2: data.contact2 || undefined,
+          email: data.email || undefined,
+          address: data.address || undefined,
+          notes: data.notes || undefined,
+          feedback: data.feedback || undefined,
+          preferredCourseId: data.preferredCourseId || undefined,
+          requiredServiceId: data.requiredServiceId || undefined,
+        };
+        const res = await updateEnquiryAction(payload);
+        if (res?.data?.success) {
+          toast.success(res.data.message || "Enquiry updated successfully");
+          setOpen(false);
+          form.reset();
+          setIsProcessingAction(false);
+          onSuccess?.();
+        } else if (res?.serverError) {
+          toast.error(`Error updating enquiry: ${res.serverError}`);
+          setIsProcessingAction(false);
+        }
+      } else {
+        // Create new enquiry
+        const payload = {
+          candidateName: data.candidateName,
+          phone: data.phone,
+          enquirySourceId: data.enquirySourceId || undefined,
+          branchId: finalBranchId!,
+          contact2: data.contact2 || undefined,
+          email: data.email || undefined,
+          address: data.address || undefined,
+          preferredCourseId: data.preferredCourseId || undefined,
+          requiredServiceId: data.requiredServiceId || undefined,
+          notes: data.notes || undefined,
+          assignedToUserId: data.assignedToUserId || undefined,
+          createdByUserId: data.createdByUserId || undefined,
+        };
+        const res = await createEnquiryAction(payload);
+        if (res?.data?.success) {
+          toast.success(res.data.message || "Enquiry created successfully");
+          setOpen(false);
+          form.reset();
+          setIsProcessingAction(false);
+          onSuccess?.();
+        } else if (res?.serverError) {
+          toast.error(`Error creating enquiry: ${res.serverError}`);
+          setIsProcessingAction(false);
+        }
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "An unexpected error occurred");
+      setIsProcessingAction(false);
     }
   };
 
-  const branches = (branchesResult?.data?.data as Branch[]) || [];
+  const branches = passedBranches && passedBranches.length > 0 ? passedBranches : ((branchesResult?.data?.data as Branch[]) || []);
   const courses = (coursesResult?.data?.data as Course[]) || [];
-  const sources = (sourcesResult?.data?.data as EnquirySource[]) || [];
   const services = (servicesResult?.data?.data as RequiredService[]) || [];
   const users = (usersResult?.data?.data as any[]) || [];
 
@@ -503,34 +532,7 @@ export function EnquiryFormDialog({
                     />
                   )}
 
-                  {/* Enquiry Source */}
-                  <FormField
-                    control={form.control}
-                    name="enquirySourceId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Enquiry Source *</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select enquiry source" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {sources.map((source) => (
-                              <SelectItem key={source.id} value={source.id}>
-                                {source.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+
 
                   {/* Branch */}
                   {!isBranchScoped ? (

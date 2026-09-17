@@ -158,7 +158,7 @@ export default function DataManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Forms
   const roleForm = useForm<RoleForm>({ resolver: zodResolver(roleSchema) });

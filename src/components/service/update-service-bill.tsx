@@ -63,7 +63,7 @@ export default function EditServiceBillModal({
   const loadServices = async () => {
     try {
       const servicesResult = await listServices();
-      if (servicesResult.success) {
+      if (servicesResult.success && servicesResult.data) {
         setServices(servicesResult.data);
       }
     } catch (error) {
@@ -146,7 +146,7 @@ export default function EditServiceBillModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Service Bill</DialogTitle>
           <DialogDescription>

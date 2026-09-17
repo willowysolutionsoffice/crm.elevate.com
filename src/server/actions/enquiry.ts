@@ -15,6 +15,7 @@ import {
   EnquiryFilters,
 } from '@/types/enquiry';
 import { ActivityType } from '@/types/enquiry-activity';
+import { invalidateDashboardCache } from '@/lib/cache/cache-invalidation';
 
 // Generic response type
 interface ActionResponse<T = unknown> {
@@ -40,6 +41,16 @@ export async function getCurrentUser() {
   }
 
   return session.user;
+}
+
+// Helper function to format enquiry object for frontend
+function formatEnquiry(enquiry: any) {
+  if (!enquiry) return enquiry;
+  return {
+    ...enquiry,
+    enquirySource: enquiry.enquirySource || (enquiry.source ? { id: enquiry.source, name: enquiry.source } : null),
+    requiredService: enquiry.requiredService || enquiry.service || null,
+  };
 }
 
 // Helper function to generate activity title
@@ -80,8 +91,7 @@ export async function createEnquiry(data: CreateEnquiryInput): Promise<ActionRes
       include: {
         branch: true,
         preferredCourse: true,
-        enquirySource: true,
-        requiredService: true,
+        service: true,
         assignedTo: {
           select: {
             id: true,
@@ -101,8 +111,9 @@ export async function createEnquiry(data: CreateEnquiryInput): Promise<ActionRes
       },
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/enquiries');
-    return { success: true, data: enquiry, message: 'Enquiry created successfully' };
+    return { success: true, data: formatEnquiry(enquiry), message: 'Enquiry created successfully' };
   } catch (error) {
     console.error('Error creating enquiry:', error);
     return {
@@ -112,12 +123,27 @@ export async function createEnquiry(data: CreateEnquiryInput): Promise<ActionRes
   }
 }
 
+import {
+  normalizePagination,
+  validateSortField,
+  validateSortOrder,
+  buildPaginationResult,
+} from '@/lib/pagination-utils';
+
+const ENQUIRY_SORT_FIELDS = [
+  'createdAt',
+  'candidateName',
+  'status',
+  'updatedAt',
+  'lastContactDate',
+] as const;
+
 export async function getEnquiries(filters: EnquiryFilters = {}): Promise<ActionResponse> {
   try {
     const user = await getCurrentUser();
     const {
-      page = 1,
-      limit = 10,
+      page: rawPage,
+      limit: rawLimit,
       search,
       status,
       branchId,
@@ -125,8 +151,13 @@ export async function getEnquiries(filters: EnquiryFilters = {}): Promise<Action
       assignedToUserId,
       dateFrom,
       dateTo,
+      sortBy: rawSortBy,
+      sortOrder: rawSortOrder,
     } = filters;
-    const skip = (page - 1) * limit;
+
+    const { page, limit, skip } = normalizePagination(rawPage, rawLimit, 20);
+    const sortBy = validateSortField(rawSortBy, ENQUIRY_SORT_FIELDS, 'createdAt');
+    const sortOrder = validateSortOrder(rawSortOrder, 'desc');
 
     // Build where clause
     const where: Prisma.EnquiryWhereInput = {};
@@ -146,13 +177,12 @@ export async function getEnquiries(filters: EnquiryFilters = {}): Promise<Action
       where.assignedToUserId = user.id;
     }
 
-    // Previous specific logic removed to enforce strict Admin vs Branch/User split.
-
-    if (search) {
+    if (search && search.trim()) {
+      const term = search.trim();
       where.OR = [
-        { candidateName: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } },
-        { email: { contains: search, mode: 'insensitive' } },
+        { candidateName: { contains: term, mode: 'insensitive' } },
+        { phone: { contains: term } },
+        { email: { contains: term, mode: 'insensitive' } },
       ];
     }
 
@@ -160,15 +190,15 @@ export async function getEnquiries(filters: EnquiryFilters = {}): Promise<Action
       where.status = { in: status };
     }
 
-    if (branchId) {
+    if (branchId && branchId !== 'all') {
       where.branchId = branchId;
     }
 
-    if (enquirySourceId) {
-      where.enquirySourceId = enquirySourceId;
+    if (enquirySourceId && enquirySourceId !== 'all') {
+      where.source = enquirySourceId;
     }
 
-    if (assignedToUserId) {
+    if (assignedToUserId && assignedToUserId !== 'all') {
       where.assignedToUserId = assignedToUserId;
     }
 
@@ -192,7 +222,7 @@ export async function getEnquiries(filters: EnquiryFilters = {}): Promise<Action
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [sortBy]: sortOrder },
         select: {
           id: true,
           candidateName: true,
@@ -200,12 +230,16 @@ export async function getEnquiries(filters: EnquiryFilters = {}): Promise<Action
           contact2: true,
           email: true,
           status: true,
+          source: true,
+          notes: true,
+          feedback: true,
+          lastContactDate: true,
           createdAt: true,
           updatedAt: true,
           branchId: true,
           branch: { select: { id: true, name: true } },
           preferredCourse: { select: { id: true, name: true } },
-          enquirySource: { select: { id: true, name: true } },
+          service: { select: { id: true, name: true } },
           assignedTo: {
             select: {
               id: true,
@@ -227,16 +261,11 @@ export async function getEnquiries(filters: EnquiryFilters = {}): Promise<Action
       prisma.enquiry.count({ where }),
     ]);
 
-    const pagination = {
-      page,
-      limit,
-      total,
-      pages: Math.ceil(total / limit),
-    };
+    const pagination = buildPaginationResult(total, page, limit);
 
     return {
       success: true,
-      data: enquiries,
+      data: enquiries.map(formatEnquiry),
       pagination,
       message: 'Enquiries fetched successfully',
     };
@@ -255,11 +284,31 @@ export async function getEnquiry(id: string): Promise<ActionResponse> {
 
     const enquiry = await prisma.enquiry.findUnique({
       where: { id },
-      include: {
-        branch: true,
-        preferredCourse: true,
-        enquirySource: true,
-        requiredService: true,
+      select: {
+        id: true,
+        candidateName: true,
+        phone: true,
+        contact2: true,
+        email: true,
+        address: true,
+        status: true,
+        notes: true,
+        feedback: true,
+        lastContactDate: true,
+        branchId: true,
+        preferredCourseId: true,
+        serviceId: true,
+        source: true,
+        sourceId: true,
+        assignedToUserId: true,
+        createdByUserId: true,
+        assignedByUserId: true,
+        createdAt: true,
+        updatedAt: true,
+        branch: { select: { id: true, name: true } },
+        preferredCourse: { select: { id: true, name: true, courseFee: true } },
+        service: { select: { id: true, name: true, price: true } },
+        enquirySource: { select: { id: true, name: true } },
         assignedTo: {
           select: {
             id: true,
@@ -283,32 +332,6 @@ export async function getEnquiry(id: string): Promise<ActionResponse> {
             email: true,
             role: true,
           },
-        },
-        followUps: {
-          include: {
-            createdBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-              },
-            },
-          },
-          orderBy: { scheduledAt: 'desc' },
-        },
-        callLogs: {
-          include: {
-            createdBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-              },
-            },
-          },
-          orderBy: { callDate: 'desc' },
         },
       },
     });
@@ -335,13 +358,104 @@ export async function getEnquiry(id: string): Promise<ActionResponse> {
       };
     }
 
-    return { success: true, data: enquiry, message: 'Enquiry fetched successfully' };
+    return { success: true, data: formatEnquiry(enquiry), message: 'Enquiry fetched successfully' };
   } catch (error) {
     console.error('Error fetching enquiry:', error);
     return {
       success: false,
       message: 'Failed to fetch enquiry',
     };
+  }
+}
+
+// On-demand sub-resource: Follow-ups for enquiry
+export async function getEnquiryFollowUps(enquiryId: string): Promise<ActionResponse> {
+  try {
+    const user = await getCurrentUser();
+    const followUps = await prisma.followUp.findMany({
+      where: { enquiryId },
+      orderBy: { scheduledAt: 'desc' },
+      select: {
+        id: true,
+        scheduledAt: true,
+        status: true,
+        outcome: true,
+        notes: true,
+        enquiryId: true,
+        createdAt: true,
+        createdBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
+    });
+
+    return { success: true, data: followUps, message: 'Follow-ups loaded successfully' };
+  } catch (error) {
+    console.error('Error fetching enquiry follow-ups:', error);
+    return { success: false, message: 'Failed to fetch follow-ups' };
+  }
+}
+
+// On-demand sub-resource: Call Logs for enquiry
+export async function getEnquiryCallLogs(enquiryId: string): Promise<ActionResponse> {
+  try {
+    const user = await getCurrentUser();
+    const callLogs = await prisma.callLog.findMany({
+      where: { enquiryId },
+      orderBy: { callDate: 'desc' },
+      select: {
+        id: true,
+        callDate: true,
+        duration: true,
+        outcome: true,
+        notes: true,
+        enquiryId: true,
+        createdAt: true,
+        createdBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
+    });
+
+    return { success: true, data: callLogs, message: 'Call logs loaded successfully' };
+  } catch (error) {
+    console.error('Error fetching enquiry call logs:', error);
+    return { success: false, message: 'Failed to fetch call logs' };
+  }
+}
+
+// On-demand sub-resource: Job Leads for enquiry
+export async function getEnquiryJobLeads(enquiryId: string): Promise<ActionResponse> {
+  try {
+    const user = await getCurrentUser();
+    const jobLeads = await prisma.jobLead.findMany({
+      where: { leadId: enquiryId },
+      select: {
+        id: true,
+        status: true,
+        jobId: true,
+        leadId: true,
+        assigneeId: true,
+        assignerId: true,
+        job: {
+          select: {
+            id: true,
+            name: true,
+            jobCode: true,
+            startDate: true,
+            endDate: true,
+            branch: { select: { id: true, name: true } },
+          },
+        },
+        assignee: { select: { id: true, name: true, email: true } },
+        assigner: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    return { success: true, data: jobLeads, message: 'Job leads loaded successfully' };
+  } catch (error) {
+    console.error('Error fetching enquiry job leads:', error);
+    return { success: false, message: 'Failed to fetch job leads' };
   }
 }
 
@@ -382,8 +496,7 @@ export async function updateEnquiry(data: UpdateEnquiryInput): Promise<ActionRes
       include: {
         branch: true,
         preferredCourse: true,
-        enquirySource: true,
-        requiredService: true,
+        service: true,
         assignedTo: {
           select: {
             id: true,
@@ -403,6 +516,7 @@ export async function updateEnquiry(data: UpdateEnquiryInput): Promise<ActionRes
       },
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/enquiries');
     revalidatePath(`/enquiries/${id}`);
     return { success: true, data: enquiry, message: 'Enquiry updated successfully' };
@@ -518,8 +632,7 @@ export async function updateEnquiryStatusWithActivity(
         include: {
           branch: true,
           preferredCourse: true,
-          enquirySource: true,
-          requiredService: true,
+          service: true,
           assignedTo: {
             select: { id: true, name: true, email: true, role: true },
           },
@@ -529,23 +642,10 @@ export async function updateEnquiryStatusWithActivity(
         },
       });
 
-      // Create activity entry
-      await tx.enquiryActivity.create({
-        data: {
-          type: ActivityType.STATUS_CHANGE,
-          title: generateActivityTitle(ActivityType.STATUS_CHANGE, previousStatus, newStatus),
-          description: statusRemarks,
-          previousStatus,
-          newStatus,
-          statusRemarks,
-          enquiryId: id,
-          createdByUserId: user.id,
-        },
-      });
-
       return updatedEnquiry;
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/enquiries');
     revalidatePath(`/enquiries/${id}`);
     return {
@@ -611,8 +711,7 @@ export async function updateEnquiryStatusDirectToEnrolled(
         include: {
           branch: true,
           preferredCourse: true,
-          enquirySource: true,
-          requiredService: true,
+          service: true,
           assignedTo: {
             select: { id: true, name: true, email: true, role: true },
           },
@@ -622,23 +721,10 @@ export async function updateEnquiryStatusDirectToEnrolled(
         },
       });
 
-      // Create activity entry for direct enrollment
-      await tx.enquiryActivity.create({
-        data: {
-          type: ActivityType.ENROLLMENT_DIRECT,
-          title: generateActivityTitle(ActivityType.ENROLLMENT_DIRECT),
-          description: statusRemarks || 'Direct enrollment completed without admission form',
-          previousStatus,
-          newStatus: EnquiryStatus.ENROLLED,
-          statusRemarks,
-          enquiryId: id,
-          createdByUserId: user.id,
-        },
-      });
-
       return updatedEnquiry;
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/enquiries');
     revalidatePath(`/enquiries/${id}`);
     return {
@@ -729,38 +815,20 @@ export async function assignEnquiry(
       };
     }
 
-    if (!assignedUser.branch) {
-      return {
-        success: false,
-        message: 'Assigned user must have a branch',
-      };
-    }
-
-    if (assignedUser.branch !== branchId) {
-      return {
-        success: false,
-        message: 'Selected user does not belong to the chosen branch',
-      };
-    }
-
-    // Use transaction to update enquiry and optionally create job order
+    // Use transaction to create job order, assign enquiry, and create job lead
     const result = await prisma.$transaction(async (tx) => {
-      // Remove existing job leads (re-assignment logic)
-      await tx.jobLead.deleteMany({
-        where: { leadId: id }
-      });
-
-      // Update enquiry assignment
+      // 1. Update enquiry assignment
       const enquiry = await tx.enquiry.update({
         where: { id },
-        data: { 
+        data: {
           assignedToUserId,
           assignedByUserId: user.id,
-          branchId
+          branchId,
+          lastContactDate: new Date(),
         },
       });
 
-      // Create job order
+      // 2. Create job order
       const jobOrder = await tx.jobOrder.create({
         data: {
           name,
@@ -775,13 +843,13 @@ export async function assignEnquiry(
         },
       });
 
-      // Create job lead
+      // 3. Create job lead to link enquiry to job order
       await tx.jobLead.create({
         data: {
           jobId: jobOrder.id,
           leadId: id,
           status: 'PENDING',
-          assignerId: user.id,
+          assignerId: user.id, 
           assigneeId: assignedToUserId, 
         },
       });
@@ -789,6 +857,7 @@ export async function assignEnquiry(
       return enquiry;
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/enquiries');
     revalidatePath(`/enquiries/${id}`);
     revalidatePath('/enquiries/job-orders');
@@ -844,18 +913,10 @@ export async function bulkAssignEnquiries(
     if (!ids || ids.length === 0) {
       return {
         success: false,
-        message: 'No enquiries selected',
+        message: 'No enquiries selected for assignment',
       };
     }
 
-    if (!name?.trim()) {
-      return {
-        success: false,
-        message: 'Job name is required',
-      };
-    }
-
-    // Validate dates
     // Validate dates
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -888,7 +949,7 @@ export async function bulkAssignEnquiries(
       };
     }
 
-    // Get the assigned user to get their branch
+    // Get the assigned user to verify they exist
     const assignedUser = await prisma.user.findUnique({
       where: { id: assignedToUserId },
       select: { id: true, branch: true },
@@ -901,27 +962,8 @@ export async function bulkAssignEnquiries(
       };
     }
 
-    if (!assignedUser.branch) {
-      return {
-        success: false,
-        message: 'Assigned user must have a branch',
-      };
-    }
-
-    if (assignedUser.branch !== branchId) {
-      return {
-        success: false,
-        message: 'Selected user does not belong to the chosen branch',
-      };
-    }
-
-    // Use transaction to update enquiries and optionally create job order
+    // Use transaction to create job order and update all enquiries
     const result = await prisma.$transaction(async (tx) => {
-      // Remove existing job leads (re-assignment logic)
-      await tx.jobLead.deleteMany({
-        where: { leadId: { in: ids } }
-      });
-
       // Update all enquiries
       const updateResult = await tx.enquiry.updateMany({
         where: {
@@ -967,6 +1009,7 @@ export async function bulkAssignEnquiries(
       return updateResult;
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/enquiries');
     revalidatePath('/enquiries/job-orders');
     revalidatePath('/enquiries/job-orders/pending');
@@ -1017,6 +1060,7 @@ export async function deleteEnquiry(id: string): Promise<ActionResponse> {
       where: { id },
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/enquiries');
     return { success: true, message: 'Enquiry deleted successfully' };
   } catch (error) {
@@ -1031,7 +1075,7 @@ export async function deleteEnquiry(id: string): Promise<ActionResponse> {
 // Bulk Import Action
 export async function bulkImportEnquiries(
   leads: any[],
-  commonFields: { branchId: string; enquirySourceId: string }
+  commonFields: { branchId: string; enquirySourceId?: string }
 ): Promise<ActionResponse> {
   try {
     const user = await getCurrentUser();
@@ -1060,7 +1104,7 @@ export async function bulkImportEnquiries(
             notes: lead.notes || lead['Notes'] || 'Imported via Bulk Upload',
             status: EnquiryStatus.NEW,
             branchId: commonFields.branchId,
-            enquirySourceId: commonFields.enquirySourceId,
+            source: commonFields.enquirySourceId || null,
             createdByUserId: user.id,
             assignedToUserId: null, // Keep unassigned so they can be bulk assigned later
             lastContactDate: new Date(),
@@ -1069,6 +1113,7 @@ export async function bulkImportEnquiries(
       })
     );
 
+    await invalidateDashboardCache();
     revalidatePath('/enquiries');
     return {
       success: true,

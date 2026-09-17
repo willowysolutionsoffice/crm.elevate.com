@@ -67,6 +67,60 @@ export const updateUserBranchAction = actionClient
     }
   });
 
+// Update user role action
+export const updateUserRoleAction = actionClient
+  .inputSchema(
+    z.object({
+      userId: z.string(),
+      role: z.string(),
+    })
+  )
+  .action(async ({ parsedInput: { userId, role } }) => {
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { role },
+      });
+
+      return {
+        success: true,
+        message: `User role updated to ${role.toUpperCase()}`,
+      };
+    } catch (error) {
+      console.error('Update user role error:', error);
+      return {
+        success: false,
+        message: 'Failed to update user role',
+      };
+    }
+  });
+
+// Delete user action
+export const deleteUserAction = actionClient
+  .inputSchema(
+    z.object({
+      userId: z.string(),
+    })
+  )
+  .action(async ({ parsedInput: { userId } }) => {
+    try {
+      await prisma.user.delete({
+        where: { id: userId },
+      });
+
+      return {
+        success: true,
+        message: 'User deleted successfully',
+      };
+    } catch (error) {
+      console.error('Delete user error:', error);
+      return {
+        success: false,
+        message: 'Failed to delete user',
+      };
+    }
+  });
+
 // Update profile action
 export const updateProfileAction = actionClient
   .inputSchema(

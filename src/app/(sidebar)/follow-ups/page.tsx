@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +42,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { toast } from 'sonner';
+import { useDebounce } from '@/hooks/use-debounce';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Search } from 'lucide-react';
 
 // Form schema for updating follow-up
 const updateFollowUpSchema = z
@@ -72,8 +78,17 @@ export default function FollowUpsPage() {
   const isMobile = useIsMobile();
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [pagination, setPagination] = useState<{
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -86,6 +101,11 @@ export default function FollowUpsPage() {
     },
   });
 
+  // Reset page to 1 when filters, search, or pageSize changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, filter, pageSize]);
+
   // Fetch follow-ups
   const loadFollowUps = useCallback(async () => {
     setIsLoading(true);
@@ -93,12 +113,17 @@ export default function FollowUpsPage() {
       const filters: {
         page: number;
         limit: number;
+        search?: string;
         status?: FollowUpStatus[];
         overdue?: boolean;
       } = {
-        page: 1,
-        limit: 50,
+        page: currentPage,
+        limit: pageSize,
       };
+
+      if (debouncedSearch.trim()) {
+        filters.search = debouncedSearch.trim();
+      }
 
       if (filter === 'pending') {
         filters.status = [FollowUpStatus.PENDING];
@@ -111,6 +136,9 @@ export default function FollowUpsPage() {
       const result = await getFollowUps(filters);
       if (result.success) {
         setFollowUps((result.data as FollowUp[]) || []);
+        if (result.pagination) {
+          setPagination(result.pagination);
+        }
       } else {
         toast.error(result.message || 'Failed to fetch follow-ups');
       }
@@ -119,18 +147,11 @@ export default function FollowUpsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filter]);
+  }, [currentPage, pageSize, debouncedSearch, filter]);
 
   useEffect(() => {
     loadFollowUps();
   }, [loadFollowUps]);
-
-  // Filter follow-ups by search term
-  const filteredFollowUps = followUps.filter(
-    (followUp) =>
-      followUp.enquiry.candidateName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      followUp.enquiry.phone.includes(searchTerm)
-  );
 
   const handleUpdateFollowUp = async (data: UpdateFollowUpFormData) => {
     if (!selectedFollowUp) return;
@@ -216,55 +237,78 @@ export default function FollowUpsPage() {
   };
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
+    <PageContainer>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Follow-ups</h1>
-          <p className="text-gray-600">Manage your scheduled follow-ups</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Follow-ups"
+        description="Track and manage scheduled calls, overdue reminders, and customer re-engagements"
+      />
 
-      {/* Filters */}
-      <div className="flex items-center space-x-4">
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter follow-ups" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Follow-ups</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Filters Toolbar */}
+      <Card className="border border-border/80 shadow-xs">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by candidate name or phone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8.5 h-9 text-sm"
+              />
+            </div>
 
-        <Input
-          placeholder="Search by name or phone..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
+            <div className="w-full sm:w-52">
+              <Select value={filter} onValueChange={setFilter}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="All Follow-ups" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Follow-ups</SelectItem>
+                  <SelectItem value="pending">Pending Only</SelectItem>
+                  <SelectItem value="overdue">Overdue Attention</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Follow-ups Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Follow-ups ({filteredFollowUps.length})</CardTitle>
+      <Card className="border border-border/80 shadow-xs overflow-hidden">
+        <CardHeader className="py-4 px-6 border-b border-border/60 bg-card">
+          <CardTitle className="text-base font-semibold">
+            Follow-up Schedule {pagination && `(${pagination.total} total)`}
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          {filteredFollowUps.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">
-                {isLoading ? 'Loading...' : 'No follow-ups found.'}
-              </p>
+        <CardContent className="p-0">
+          {isLoading && followUps.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <p className="text-sm text-muted-foreground">Loading follow-ups...</p>
+              </div>
+            </div>
+          ) : followUps.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                icon={<Clock className="size-6" />}
+                title="No follow-ups found"
+                description={searchTerm || filter !== 'all' ? 'No scheduled follow-ups match your filter.' : 'You have no pending follow-up calls scheduled.'}
+              />
             </div>
           ) : (
-            <>
+            <div className="relative">
+              {isLoading && (
+                <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
               {isMobile ? (
                 // Mobile Card View
-                <div className="space-y-4">
-                  {filteredFollowUps.map((followUp) => (
+                <div className="p-4 space-y-3">
+                  {followUps.map((followUp) => (
                     <FollowUpMobileCard
                       key={followUp.id}
                       followUp={followUp}
@@ -279,58 +323,53 @@ export default function FollowUpsPage() {
                     <TableRow>
                       <TableHead>Candidate</TableHead>
                       <TableHead>Phone</TableHead>
-                      <TableHead>Scheduled</TableHead>
+                      <TableHead>Scheduled Window</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Notes</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredFollowUps.map((followUp) => (
+                    {followUps.map((followUp) => (
                       <TableRow key={followUp.id}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-semibold">
                           <Link
                             href={`/enquiries/${followUp.enquiry.id}`}
-                            className="text-blue-600 hover:underline"
+                            className="text-foreground hover:text-primary transition-colors hover:underline"
                           >
                             {followUp.enquiry.candidateName}
                           </Link>
                         </TableCell>
-                        <TableCell>{followUp.enquiry.phone}</TableCell>
                         <TableCell>
-                          <div className="flex flex-col">
-                            <span>{formatDateTime(followUp.scheduledAt)}</span>
+                          <span className="font-mono text-xs">{followUp.enquiry.phone}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs text-foreground font-medium">{formatDateTime(followUp.scheduledAt)}</span>
                             {isOverdue(followUp.scheduledAt, followUp.status) && (
-                              <Badge variant="destructive" className="w-fit mt-1">
-                                Overdue
-                              </Badge>
+                              <StatusBadge status="OVERDUE" size="sm" />
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center space-x-2">
-                            {getStatusIcon(followUp.status)}
-                            <Badge className={getStatusColor(followUp.status)}>
-                              {FOLLOW_UP_STATUS_OPTIONS.find((opt) => opt.value === followUp.status)
-                                ?.label || followUp.status}
-                            </Badge>
-                          </div>
+                          <StatusBadge status={followUp.status} />
                         </TableCell>
                         <TableCell>
-                          <div className="max-w-xs truncate">{followUp.notes || '-'}</div>
+                          <div className="max-w-xs truncate text-xs text-muted-foreground">{followUp.notes || '—'}</div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
                             <Button
                               variant="outline"
                               size="sm"
+                              className="h-8"
                               onClick={() => openUpdateDialog(followUp)}
                             >
                               Update
                             </Button>
-                            <Button variant="outline" size="sm" asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
                               <Link href={`/enquiries/${followUp.enquiry.id}`}>
-                                <Eye className="h-4 w-4" />
+                                <Eye className="h-4 w-4 text-muted-foreground" />
                               </Link>
                             </Button>
                           </div>
@@ -340,7 +379,19 @@ export default function FollowUpsPage() {
                   </TableBody>
                 </Table>
               )}
-            </>
+
+              {/* Pagination */}
+              {pagination && (
+                <DataTablePagination
+                  currentPage={pagination.page}
+                  totalPages={pagination.pages || 1}
+                  pageSize={pageSize}
+                  totalRecords={pagination.total}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                />
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -465,6 +516,6 @@ export default function FollowUpsPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

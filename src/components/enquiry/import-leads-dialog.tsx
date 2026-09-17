@@ -24,38 +24,30 @@ import { FileInput } from '@/components/ui/file-input';
 import { toast } from 'sonner';
 import { FileDown, Upload } from 'lucide-react';
 import { bulkImportEnquiries } from '@/server/actions/enquiry';
-import { getAllBranches, getAllEnquirySources } from '@/server/actions/data-management';
-import { Branch, EnquirySource } from '@/types/data-management';
+import { getAllBranches } from '@/server/actions/data-management';
+import { Branch } from '@/types/data-management';
 
 interface ImportLeadsDialogProps {
   onSuccess?: () => void;
+  branches?: Branch[];
 }
 
-export function ImportLeadsDialog({ onSuccess }: ImportLeadsDialogProps) {
+export function ImportLeadsDialog({ onSuccess, branches: passedBranches }: ImportLeadsDialogProps) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [branchId, setBranchId] = useState<string>('');
-  const [sourceId, setSourceId] = useState<string>('');
   const [isImporting, setIsImporting] = useState(false);
+  const [localBranches, setLocalBranches] = useState<Branch[]>([]);
 
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [sources, setSources] = useState<EnquirySource[]>([]);
+  const branches = passedBranches && passedBranches.length > 0 ? passedBranches : localBranches;
 
   useEffect(() => {
-    if (open) {
-      loadInitialData();
+    if (open && (!passedBranches || passedBranches.length === 0)) {
+      getAllBranches().then((res) => {
+        if (res.success) setLocalBranches(res.data as Branch[]);
+      });
     }
-  }, [open]);
-
-  async function loadInitialData() {
-    const [branchesRes, sourcesRes] = await Promise.all([
-      getAllBranches(),
-      getAllEnquirySources(),
-    ]);
-
-    if (branchesRes.success) setBranches(branchesRes.data as Branch[]);
-    if (sourcesRes.success) setSources(sourcesRes.data as EnquirySource[]);
-  }
+  }, [open, passedBranches]);
 
   const handleDownloadTemplate = () => {
     const template = [
@@ -80,8 +72,8 @@ export function ImportLeadsDialog({ onSuccess }: ImportLeadsDialogProps) {
       return;
     }
 
-    if (!branchId || !sourceId) {
-      toast.error('Please select branch and enquiry source');
+    if (!branchId) {
+      toast.error('Please select a branch');
       return;
     }
 
@@ -100,7 +92,6 @@ export function ImportLeadsDialog({ onSuccess }: ImportLeadsDialogProps) {
 
         const result = await bulkImportEnquiries(plainJson, {
           branchId,
-          enquirySourceId: sourceId,
         });
 
         if (result.success) {
@@ -133,7 +124,7 @@ export function ImportLeadsDialog({ onSuccess }: ImportLeadsDialogProps) {
         <DialogHeader>
           <DialogTitle>Import Leads from Excel</DialogTitle>
           <DialogDescription>
-            Select a branch and source, then upload your Excel file.
+            Select a branch, then upload your Excel file.
           </DialogDescription>
         </DialogHeader>
 
@@ -148,22 +139,6 @@ export function ImportLeadsDialog({ onSuccess }: ImportLeadsDialogProps) {
                 {branches.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label>Enquiry Source</Label>
-            <Select value={sourceId} onValueChange={setSourceId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select source" />
-              </SelectTrigger>
-              <SelectContent>
-                {sources.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
                   </SelectItem>
                 ))}
               </SelectContent>

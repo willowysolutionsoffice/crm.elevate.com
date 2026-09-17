@@ -120,7 +120,7 @@ export default function PendingJobOrdersClient({
     total: number;
     pages: number;
   } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // States for Re-assign Dialog
   const [isReassignOpen, setIsReassignOpen] = useState(false);
@@ -277,9 +277,13 @@ function filteredJobOrdersTable(
   handleDeleteJobOrder: (id: string) => void,
   formatDate: (d: any) => string
 ) {
-
-  if (isLoading) {
-    return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
+  if (isLoading && jobOrders.length === 0) {
+    return (
+      <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center space-y-2">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-sm">Loading job orders...</p>
+      </div>
+    );
   }
 
   if (jobOrders.length === 0) {
@@ -287,7 +291,12 @@ function filteredJobOrdersTable(
   }
 
   return (
-    <>
+    <div className="relative">
+      {isLoading && (
+        <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      )}
       {isMobile ? (
         <div className="space-y-4 p-4">
           {jobOrders.map((job) => (
@@ -374,7 +383,7 @@ function filteredJobOrdersTable(
           </Table>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

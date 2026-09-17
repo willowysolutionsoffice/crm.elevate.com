@@ -1,4 +1,4 @@
-import type { Session, User } from '@prisma/client';
+import type { session as Session, User } from '@prisma/client';
 
 // Session-related types
 export interface SessionResponse {

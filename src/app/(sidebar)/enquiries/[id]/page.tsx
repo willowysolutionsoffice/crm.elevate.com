@@ -69,15 +69,26 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { EnquiryFormDialog } from '@/components/enquiry/enquiry-form-dialog';
-import { AssignEnquiryDialog } from '@/components/enquiry/assign-enquiry-dialog';
-import { StatusUpdateDialog } from '@/components/enquiry/status-update-dialog';
+import dynamic from 'next/dynamic';
 import { EnquiryStatus, Enquiry, FollowUp, CallLog } from '@/types/enquiry';
 import { EnquiryActivity, ActivityType } from '@/types/enquiry-activity';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAction } from 'next-safe-action/hooks';
 import { authClient } from '@/lib/auth-client';
+
+const EnquiryFormDialog = dynamic(
+  () => import('@/components/enquiry/enquiry-form-dialog').then((mod) => mod.EnquiryFormDialog),
+  { ssr: false }
+);
+const AssignEnquiryDialog = dynamic(
+  () => import('@/components/enquiry/assign-enquiry-dialog').then((mod) => mod.AssignEnquiryDialog),
+  { ssr: false }
+);
+const StatusUpdateDialog = dynamic(
+  () => import('@/components/enquiry/status-update-dialog').then((mod) => mod.StatusUpdateDialog),
+  { ssr: false }
+);
 
 // Form schemas
 const followUpSchema = z.object({
@@ -183,6 +194,9 @@ export default function EnquiryDetailPage() {
     }
   }, [enquiryId, fetchActivities]);
 
+  const [activeTab, setActiveTab] = useState('overview');
+  const [activitiesLoaded, setActivitiesLoaded] = useState(false);
+
   // Handle activities result
   useEffect(() => {
     if (activitiesResult?.data?.success) {
@@ -195,15 +209,23 @@ export default function EnquiryDetailPage() {
   useEffect(() => {
     if (enquiryId) {
       fetchEnquiry();
-      loadActivities();
     }
-  }, [enquiryId, fetchEnquiry, loadActivities]);
+  }, [enquiryId, fetchEnquiry]);
+
+  useEffect(() => {
+    if (activeTab === 'activity' && !activitiesLoaded && enquiryId) {
+      loadActivities();
+      setActivitiesLoaded(true);
+    }
+  }, [activeTab, activitiesLoaded, enquiryId, loadActivities]);
 
   // Handle successful status update
   const handleStatusUpdateSuccess = useCallback(() => {
     fetchEnquiry();
-    loadActivities();
-  }, [fetchEnquiry, loadActivities]);
+    if (activitiesLoaded) {
+      loadActivities();
+    }
+  }, [fetchEnquiry, activitiesLoaded, loadActivities]);
 
   const handleCreateFollowUp = async (data: FollowUpFormData) => {
     setIsCreatingFollowUp(true);
@@ -922,7 +944,7 @@ export default function EnquiryDetailPage() {
               }
 
       {/* Enhanced Tabs */}
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3 bg-gray-100 dark:bg-gray-800">
           <TabsTrigger
             value="overview"

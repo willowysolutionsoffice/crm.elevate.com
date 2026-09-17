@@ -65,8 +65,9 @@ import {
 } from "@/server/actions/service-actions";
 import { ServiceBilling, ServiceBillItem } from "@/types/service-billing";
 import { Service } from "@/types/data-management";
-import { exportServiceBillPdf } from "@/components/service/service-bill-detail-pdf";
-import PaymentModal from "@/components/service/payment-service-bill";
+import dynamic from "next/dynamic";
+
+const PaymentModal = dynamic(() => import("@/components/service/payment-service-bill"), { ssr: false });
 
 interface Receipt {
   id: string;
@@ -262,10 +263,11 @@ function ServicePage() {
     }
   };
 
-  const handleDownloadBill = () => {
+  const handleDownloadBill = async () => {
     if (!serviceBillDetails) {
       return;
     }
+    const { exportServiceBillPdf } = await import("@/components/service/service-bill-detail-pdf");
     exportServiceBillPdf(serviceBillDetails);
   };
   useEffect(() => {

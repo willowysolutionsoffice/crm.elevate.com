@@ -8,6 +8,7 @@ import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { InvoiceStatus } from '@/types/invoice';
 import { Prisma } from '@prisma/client';
+import { invalidateDashboardCache } from '@/lib/cache/cache-invalidation';
 
 // Helper function to get current user
 async function getCurrentUser() {
@@ -108,7 +109,11 @@ const getInvoicesSchema = z.object({
   page: z.number().optional(),
   limit: z.number().optional(),
   search: z.string().optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
   status: z.nativeEnum(InvoiceStatus).optional(),
+  dateFrom: z.date().optional(),
+  dateTo: z.date().optional(),
 });
 
 const getInvoiceByIdSchema = z.object({
@@ -166,6 +171,7 @@ export const createInvoice = action.schema(createInvoiceSchema).action(async ({ 
       },
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/invoices');
     return { success: true, data: invoice, message: 'Invoice created successfully' };
   } catch (error) {
@@ -233,6 +239,7 @@ export const updateInvoice = action.schema(updateInvoiceSchema).action(async ({ 
       },
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${id}`);
     return { success: true, data: invoice, message: 'Invoice updated successfully' };
@@ -263,6 +270,7 @@ export const deleteInvoice = action.schema(deleteInvoiceSchema).action(async ({ 
       where: { id: parsedInput.id },
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/invoices');
     return { success: true, message: 'Invoice deleted successfully' };
   } catch (error) {
@@ -271,12 +279,34 @@ export const deleteInvoice = action.schema(deleteInvoiceSchema).action(async ({ 
   }
 });
 
+import {
+  normalizePagination,
+  validateSortField,
+  validateSortOrder,
+  buildPaginationResult,
+} from '@/lib/pagination-utils';
+
+const INVOICE_SORT_FIELDS = [
+  'createdAt',
+  'invoiceDate',
+  'invoiceNumber',
+  'billedTo',
+  'totalAmount',
+  'status',
+  'dueDate',
+  'updatedAt',
+];
+
 // Safe action for getting invoices with pagination
 export const getInvoices = action.schema(getInvoicesSchema).action(async ({ parsedInput }) => {
   try {
-    const page = parsedInput.page || 1;
-    const limit = parsedInput.limit || 10;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination({
+      page: parsedInput.page,
+      limit: parsedInput.limit,
+    });
+
+    const sortBy = validateSortField(parsedInput.sortBy, INVOICE_SORT_FIELDS, 'createdAt');
+    const sortOrder = validateSortOrder(parsedInput.sortOrder, 'desc');
 
     // Build where clause
     const where: Prisma.InvoiceWhereInput = {};
@@ -292,10 +322,11 @@ export const getInvoices = action.schema(getInvoicesSchema).action(async ({ pars
       };
     }
 
-    if (parsedInput.search) {
+    if (parsedInput.search && parsedInput.search.trim()) {
+      const query = parsedInput.search.trim();
       where.OR = [
-        { invoiceNumber: { contains: parsedInput.search, mode: 'insensitive' } },
-        { billedTo: { contains: parsedInput.search, mode: 'insensitive' } },
+        { invoiceNumber: { contains: query, mode: 'insensitive' } },
+        { billedTo: { contains: query, mode: 'insensitive' } },
       ];
     }
 
@@ -303,14 +334,34 @@ export const getInvoices = action.schema(getInvoicesSchema).action(async ({ pars
       where.status = parsedInput.status;
     }
 
+    if (parsedInput.dateFrom || parsedInput.dateTo) {
+      where.invoiceDate = {};
+      if (parsedInput.dateFrom) where.invoiceDate.gte = parsedInput.dateFrom;
+      if (parsedInput.dateTo) where.invoiceDate.lte = parsedInput.dateTo;
+    }
+
     const [invoices, total] = await Promise.all([
       prisma.invoice.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          items: true,
+        orderBy: { [sortBy]: sortOrder },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          billedTo: true,
+          invoiceDate: true,
+          dueDate: true,
+          subtotal: true,
+          taxRate: true,
+          taxAmount: true,
+          serviceCharge: true,
+          otherCharges: true,
+          totalAmount: true,
+          status: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
           createdBy: {
             select: {
               id: true,
@@ -323,7 +374,20 @@ export const getInvoices = action.schema(getInvoicesSchema).action(async ({ pars
       prisma.invoice.count({ where }),
     ]);
 
-    return { success: true, data: invoices, total, message: 'Invoices fetched successfully' };
+    const pagination = buildPaginationResult(total, page, limit);
+
+    return {
+      success: true,
+      data: invoices,
+      total,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total: pagination.total,
+        totalPages: pagination.totalPages,
+      },
+      message: 'Invoices fetched successfully',
+    };
   } catch (error) {
     console.error('Error fetching invoices:', error);
     throw new Error('Failed to fetch invoices');

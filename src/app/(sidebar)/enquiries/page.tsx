@@ -34,14 +34,17 @@ import { getEnquiries } from '@/server/actions/enquiry';
 import { getAllBranches } from '@/server/actions/data-management';
 import { ENQUIRY_STATUS_OPTIONS } from '@/constants/enquiry';
 import { toast } from 'sonner';
+import { EnquiryMobileCard } from '@/components/enquiry/enquiry-mobile-card';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useDebounce } from '@/hooks/use-debounce';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { Enquiry } from '@/types/enquiry';
+import { authClient } from '@/lib/auth-client';
+
 import { EnquiryFormDialog } from '@/components/enquiry/enquiry-form-dialog';
 import { ImportLeadsDialog } from '@/components/enquiry/import-leads-dialog';
 import { DeleteEnquiryDialog } from '@/components/enquiry/delete-enquiry-dialog';
-import { EnquiryMobileCard } from '@/components/enquiry/enquiry-mobile-card';
 import { AssignEnquiryDialog } from '@/components/enquiry/assign-enquiry-dialog';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Enquiry } from '@/types/enquiry';
-import { authClient } from '@/lib/auth-client';
 import {
   Select,
   SelectContent,
@@ -49,7 +52,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Branch } from '@prisma/client';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Branch } from '@/types/data-management';
 
 export default function EnquiriesPage() {
   const router = useRouter();
@@ -65,8 +71,9 @@ export default function EnquiriesPage() {
     }
   }, [session?.user?.role, canAssign]);
   const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [pagination, setPagination] = useState<{
     page: number;
@@ -74,7 +81,7 @@ export default function EnquiriesPage() {
     total: number;
     pages: number;
   } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -103,12 +110,16 @@ export default function EnquiriesPage() {
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
   const [bulkAssignBranchId, setBulkAssignBranchId] = useState<string | null>(null);
 
-
   // Filter states
   const [branches, setBranches] = useState<Branch[]>([]);
   const [filterBranchId, setFilterBranchId] = useState<string>('all');
   const [filterAssigned, setFilterAssigned] = useState<string>('all');
   const [prevFilterAssigned, setPrevFilterAssigned] = useState<string>('all');
+
+  // Reset page to 1 when filters or debounced search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, filterBranchId, filterAssigned, pageSize]);
 
   // Fetch branches
   useEffect(() => {
@@ -127,8 +138,8 @@ export default function EnquiriesPage() {
     try {
       const result = await getEnquiries({
         page: currentPage,
-        limit: 10,
-        search: search || undefined,
+        limit: pageSize,
+        search: debouncedSearch.trim() || undefined,
         branchId: filterBranchId !== 'all' ? filterBranchId : undefined,
         isAssigned: filterAssigned === 'all' ? undefined : filterAssigned === 'assigned',
       });
@@ -144,16 +155,7 @@ export default function EnquiriesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, debouncedSearch, filterBranchId, filterAssigned]);
-
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [search]);
+  }, [currentPage, pageSize, debouncedSearch, filterBranchId, filterAssigned]);
 
   // Fetch enquiries on component mount and when filters change
   useEffect(() => {
@@ -250,40 +252,35 @@ export default function EnquiriesPage() {
   };
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-6 p-4 md:p-6">
-      <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Enquiries</h1>
-          <p className="text-gray-600">Manage and track all customer enquiries</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => router.push('/enquiries/job-orders')}
-          >
-            <Briefcase className="mr-2 h-4 w-4" />
-            Job Orders
-          </Button>
-          <ImportLeadsDialog onSuccess={refreshEnquiries} />
-          <EnquiryFormDialog mode="create" onSuccess={refreshEnquiries} />
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Enquiries"
+        description="Manage, assign, and track all incoming lead enquiries"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/enquiries/job-orders')}
+            >
+              <Briefcase className="mr-1.5 h-4 w-4" />
+              Job Orders
+            </Button>
+            <ImportLeadsDialog branches={branches} onSuccess={refreshEnquiries} />
+            <EnquiryFormDialog branches={branches} mode="create" onSuccess={refreshEnquiries} />
+          </div>
+        }
+      />
 
-      {/* Filters and Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-          <CardDescription>
-            Filter enquiries by status, source, or search by name/phone
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col space-y-4 md:flex-row md:items-center md:space-y-0 md:space-x-4">
+      {/* Filters and Search Bar */}
+      <Card className="border border-border/80 shadow-xs">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, phone, or email..."
-                className="pl-8"
+                placeholder="Search candidate name, phone, or email..."
+                className="pl-8.5 h-9 text-sm"
                 value={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
               />
@@ -291,7 +288,7 @@ export default function EnquiriesPage() {
 
             {/* Branch Filter (Admin Only) */}
             {userRole === 'admin' && (
-              <div className="w-45">
+              <div className="w-full md:w-48">
                 <Select
                   value={filterBranchId}
                   onValueChange={(value) => {
@@ -300,8 +297,8 @@ export default function EnquiriesPage() {
                   }}
                   disabled={isBulkSelectionEnabled}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Branch" />
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="All Branches" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Branches</SelectItem>
@@ -316,7 +313,7 @@ export default function EnquiriesPage() {
             )}
 
             {/* Assigned Status Filter */}
-            <div className="w-37.5">
+            <div className="w-full md:w-40">
               <Select
                 value={filterAssigned}
                 onValueChange={(value) => {
@@ -325,7 +322,7 @@ export default function EnquiriesPage() {
                 }}
                 disabled={isBulkSelectionEnabled}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-9">
                   <SelectValue placeholder="Assignment" />
                 </SelectTrigger>
                 <SelectContent>
@@ -337,57 +334,67 @@ export default function EnquiriesPage() {
             </div>
 
             {canAssign && (
-              <>
+              <div className="flex items-center gap-2">
                 <Button
+                  size="sm"
                   variant={isBulkSelectionEnabled ? "secondary" : "outline"}
                   onClick={toggleBulkSelection}
                 >
-                  <ListTodo className="mr-2 h-4 w-4" />
-                  {isBulkSelectionEnabled ? 'Cancel Selection' : 'Bulk Assign'}
+                  <ListTodo className="mr-1.5 h-4 w-4" />
+                  {isBulkSelectionEnabled ? 'Cancel' : 'Bulk Assign'}
                 </Button>
 
-
-
                 {isBulkSelectionEnabled && selectedEnquiryIds.length > 0 && (
-                  <Button onClick={handleBulkAssign}>
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Assign Selected ({selectedEnquiryIds.length})
+                  <Button size="sm" onClick={handleBulkAssign}>
+                    <UserPlus className="mr-1.5 h-4 w-4" />
+                    Assign ({selectedEnquiryIds.length})
                   </Button>
                 )}
-              </>
+              </div>
             )}
-            <Button variant="outline">Export</Button>
+            <Button size="sm" variant="outline">Export</Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Enquiries Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Enquiries</CardTitle>
-          <CardDescription>A list of all enquiries with their current status</CardDescription>
+      {/* Enquiries Table Card */}
+      <Card className="border border-border/80 shadow-xs overflow-hidden">
+        <CardHeader className="py-4 px-6 border-b border-border/60 bg-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-semibold">Enquiry List</CardTitle>
+              <CardDescription className="text-xs">
+                {pagination ? `Showing page ${pagination.page} of ${pagination.pages} (${pagination.total} total)` : 'All customer leads'}
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          {enquiries.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="flex flex-col items-center justify-center space-y-2">
-                <div className="text-muted-foreground">
-                  {isLoading ? 'Loading...' : 'No enquiries found'}
-                </div>
-                {!isLoading && (
-                  <div className="text-sm text-muted-foreground">
-                    {search
-                      ? 'Try adjusting your search criteria'
-                      : 'Create your first enquiry to get started'}
-                  </div>
-                )}
+        <CardContent className="p-0">
+          {isLoading && enquiries.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <div className="text-sm text-muted-foreground">Loading enquiries...</div>
               </div>
             </div>
+          ) : enquiries.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                icon={<Search className="size-6" />}
+                title="No enquiries found"
+                description={search ? 'No enquiries match your current search or filter criteria.' : 'No enquiries available in this view yet.'}
+              />
+            </div>
           ) : (
-            <>
+            <div className="relative">
+              {isLoading && (
+                <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
               {isMobile ? (
                 // Mobile Card View
-                <div className="space-y-4">
+                <div className="p-4 space-y-3">
                   {enquiries.map((enquiry) => (
                     <EnquiryMobileCard
                       key={enquiry.id}
@@ -404,7 +411,7 @@ export default function EnquiriesPage() {
                   <TableHeader>
                     <TableRow>
                       {isBulkSelectionEnabled && (
-                        <TableHead className="w-12.5">
+                        <TableHead className="w-12">
                           <Checkbox
                             checked={
                               enquiries.length > 0 &&
@@ -414,20 +421,19 @@ export default function EnquiriesPage() {
                           />
                         </TableHead>
                       )}
-                      <TableHead className="w-50">Candidate</TableHead>
-                      <TableHead className="w-30">Contact</TableHead>
-                      <TableHead className="w-37.5">Course</TableHead>
-                      <TableHead className="w-25">Status</TableHead>
-                      <TableHead className="w-30">Source</TableHead>
-                      <TableHead className="w-30">Assigned To</TableHead>
-                      <TableHead className="w-30">Assigned By</TableHead>
-                      <TableHead className="w-25">Date</TableHead>
-                      <TableHead className="w-20 text-right">Actions</TableHead>
+                      <TableHead>Candidate</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Preferred Course</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Assigned By</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {enquiries.map((enquiry) => (
-                      <TableRow key={enquiry.id} className="hover:bg-muted/50">
+                      <TableRow key={enquiry.id}>
                         {isBulkSelectionEnabled && (
                           <TableCell>
                             <Checkbox
@@ -440,14 +446,14 @@ export default function EnquiriesPage() {
                         )}
                         <TableCell>
                           <div>
-                            <div className="font-medium">{enquiry.candidateName}</div>
+                            <div className="font-semibold text-foreground">{enquiry.candidateName}</div>
                             {enquiry.email && (
-                              <div className="text-sm text-muted-foreground">{enquiry.email}</div>
+                              <div className="text-xs text-muted-foreground">{enquiry.email}</div>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm font-mono">{enquiry.phone}</div>
+                          <div className="text-sm font-mono text-foreground">{enquiry.phone}</div>
                           {enquiry.contact2 && (
                             <div className="text-xs text-muted-foreground font-mono">
                               {enquiry.contact2}
@@ -455,25 +461,19 @@ export default function EnquiriesPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm">
+                          <div className="text-sm font-medium">
                             {enquiry.preferredCourse?.name || (
-                              <span className="text-muted-foreground italic">Not specified</span>
+                              <span className="text-muted-foreground font-normal italic">Not specified</span>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge className={getStatusColor(enquiry.status)}>
-                            {ENQUIRY_STATUS_OPTIONS.find((opt) => opt.value === enquiry.status)
-                              ?.label || enquiry.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">{enquiry.enquirySource?.name}</div>
+                          <StatusBadge status={enquiry.status} />
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
                             {enquiry.assignedTo?.id === session?.user?.id ? (
-                              <span className="font-medium text-blue-600 dark:text-blue-400">Yourself</span>
+                              <span className="font-semibold text-primary">Yourself</span>
                             ) : (
                               enquiry.assignedTo?.name || (
                                 <span className="text-muted-foreground italic">Unassigned</span>
@@ -482,18 +482,18 @@ export default function EnquiriesPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm">
+                          <div className="text-sm text-muted-foreground">
                             {enquiry.assignedBy?.id === session?.user?.id ? (
-                              <span className="font-medium text-blue-600 dark:text-blue-400">Yourself</span>
+                              <span className="font-medium text-foreground">Yourself</span>
                             ) : (
                               enquiry.assignedBy?.name || (
-                                <span className="text-muted-foreground italic">N/A</span>
+                                <span className="italic">N/A</span>
                               )
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm">{formatDate(enquiry.createdAt)}</div>
+                          <div className="text-xs text-muted-foreground">{formatDate(enquiry.createdAt)}</div>
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
@@ -553,33 +553,16 @@ export default function EnquiriesPage() {
 
               {/* Pagination */}
               {pagination && (
-                <div className="flex items-center justify-between space-x-2 py-4">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
-                    {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                    {pagination.total} results
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage <= 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage >= (pagination.pages || 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+                <DataTablePagination
+                  currentPage={pagination.page}
+                  totalPages={pagination.pages || 1}
+                  pageSize={pageSize}
+                  totalRecords={pagination.total}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                />
               )}
-            </>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -587,6 +570,7 @@ export default function EnquiriesPage() {
       {/* Edit Dialog - Outside of dropdown to prevent unmounting */}
       {selectedEnquiry && (
         <EnquiryFormDialog
+          branches={branches}
           mode="edit"
           enquiry={selectedEnquiry}
           onSuccess={refreshEnquiries}
@@ -612,6 +596,7 @@ export default function EnquiriesPage() {
       {/* Assign Dialog */}
       {enquiryToAssign && (
         <AssignEnquiryDialog
+          branches={branches}
           open={assignDialogOpen}
           onOpenChange={setAssignDialogOpen}
           enquiryId={enquiryToAssign.id}
@@ -626,6 +611,7 @@ export default function EnquiriesPage() {
       {/* Bulk Assign Dialog */}
       {isBulkSelectionEnabled && (
         <AssignEnquiryDialog
+          branches={branches}
           open={isBulkAssignDialogOpen}
           onOpenChange={setIsBulkAssignDialogOpen}
           enquiryIds={selectedEnquiryIds}
@@ -638,6 +624,6 @@ export default function EnquiriesPage() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

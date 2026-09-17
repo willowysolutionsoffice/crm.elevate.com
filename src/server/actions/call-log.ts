@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { CreateCallLogInput, CallLogFilters } from '@/types/enquiry';
 import { ActivityType } from '@/types/enquiry-activity';
+import { invalidateDashboardCache } from '@/lib/cache/cache-invalidation';
 
 // Generic response type
 interface ActionResponse<T = unknown> {
@@ -70,7 +71,6 @@ export async function createCallLog(data: CreateCallLogInput): Promise<ActionRes
             include: {
               branch: true,
               preferredCourse: true,
-              enquirySource: true,
             },
           },
           createdBy: {
@@ -90,21 +90,10 @@ export async function createCallLog(data: CreateCallLogInput): Promise<ActionRes
         data: { lastContactDate: new Date() },
       });
 
-      // Create activity entry
-      await tx.enquiryActivity.create({
-        data: {
-          type: ActivityType.CALL_LOG,
-          title: 'Call logged',
-          description: data.notes || `Call outcome: ${data.outcome || 'N/A'}`,
-          enquiryId: data.enquiryId,
-          callLogId: callLog.id,
-          createdByUserId: user.id,
-        },
-      });
-
       return callLog;
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/call-register');
     revalidatePath(`/enquiries/${data.enquiryId}`);
     return { success: true, data: result, message: 'Call log created successfully' };
@@ -117,30 +106,57 @@ export async function createCallLog(data: CreateCallLogInput): Promise<ActionRes
   }
 }
 
+import {
+  normalizePagination,
+  validateSortField,
+  validateSortOrder,
+  buildPaginationResult,
+} from '@/lib/pagination-utils';
+
+const CALL_LOG_SORT_FIELDS = ['callDate', 'createdAt', 'duration'];
+
 export async function getCallLogs(filters: CallLogFilters = {}): Promise<ActionResponse> {
   try {
     const user = await getCurrentUser();
-    const { page = 1, limit = 50, outcome, dateFrom, dateTo } = filters;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination({
+      page: filters.page,
+      limit: filters.limit,
+    });
+
+    const sortBy = validateSortField(filters.sortBy, CALL_LOG_SORT_FIELDS, 'callDate');
+    const sortOrder = validateSortOrder(filters.sortOrder, 'desc');
+
+    const { outcome, dateFrom, dateTo, search, enquiryId, branchId, assignedToUserId } = filters;
 
     // Build where clause
-    const where: {
-      enquiry?: { assignedToUserId?: string; branchId?: string };
-      outcome?: string;
-      callDate?: { gte?: Date; lte?: Date };
-    } = {};
+    const where: Record<string, unknown> = {};
+    const enquiryWhere: Record<string, unknown> = {};
 
     // Role-based filtering
     const role = (user.role || '').toLowerCase();
     if (role === 'telecaller') {
-      where.enquiry = {
-        assignedToUserId: user.id,
-      };
+      enquiryWhere.assignedToUserId = user.id;
     } else if ((role === 'executive' || role === 'manager' || role === 'branch manager') && user.branch) {
-      where.enquiry = {
-        ...where.enquiry,
-        branchId: user.branch,
-      };
+      enquiryWhere.branchId = user.branch;
+      if (assignedToUserId) enquiryWhere.assignedToUserId = assignedToUserId;
+    } else if (user.role === 'admin') {
+      if (branchId) enquiryWhere.branchId = branchId;
+      if (assignedToUserId) enquiryWhere.assignedToUserId = assignedToUserId;
+    }
+
+    if (search && search.trim()) {
+      enquiryWhere.OR = [
+        { candidateName: { contains: search.trim(), mode: 'insensitive' } },
+        { phone: { contains: search.trim(), mode: 'insensitive' } },
+      ];
+    }
+
+    if (Object.keys(enquiryWhere).length > 0) {
+      where.enquiry = enquiryWhere;
+    }
+
+    if (enquiryId) {
+      where.enquiryId = enquiryId;
     }
 
     if (outcome) {
@@ -148,9 +164,10 @@ export async function getCallLogs(filters: CallLogFilters = {}): Promise<ActionR
     }
 
     if (dateFrom || dateTo) {
-      where.callDate = {};
-      if (dateFrom) where.callDate.gte = dateFrom;
-      if (dateTo) where.callDate.lte = dateTo;
+      const callDateFilter: Record<string, Date> = {};
+      if (dateFrom) callDateFilter.gte = dateFrom;
+      if (dateTo) callDateFilter.lte = dateTo;
+      where.callDate = callDateFilter;
     }
 
     const [callLogs, total] = await Promise.all([
@@ -158,13 +175,21 @@ export async function getCallLogs(filters: CallLogFilters = {}): Promise<ActionR
         where,
         skip,
         take: limit,
-        orderBy: { callDate: 'desc' },
-        include: {
+        orderBy: { [sortBy]: sortOrder },
+        select: {
+          id: true,
+          callDate: true,
+          duration: true,
+          outcome: true,
+          notes: true,
+          enquiryId: true,
+          createdAt: true,
           enquiry: {
-            include: {
-              branch: true,
-              preferredCourse: true,
-              enquirySource: true,
+            select: {
+              id: true,
+              candidateName: true,
+              phone: true,
+              status: true,
             },
           },
           createdBy: {
@@ -180,14 +205,19 @@ export async function getCallLogs(filters: CallLogFilters = {}): Promise<ActionR
       prisma.callLog.count({ where }),
     ]);
 
-    const pagination = {
-      page,
-      limit,
-      total,
-      pages: Math.ceil(total / limit),
-    };
+    const pagination = buildPaginationResult(total, page, limit);
 
-    return { success: true, data: callLogs, pagination, message: 'Call logs fetched successfully' };
+    return {
+      success: true,
+      data: callLogs,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total: pagination.total,
+        pages: pagination.totalPages,
+      },
+      message: 'Call logs fetched successfully',
+    };
   } catch (error) {
     console.error('Error fetching call logs:', error);
     return {
@@ -228,6 +258,7 @@ export async function deleteCallLog(id: string): Promise<ActionResponse> {
       where: { id },
     });
 
+    await invalidateDashboardCache();
     revalidatePath('/call-register');
     revalidatePath(`/enquiries/${existingCallLog.enquiryId}`);
     return { success: true, message: 'Call log deleted successfully' };

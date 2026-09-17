@@ -32,7 +32,7 @@ const createEnquirySchema = z.object({
   contact2: z.string().optional(),
   email: z.string().email('Valid email is required').optional().or(z.literal('')),
   address: z.string().optional(),
-  enquirySourceId: z.string().min(1, 'Please select an enquiry source'),
+  enquirySourceId: z.string().optional(),
   branchId: z.string().optional(),
   preferredCourseId: z.string().optional(),
   requiredServiceId: z.string().optional(),
@@ -97,7 +97,7 @@ export const createEnquiry = action.schema(createEnquirySchema).action(async ({ 
         enquirySource: parsedInput.enquirySourceId
           ? { connect: { id: parsedInput.enquirySourceId } }
           : undefined,
-        requiredService: parsedInput.requiredServiceId
+        service: parsedInput.requiredServiceId
           ? { connect: { id: parsedInput.requiredServiceId } }
           : undefined,
         // Use provided assignee, or auto-assign to current user if telecaller
@@ -114,7 +114,7 @@ export const createEnquiry = action.schema(createEnquirySchema).action(async ({ 
         branch: true,
         preferredCourse: true,
         enquirySource: true,
-        requiredService: true,
+        service: true,
         assignedTo: {
           select: {
             id: true,
@@ -191,7 +191,7 @@ export const updateEnquiry = action.schema(updateEnquirySchema).action(async ({ 
       data.enquirySource = { connect: { id: updateData.enquirySourceId } };
     }
     if (updateData.requiredServiceId) {
-      data.requiredService = { connect: { id: updateData.requiredServiceId } };
+      data.service = { connect: { id: updateData.requiredServiceId } };
     }
 
     const enquiry = await prisma.enquiry.update({
@@ -201,7 +201,7 @@ export const updateEnquiry = action.schema(updateEnquirySchema).action(async ({ 
         branch: true,
         preferredCourse: true,
         enquirySource: true,
-        requiredService: true,
+        service: true,
         assignedTo: {
           select: {
             id: true,
@@ -280,7 +280,7 @@ export const getEnquirySources = action.schema(z.object({})).action(async () => 
 
 export const getRequiredServices = action.schema(z.object({})).action(async () => {
   try {
-    const services = await prisma.requiredService.findMany({
+    const services = await prisma.service.findMany({
       where: { isActive: true },
       orderBy: { name: 'asc' },
     });

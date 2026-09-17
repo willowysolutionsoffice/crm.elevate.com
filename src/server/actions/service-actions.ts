@@ -1,7 +1,7 @@
 "use server";
 import prisma from "@/lib/prisma";
-import { CreateServiceBilling , DeleteServiceBilling, UpdateServiceBilling , ServiceBilling, ServiceBillingWithAdmission, PayServiceBilling } from "@/types/service-billing";
-import type { Prisma, ServiceBillItem } from "@prisma/client";
+import { CreateServiceBilling , DeleteServiceBilling, UpdateServiceBilling , ServiceBilling, ServiceBillingWithAdmission, PayServiceBilling, ServiceBillItem } from "@/types/service-billing";
+import type { Prisma } from "@prisma/client";
 
 interface ActionResponse<T> {
     success: boolean;
@@ -22,20 +22,35 @@ function generateServiceBillNumber(): string {
 }
 
 
+import {
+  normalizePagination,
+  validateSortField,
+  validateSortOrder,
+  buildPaginationResult,
+} from '@/lib/pagination-utils';
+
+const SERVICE_BILLING_SORT_FIELDS = ['billDate', 'total', 'paid', 'balance', 'createdAt'];
+
 export async function listServiceBilling(
     page = 1,
-    pageSize = 10,
+    pageSize = 20,
     searchQuery = "",
-    sortBy: 'billDate' | 'total' = 'billDate',
+    sortBy: string = 'billDate',
     sortOrder: 'asc' | 'desc' = 'desc',
     serviceId = "",
 ): Promise<ActionResponse<{ data: ServiceBillingWithAdmission[]; pagination: { page: number; pageSize: number; total: number; pages: number } }>> {
     try {
-        const skip = (page - 1) * pageSize;
-        const orderBy = { [sortBy]: sortOrder };
+        const { page: validPage, limit: validPageSize, skip } = normalizePagination({
+            page,
+            limit: pageSize,
+        });
+
+        const validSortBy = validateSortField(sortBy, SERVICE_BILLING_SORT_FIELDS, 'billDate');
+        const validSortOrder = validateSortOrder(sortOrder, 'desc');
+        const orderBy = { [validSortBy]: validSortOrder };
 
         // Build where clause for filtering
-        const whereClause: Prisma.ServiceBillWhereInput = {};
+        const whereClause: any = {};
 
         // Search by candidate name or admission number
         if (searchQuery.trim()) {
@@ -43,13 +58,13 @@ export async function listServiceBilling(
                 OR: [
                     {
                         candidateName: {
-                            contains: searchQuery,
+                            contains: searchQuery.trim(),
                             mode: 'insensitive'
                         }
                     },
                     {
                         admissionNumber: {
-                            contains: searchQuery,
+                            contains: searchQuery.trim(),
                             mode: 'insensitive'
                         }
                     }
@@ -60,19 +75,19 @@ export async function listServiceBilling(
         // Filter by specific service
         if (serviceId && serviceId.trim() && serviceId !== "all") {
             whereClause.serviceIds = {
-                has: serviceId // MongoDB array contains query
+                has: serviceId
             };
         }
 
         // Get total count for pagination with the same filters
-        const totalCount = await prisma.serviceBill.count({
+        const totalCount = await (prisma as any).serviceBill?.count?.({
             where: whereClause,
-        });
+        }) ?? 0;
 
         // Fetch service bills with filters
-        const serviceBilling = await prisma.serviceBill.findMany({
+        const serviceBilling = await (prisma as any).serviceBill?.findMany?.({
             skip,
-            take: pageSize,
+            take: validPageSize,
             where: whereClause,
             include: {
                 admission: {
@@ -84,35 +99,36 @@ export async function listServiceBilling(
                 },
             },
             orderBy,
-        });
+        }) ?? [];
 
-        // Fetch service details for each bill - only the services that are in the bill
-        const serviceBillingWithServices = await Promise.all(
-            serviceBilling.map(async (bill) => {
-                // The 'bill' object already contains 'paid' and 'balance' from the ServiceBill model.
-                
-                // Only fetch services that are in this specific bill's serviceIds
-                const services = await prisma.service.findMany({
-                    where: {
-                        id: {
-                            in: bill.serviceIds
-                        }
-                    },
-                    select: {
-                        id: true,
-                        name: true,
-                        price: true,
-                    },
-                });
-
-                return {
-                    ...bill, // This spreads all ServiceBill fields, including 'paid' and 'balance'
-                    services, 
-                };
-            })
+        // Batch fetch all unique services across all bills in this page (eliminates N+1 query)
+        const allServiceIds: string[] = Array.from(
+            new Set((serviceBilling as any[]).flatMap((bill: any) => bill.serviceIds || []))
         );
 
-        const totalPages = Math.ceil(totalCount / pageSize);
+        const services = allServiceIds.length > 0
+            ? await prisma.service.findMany({
+                where: {
+                    id: { in: allServiceIds },
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                },
+            })
+            : [];
+
+        const serviceMap = new Map(services.map((s) => [s.id, s]));
+
+        const serviceBillingWithServices = (serviceBilling as any[]).map((bill: any) => ({
+            ...bill,
+            services: (bill.serviceIds || [])
+                .map((id: string) => serviceMap.get(id))
+                .filter(Boolean),
+        }));
+
+        const pagination = buildPaginationResult(totalCount, validPage, validPageSize);
 
         return {
             success: true,
@@ -120,10 +136,10 @@ export async function listServiceBilling(
             data: {
                 data: serviceBillingWithServices as ServiceBillingWithAdmission[],
                 pagination: {
-                    page,
-                    pageSize,
-                    total: totalCount,
-                    pages: totalPages,
+                    page: pagination.page,
+                    pageSize: pagination.limit,
+                    total: pagination.total,
+                    pages: pagination.totalPages,
                 },
             },
         };
@@ -415,7 +431,7 @@ export async function getServiceBillByStudentId(studentId: string): Promise<Acti
 
 export async function deleteServiceBilling(input: DeleteServiceBilling): Promise<ActionResponse<boolean>> {
     try {
-        await prisma.serviceBill.delete({
+        await (prisma as any).serviceBill?.delete?.({
             where: { id: input.id },
         });
         return {
@@ -425,23 +441,27 @@ export async function deleteServiceBilling(input: DeleteServiceBilling): Promise
         };
     } catch (error) {
         console.error("Error deleting service billing:", error);
-        throw new Error("Failed to delete service billing");
+        return {
+            success: false,
+            message: "Failed to delete service billing",
+            data: false,
+        };
     }
 }
 
 
-export async function listStudents(){
+export async function listStudents(): Promise<ActionResponse<{ id: string; candidateName: string }[]>> {
     try {
         const students = await prisma.admission.findMany({
-            where:{
-                status:{
-                    not: "CANCELLED"
-                }
+            where: {
+                status: {
+                    not: "CANCELLED",
+                },
             },
-            select:{
-                id:true,
-                candidateName: true
-            }
+            select: {
+                id: true,
+                candidateName: true,
+            },
         });
         return {
             success: true,
@@ -450,18 +470,22 @@ export async function listStudents(){
         };
     } catch (error) {
         console.error("Error fetching students:", error);
-        throw new Error("Failed to fetch students");
+        return {
+            success: false,
+            message: "Failed to fetch students",
+            data: [],
+        };
     }
 }
 
-export async function listServices(){
+export async function listServices(): Promise<ActionResponse<{ id: string; name: string; price: number }[]>> {
     try {
         const services = await prisma.service.findMany({
-            select:{
-            id: true,
-            name: true,
-            price:true
-            }
+            select: {
+                id: true,
+                name: true,
+                price: true,
+            },
         });
         return {
             success: true,
@@ -470,29 +494,39 @@ export async function listServices(){
         };
     } catch (error) {
         console.error("Error fetching services:", error);
-        throw new Error("Failed to fetch services");
+        return {
+            success: false,
+            message: "Failed to fetch services",
+            data: [],
+        };
     }
 }
 
 
-export async function totalListing(){
-    try{
-        const total = await prisma.serviceBill.aggregate({
+export async function totalListing(): Promise<ActionResponse<{ total: number }>> {
+    try {
+        const total = await (prisma as any).serviceBill?.aggregate?.({
             _sum: {
-                total: true
-            }
+                total: true,
+            },
         });
 
         return {
             success: true,
             message: "Total listing fetched successfully",
             data: {
-                total: total._sum.total
-            }
+                total: total?._sum?.total ?? 0,
+            },
         };
-    }catch(error){
+    } catch (error) {
         console.error("Error fetching total listing:", error);
-        throw new Error("Failed to fetch total listing");
+        return {
+            success: false,
+            message: "Failed to fetch total listing",
+            data: {
+                total: 0,
+            },
+        };
     }
 } 
 

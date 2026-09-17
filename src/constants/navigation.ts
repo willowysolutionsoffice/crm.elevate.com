@@ -3,14 +3,15 @@ import {
   IconDashboard,
   IconDatabase,
   IconFileInvoice,
-  IconFilePlus,
   IconFileText,
   IconListDetails,
   IconPhoneCall,
   IconUserPlus,
   IconUsers,
   IconFileDollar,
-  IconBriefcase
+  IconBriefcase,
+  IconSchool,
+  IconChartBar
 } from '@tabler/icons-react';
 import type { SidebarData } from '@/types/navigation';
 import { APP_CONFIG } from '@/config/app';
@@ -18,8 +19,8 @@ import { APP_CONFIG } from '@/config/app';
 export const SIDEBAR_DATA: SidebarData = {
   user: {
     id: '1',
-    name: 'John Doe',
-    email: 'john@company.com',
+    name: 'User',
+    email: 'user@elevate.com',
     image: '/avatars/default.jpg',
   },
   navMain: [
@@ -37,7 +38,7 @@ export const SIDEBAR_DATA: SidebarData = {
       title: 'Job Orders',
       url: '#',
       icon: IconBriefcase,
-      isActive: false, // Default open for visibility or logic based
+      isActive: false,
       items: [
         {
           title: 'Pending',
@@ -62,7 +63,7 @@ export const SIDEBAR_DATA: SidebarData = {
     {
       title: 'Admissions',
       url: '/admissions',
-      icon: IconFilePlus,
+      icon: IconSchool,
     },
     {
       title: 'Service Billing',
@@ -77,14 +78,14 @@ export const SIDEBAR_DATA: SidebarData = {
   ],
   admin: [
     {
+      title: 'Reports',
+      url: '/reports',
+      icon: IconChartBar,
+    },
+    {
       title: 'Data Management',
       url: '/admin/data-management',
       icon: IconDatabase,
-    },
-    {
-      title: 'Reports',
-      url: '/reports',
-      icon: IconFileText,
     },
     {
       title: 'Users',
